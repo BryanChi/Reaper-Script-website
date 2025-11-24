@@ -1,0 +1,379 @@
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Vertical FX List for REAPER – Manage FX Faster | Buy</title>
+	<meta name="description" content="A vertical FX manager for REAPER: select, reorder, bypass, group in parallel, tweak sends/pan, and more — all in one fast UI.">
+	<link rel="canonical" href="https://example.com/">
+	<meta name="theme-color" content="#07110c">
+
+	<!-- Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+	<!-- Open Graph -->
+	<meta property="og:title" content="Reaper Script – Boost Your Workflow">
+	<meta property="og:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta property="og:type" content="product">
+	<meta property="og:url" content="https://example.com/">
+	<meta property="og:image" content="https://example.com/og-image.jpg">
+
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Reaper Script – Boost Your Workflow">
+	<meta name="twitter:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta name="twitter:image" content="https://example.com/og-image.jpg">
+
+	<link rel="icon" href="/favicon.ico">
+	<link rel="stylesheet" href="./styles.css">
+
+	<!-- Product structured data -->
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "Product",
+		"name": "Vertical FX List for REAPER",
+		"description": "A vertical FX manager for REAPER with multi-select, parallel grouping, container-aware UI, and in-place sends/pan controls.",
+		"brand": {
+			"@type": "Brand",
+			"name": "BryanChi"
+		},
+		"sku": "RS-001",
+		"url": "https://example.com/",
+		"image": "https://example.com/og-image.jpg",
+		"offers": {
+			"@type": "Offer",
+			"priceCurrency": "USD",
+			"price": "19",
+			"availability": "https://schema.org/InStock",
+			"url": "https://example.com/#pricing"
+		}
+	}
+	</script>
+
+	<!-- Analytics (optional) -->
+	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
+</head>
+<body>
+	<header class="site-header">
+		<div class="container header-inner">
+			<a class="brand" href="#home">Reaper Script</a>
+			<nav class="nav">
+				<a href="#features">Features</a>
+				<a href="#demo">Demo</a>
+				<a href="#how-it-works">How it works</a>
+				<a href="#pricing">Pricing</a>
+				<a href="#faq">FAQ</a>
+				<a href="#contact">Contact</a>
+			</nav>
+			<div class="edit-controls">
+				<button class="btn btn-secondary" id="editToggle" title="Toggle edit mode">Stop Edit</button>
+				<button class="btn btn-secondary" id="saveFile" title="Save HTML">Save</button>
+			</div>
+			<a class="btn btn-primary buy-now" href="#pricing" id="buyNowTop">Buy Now</a>
+		</div>
+	</header>
+
+	<main id="home" data-editable="" contenteditable="true">
+		<section class="hero">
+			<div class="hero-background">
+				<video class="hero-video" src="./assets/Main-basic.mov" autoplay muted loop preload="none" playsinline></video>
+			</div>
+			<div class="container hero-inner">
+				<div class="hero-copy">
+					<h1>Vertical FX List for REAPER</h1>
+					<p class="lead">A fast, container‑aware FX manager with marquee multi‑select, parallel grouping, and in‑place sends/pan controls.</p>
+					<div class="hero-ctas">
+						<button class="btn btn-primary" id="buyButton" data-payment-link="">Buy Now</button>
+						<a class="btn btn-secondary" href="#demo">Watch Demo</a>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="features" class="section">
+			<div class="container">
+				<h2>Features</h2>
+
+				<!-- Detailed feature rows (text + GIF) -->
+				<div class="feature-rows visible" data-reveal="">
+					<article class="feature-row">
+						<div class="feature-text">
+							<h3>Control FX at a glance</h3>
+							<p class="muted">Open, bypass, reorder, and group FX directly in the vertical list—no window juggling.</p>
+							<ul class="feature-points">
+								<li>Inline FX buttons beside your tracks for easy access</li><li>Instruments are color coded for distinction</li><li>Drag to reorder</li>
+								<li>Alt+Click to delete</li><li>Shift + Click to bypass</li><li>Command + Drag to copy</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/feature-fx-control.mov" autoplay="" muted="" loop="" preload="none" alt="Inline FX control demo"></video>
+							</div>
+							<p class="muted tiny"><br></p>
+						</div>
+					</article>
+
+					<article class="feature-row reverse visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Adjust sends and pan in place</h3>
+							<p class="muted">Tweak destination track volume and pan from the same view, with clear value overlays.</p>
+							<ul class="feature-points">
+								<li>Volume drag with visual fill</li>
+								<li>Centered pan overlay readout</li>
+								<li>Click to reset to defaults</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/sends basic.mov" autoplay="" muted="" loop="" preload="none" alt="Sends and pan demo"></video>
+							</div>
+							<p class="muted tiny">&nbsp;</p>
+						</div>
+					</article>
+
+					<article class="feature-row visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Send favorites and quick access</h3>
+							<p class="muted">Save and quickly access your most-used sends and FX chains for faster workflow.</p>
+							<ul class="feature-points">
+								<li>Star favorite sends for instant recall</li>
+								<li>One-click access to common FX chains</li>
+								<li>Organize complex routing with ease</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/send favorites.mov" autoplay="" muted="" loop="" preload="none" alt="Send favorites demo"></video>
+							</div>
+							<p class="muted tiny">&nbsp;</p>
+						</div>
+					</article>
+
+					<article class="feature-row visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Make sends hidden from TCP, but still accessible at all times.</h3>
+							<ul class="feature-points"><li>Click the eye icon to toggle hide the send tracks</li><li>Clicking on sends shows a popup that includes all essential controls like volume, pan, and FX buttons, having access to this popup means you can keep your sends hidden from TCP all the time and still be able to tweak it easily.</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/Send Hide Popup.mov" autoplay="" muted="" loop="" preload="none" alt="Sends popup and hide demo"></video>
+							</div>
+							<p class="muted tiny"><br></p>
+						</div>
+					</article>
+
+					<article class="feature-row visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Send channel selection shortcuts</h3>
+							<p class="muted">Press number keys while dragging sends to instantly route to specific channels, or Alt+number to select source channels.</p>
+							<ul class="feature-points">
+								<li>1-8 keys select destination channels while dragging</li>
+								<li>Alt+1-8 selects source channels for routing</li>
+								<li>Visual feedback shows selected channels</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/Send Channels.mov" autoplay="" muted="" loop="" preload="none" alt="Send channel selection demo"></video>
+							</div>
+							<p class="muted tiny"><br></p>
+						</div>
+					</article>
+
+					<article class="feature-row reverse visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Hidden parent tracks, clean mixers</h3>
+							<p class="muted">Hide parent tracks from the TCP/MCP while keeping full control. Work uncluttered without losing access to essential parameters.</p>
+							<ul class="feature-points">
+								<li>Hide/unhide parent tracks without breaking routing</li>
+								<li>Access volume, pan, FX from the UI</li>
+								<li>Great for bus-heavy or template-driven sessions</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/Hidden parent.mov" autoplay="" muted="" loop="" preload="none" alt="Hidden parent tracks demo"></video>
+							</div>
+							<p class="muted tiny"><br></p>
+						</div>
+					</article>
+
+					<article class="feature-row reverse visible" data-reveal="">
+						<div class="feature-text">
+							<h3>Advanced: marquee, parallel, containers</h3>
+							<p class="muted">Scale up your workflow with multi‑select, parallel groups, and container‑aware rendering when you need it.</p>
+							<ul class="feature-points">
+								<li>Marquee selection and batch ops</li>
+								<li>Parallel peers auto‑grouping</li>
+								<li>Container collapse/expand with children inline</li>
+							</ul>
+						</div>
+						<div class="feature-media">
+							<div class="media-frame">
+								<video class="feature-video" src="./assets/feature-advanced.mov" autoplay="" muted="" loop="" preload="none" alt="Advanced features demo"></video>
+							</div>
+							<p class="muted tiny"><br></p>
+						</div>
+					</article>
+				</div>
+			</div>
+		</section>
+
+		<section id="demo" class="section alt">
+			<div class="container">
+				<h2>Watch it in Action</h2>
+				<p class="lead" style="max-width: 600px;">See how the script transforms your workflow in real-time. No more menu diving.</p>
+				<div class="demo-grid">
+					<div class="video">
+						<!-- Replace data-youtube-id with your video ID, or swap iframe src -->
+						<div class="video-wrapper" data-youtube-id="">
+							<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Demo video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe>
+						</div>
+					</div>
+					<div class="audio">
+						<h3>Audio example</h3>
+						<audio controls="" preload="none">
+							<source src="" type="audio/mpeg">
+							Your browser does not support the audio element.
+						</audio>
+						<p class="muted">Link your before/after sample or leave this out.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="how-it-works" class="section">
+			<div class="container">
+				<h2>How it works</h2>
+				<ol class="steps">
+					<li>
+						<h3>Install</h3>
+						<p>Download the script file after purchase. Drag it into Reaper or use the Action List to import.</p>
+					</li>
+					<li>
+						<h3>Bind a shortcut</h3>
+						<p>Open the Action List, search for the script, and assign your favorite key.</p>
+					</li>
+					<li>
+						<h3>Go faster</h3>
+						<p>Use on selections, items, or time ranges. The script adapts to your context.</p>
+					</li>
+				</ol>
+			</div>
+		</section>
+
+		<section id="requirements" class="section alt">
+			<div class="container">
+				<h2>Requirements</h2>
+				<ul class="list">
+					<li>REAPER 6.0+ (tested on 6.x / 7.x)</li>
+					<li>macOS 12+ or Windows 10+</li>
+					<li>SWS Extension recommended</li>
+					<li>ReaImGui 0.9.3+ (bundled in script)</li>
+				</ul>
+			</div>
+		</section>
+
+		<section id="installation" class="section">
+			<div class="container">
+				<h2>Installation</h2>
+				<ol class="steps">
+					<li>Purchase and download the script package (.lua and resources).</li>
+					<li>In REAPER, open Actions → Show Action List → ReaScript → Load.</li>
+					<li>Select the main script file (e.g., FXD_Vertical FX list.lua).</li>
+					<li>REAPER indexes it; search the script name and assign a shortcut.</li>
+					<li>Optional: Add to a toolbar for quick access.</li>
+				</ol>
+			</div>
+		</section>
+
+		<section id="pricing" class="section alt">
+			<div class="container">
+				<h2>Pricing</h2>
+				<div class="pricing">
+					<div class="price-card">
+						<h3>Standard License</h3>
+						<p class="price"><span class="currency">$</span><span class="amount">19</span></p>
+						<ul class="list">
+							<li>1 user, lifetime license</li>
+							<li>Lifetime updates</li>
+							<li>Email support</li>
+						</ul>
+						<button class="btn btn-primary btn-lg" id="buyButtonPricing" data-payment-link="">Buy Now</button>
+						<p class="muted tiny">30-day money-back guarantee.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="testimonials" class="section">
+			<div class="container">
+				<h2>What users say</h2>
+				<div class="testimonials">
+					<blockquote>
+						<p>“This script instantly saved me hours on dialogue edits.”</p>
+						<footer>— Alex P., Post-Production Editor</footer>
+					</blockquote>
+					<blockquote>
+						<p>“A must-have for any Reaper user who values speed.”</p>
+						<footer>— Jamie L., Mixing Engineer</footer>
+					</blockquote>
+				</div>
+			</div>
+		</section>
+
+		<section id="faq" class="section alt">
+			<div class="container">
+				<h2>FAQ</h2>
+				<div class="faq">
+					<details>
+						<summary>Will this work with my version of Reaper?</summary>
+						<p>Yes, it supports Reaper 6 and 7 on macOS and Windows. If you have issues, contact support.</p>
+					</details>
+					<details>
+						<summary>Do I get updates?</summary>
+						<p>Yes, updates are included for the lifetime of the product.</p>
+					</details>
+					<details>
+						<summary>Is there a refund policy?</summary>
+						<p>30-day money-back guarantee. If you are not satisfied, email us and we'll help.</p>
+					</details>
+					<details>
+						<summary>How do I install the script?</summary>
+						<p>See the Installation section above for step-by-step instructions.</p>
+					</details>
+				</div>
+			</div>
+		</section>
+
+		<section id="contact" class="section">
+			<div class="container">
+				<h2>Contact</h2>
+				<p>Questions or support? Email <a href="mailto:support@example.com">support@example.com</a>.</p>
+			</div>
+		</section>
+	</main>
+
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<p class="muted">© <span id="year">2025</span> YourName. Not affiliated with Cockos Incorporated.</p>
+			<nav class="footer-nav">
+				<a href="#pricing">Buy</a>
+				<a href="#faq">FAQ</a>
+				<a href="#contact">Contact</a>
+				<a href="#" id="privacyLink">Privacy</a>
+				<a href="#" id="termsLink">Terms</a>
+			</nav>
+		</div>
+	</footer>
+
+	<noscript>
+		<div class="noscript">This site works best with JavaScript enabled.</div>
+	</noscript>
+
+	<script src="./script.js" defer=""></script>
+
+
+</body><div></div></html>

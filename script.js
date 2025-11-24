@@ -74,6 +74,77 @@
 
 	setupReveal();
 
+	// Interactive feature row effects
+	function setupFeatureInteractions() {
+		const featureRows = document.querySelectorAll('.feature-row');
+		
+		// Mouse tracking for glow effect
+		featureRows.forEach(function(row) {
+			row.addEventListener('mousemove', function(e) {
+				const rect = row.getBoundingClientRect();
+				const x = ((e.clientX - rect.left) / rect.width) * 100;
+				const y = ((e.clientY - rect.top) / rect.height) * 100;
+				row.style.setProperty('--mouse-x', x + '%');
+				row.style.setProperty('--mouse-y', y + '%');
+			});
+			
+			// Reset glow position on mouse leave
+			row.addEventListener('mouseleave', function() {
+				row.style.setProperty('--mouse-x', '50%');
+				row.style.setProperty('--mouse-y', '50%');
+			});
+		});
+		
+		// Video hover play/pause enhancement
+		const featureVideos = document.querySelectorAll('.feature-video');
+		featureVideos.forEach(function(video) {
+			const row = video.closest('.feature-row');
+			if (!row) return;
+			
+			// Enhanced play on hover
+			row.addEventListener('mouseenter', function() {
+				video.play().catch(function() {
+					// Ignore autoplay restrictions
+				});
+			});
+			
+			// Pause when not in viewport to save resources
+			const videoObserver = new IntersectionObserver(function(entries) {
+				entries.forEach(function(entry) {
+					if (!entry.isIntersecting && !video.paused) {
+						video.pause();
+					} else if (entry.isIntersecting && row.matches(':hover')) {
+						video.play().catch(function() {});
+					}
+				});
+			}, { threshold: 0.3 });
+			
+			videoObserver.observe(video);
+		});
+		
+		// Add subtle parallax on scroll for feature rows
+		let ticking = false;
+		function updateParallax() {
+			if (ticking) return;
+			ticking = true;
+			requestAnimationFrame(function() {
+				featureRows.forEach(function(row) {
+					const rect = row.getBoundingClientRect();
+					const scrolled = window.pageYOffset;
+					const rate = (scrolled - rect.top) * 0.02;
+					if (rect.top < window.innerHeight && rect.bottom > 0) {
+						row.style.transform = `translateY(${rate}px)`;
+					}
+				});
+				ticking = false;
+			});
+		}
+		
+		window.addEventListener('scroll', updateParallax, { passive: true });
+	}
+	
+	setupFeatureInteractions();
+
 	// Simple in-page editing
 	var editEnabled = false;
 	var toggleBtn = document.getElementById('editToggle');

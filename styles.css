@@ -310,6 +310,40 @@ ul, ol {
 	grid-template-columns: 1fr;
 	gap: 40px;
 	align-items: center;
+	position: relative;
+	padding: 40px;
+	border-radius: var(--radius-md);
+	background: rgba(255, 255, 255, 0.01);
+	border: 1px solid transparent;
+	transition: all 0.4s var(--ease-out);
+	overflow: hidden;
+}
+
+.feature-row::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(34, 243, 107, 0.08) 0%, transparent 70%);
+	opacity: 0;
+	transition: opacity 0.4s var(--ease-out);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.feature-row:hover::before {
+	opacity: 1;
+}
+
+.feature-row:hover {
+	background: rgba(255, 255, 255, 0.02);
+	border-color: rgba(34, 243, 107, 0.2);
+	transform: translateY(-4px);
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(34, 243, 107, 0.1);
+}
+
+.feature-row > * {
+	position: relative;
+	z-index: 1;
 }
 
 @media (min-width: 992px) {
@@ -330,6 +364,29 @@ ul, ol {
 	color: var(--primary);
 	font-size: 32px;
 	margin-bottom: 16px;
+	transition: all 0.3s var(--ease-out);
+	position: relative;
+	display: inline-block;
+}
+
+.feature-row:hover .feature-text h3 {
+	transform: translateX(8px);
+	text-shadow: 0 0 20px rgba(34, 243, 107, 0.5);
+}
+
+.feature-text h3::after {
+	content: '';
+	position: absolute;
+	bottom: -4px;
+	left: 0;
+	width: 0;
+	height: 2px;
+	background: linear-gradient(90deg, var(--primary), transparent);
+	transition: width 0.4s var(--ease-out);
+}
+
+.feature-row:hover .feature-text h3::after {
+	width: 100%;
 }
 
 .feature-points li {
@@ -337,6 +394,18 @@ ul, ol {
 	position: relative;
 	list-style: none;
 	padding-left: 24px;
+	opacity: 0.8;
+	transform: translateX(0);
+	transition: all 0.3s var(--ease-out);
+}
+
+.feature-row:hover .feature-points li {
+	opacity: 1;
+}
+
+.feature-points li:hover {
+	transform: translateX(8px);
+	color: var(--primary);
 }
 
 .feature-points li::before {
@@ -344,12 +413,57 @@ ul, ol {
 	position: absolute;
 	left: 0;
 	color: var(--primary);
+	transition: transform 0.3s var(--ease-out);
+}
+
+.feature-points li:hover::before {
+	transform: translateX(4px);
+}
+
+.media-frame {
+	position: relative;
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	background: rgba(0, 0, 0, 0.3);
+	transition: all 0.4s var(--ease-out);
+	border: 2px solid transparent;
+}
+
+.feature-row:hover .media-frame {
+	border-color: rgba(34, 243, 107, 0.3);
+	box-shadow: 0 0 30px rgba(34, 243, 107, 0.2), inset 0 0 30px rgba(34, 243, 107, 0.05);
+	transform: scale(1.02);
+}
+
+.media-frame::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(135deg, rgba(34, 243, 107, 0.1) 0%, transparent 50%);
+	opacity: 0;
+	transition: opacity 0.4s var(--ease-out);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.feature-row:hover .media-frame::before {
+	opacity: 1;
 }
 
 .feature-video {
 	width: 100%;
 	border-radius: var(--radius-sm);
 	display: block;
+	transition: transform 0.4s var(--ease-out), filter 0.4s var(--ease-out);
+	filter: brightness(0.9) contrast(1.05);
+}
+
+.feature-row:hover .feature-video {
+	filter: brightness(1) contrast(1.1);
+}
+
+.media-frame:hover .feature-video {
+	transform: scale(1.05);
 }
 
 /* Scroll Reveal */
@@ -362,6 +476,101 @@ ul, ol {
 [data-reveal].visible {
 	opacity: 1;
 	transform: translateY(0);
+}
+
+/* Parallax effect for feature rows */
+.feature-row[data-reveal].visible,
+.feature-rows.visible .feature-row {
+	animation: fadeInUp 0.8s var(--ease-out) forwards;
+}
+
+.feature-row[data-reveal].visible:nth-child(1),
+.feature-rows.visible .feature-row:nth-child(1) { animation-delay: 0s; }
+.feature-row[data-reveal].visible:nth-child(2),
+.feature-rows.visible .feature-row:nth-child(2) { animation-delay: 0.1s; }
+.feature-row[data-reveal].visible:nth-child(3),
+.feature-rows.visible .feature-row:nth-child(3) { animation-delay: 0.2s; }
+.feature-row[data-reveal].visible:nth-child(4),
+.feature-rows.visible .feature-row:nth-child(4) { animation-delay: 0.3s; }
+.feature-row[data-reveal].visible:nth-child(5),
+.feature-rows.visible .feature-row:nth-child(5) { animation-delay: 0.4s; }
+.feature-row[data-reveal].visible:nth-child(6),
+.feature-rows.visible .feature-row:nth-child(6) { animation-delay: 0.5s; }
+.feature-row[data-reveal].visible:nth-child(7),
+.feature-rows.visible .feature-row:nth-child(7) { animation-delay: 0.6s; }
+.feature-row[data-reveal].visible:nth-child(8),
+.feature-rows.visible .feature-row:nth-child(8) { animation-delay: 0.7s; }
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(40px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Stagger animation for feature points */
+.feature-row[data-reveal].visible .feature-points li,
+.feature-rows.visible .feature-points li {
+	animation: slideInLeft 0.5s var(--ease-out) backwards;
+}
+
+.feature-row[data-reveal].visible .feature-points li:nth-child(1),
+.feature-rows.visible .feature-points li:nth-child(1) { animation-delay: 0.1s; }
+.feature-row[data-reveal].visible .feature-points li:nth-child(2),
+.feature-rows.visible .feature-points li:nth-child(2) { animation-delay: 0.2s; }
+.feature-row[data-reveal].visible .feature-points li:nth-child(3),
+.feature-rows.visible .feature-points li:nth-child(3) { animation-delay: 0.3s; }
+.feature-row[data-reveal].visible .feature-points li:nth-child(4),
+.feature-rows.visible .feature-points li:nth-child(4) { animation-delay: 0.4s; }
+.feature-row[data-reveal].visible .feature-points li:nth-child(5),
+.feature-rows.visible .feature-points li:nth-child(5) { animation-delay: 0.5s; }
+.feature-row[data-reveal].visible .feature-points li:nth-child(6),
+.feature-rows.visible .feature-points li:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes slideInLeft {
+	from {
+		opacity: 0;
+		transform: translateX(-20px);
+	}
+	to {
+		opacity: 0.8;
+		transform: translateX(0);
+	}
+}
+
+/* Glow effect on scroll */
+.feature-row::after {
+	content: '';
+	position: absolute;
+	top: -50%;
+	left: -50%;
+	width: 200%;
+	height: 200%;
+	background: radial-gradient(circle, rgba(34, 243, 107, 0.1) 0%, transparent 70%);
+	opacity: 0;
+	animation: pulseGlow 3s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.feature-row[data-reveal].visible::after,
+.feature-rows.visible .feature-row::after {
+	animation-delay: 1s;
+}
+
+@keyframes pulseGlow {
+	0%, 100% {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	50% {
+		opacity: 0.3;
+		transform: scale(1);
+	}
 }
 
 /* Pricing */

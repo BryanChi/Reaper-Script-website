@@ -427,6 +427,7 @@ ul, ol {
 	background: rgba(0, 0, 0, 0.3);
 	transition: all 0.4s var(--ease-out);
 	border: 2px solid transparent;
+	z-index: 1;
 }
 
 .feature-row:hover .media-frame {
@@ -456,14 +457,51 @@ ul, ol {
 	display: block;
 	transition: transform 0.4s var(--ease-out), filter 0.4s var(--ease-out);
 	filter: brightness(0.9) contrast(1.05);
+	cursor: pointer;
+	transform-origin: center center;
+}
+
+/* Style video controls */
+.feature-video::-webkit-media-controls-panel {
+	background-color: rgba(0, 0, 0, 0.7);
+}
+
+.feature-video::-webkit-media-controls-play-button,
+.feature-video::-webkit-media-controls-timeline,
+.feature-video::-webkit-media-controls-current-time-display,
+.feature-video::-webkit-media-controls-time-remaining-display {
+	color: var(--primary);
 }
 
 .feature-row:hover .feature-video {
 	filter: brightness(1) contrast(1.1);
 }
 
-.media-frame:hover .feature-video {
-	transform: scale(1.05);
+.media-frame:hover .feature-video,
+.feature-video:hover {
+	transform: scale(1.15);
+}
+
+/* Hero video hover effect */
+.hero-video {
+	cursor: pointer;
+	transition: transform 0.4s var(--ease-out);
+	transform-origin: center center;
+}
+
+.hero-video:hover {
+	transform: scale(1.1);
+}
+
+.hero-video::-webkit-media-controls-panel {
+	background-color: rgba(0, 0, 0, 0.7);
+}
+
+.hero-video::-webkit-media-controls-play-button,
+.hero-video::-webkit-media-controls-timeline,
+.hero-video::-webkit-media-controls-current-time-display,
+.hero-video::-webkit-media-controls-time-remaining-display {
+	color: var(--primary);
 }
 
 /* Scroll Reveal */

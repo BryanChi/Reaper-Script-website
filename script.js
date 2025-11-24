@@ -95,17 +95,19 @@
 			});
 		});
 		
-		// Video hover play/pause enhancement
-		const featureVideos = document.querySelectorAll('.feature-video');
-		featureVideos.forEach(function(video) {
-			const row = video.closest('.feature-row');
-			if (!row) return;
-			
-			// Enhanced play on hover
-			row.addEventListener('mouseenter', function() {
+		// Video hover play/pause - play only when hovering directly on video
+		const allVideos = document.querySelectorAll('video');
+		allVideos.forEach(function(video) {
+			// Play on hover
+			video.addEventListener('mouseenter', function() {
 				video.play().catch(function() {
 					// Ignore autoplay restrictions
 				});
+			});
+			
+			// Pause when mouse leaves
+			video.addEventListener('mouseleave', function() {
+				video.pause();
 			});
 			
 			// Pause when not in viewport to save resources
@@ -113,11 +115,9 @@
 				entries.forEach(function(entry) {
 					if (!entry.isIntersecting && !video.paused) {
 						video.pause();
-					} else if (entry.isIntersecting && row.matches(':hover')) {
-						video.play().catch(function() {});
 					}
 				});
-			}, { threshold: 0.3 });
+			}, { threshold: 0.1 });
 			
 			videoObserver.observe(video);
 		});

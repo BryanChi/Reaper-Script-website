@@ -316,7 +316,7 @@ ul, ol {
 	background: rgba(255, 255, 255, 0.01);
 	border: 1px solid transparent;
 	transition: all 0.4s var(--ease-out);
-	overflow: hidden;
+	overflow: visible;
 }
 
 .feature-row::before {
@@ -428,12 +428,25 @@ ul, ol {
 	transition: all 0.4s var(--ease-out);
 	border: 2px solid transparent;
 	z-index: 1;
+	width: 100%;
+}
+
+.media-frame:hover {
+	border-color: rgba(34, 243, 107, 0.3);
+	box-shadow: 0 0 30px rgba(34, 243, 107, 0.2), inset 0 0 30px rgba(34, 243, 107, 0.05);
+	width: 150%;
+	margin-left: -25%;
+	margin-right: -25%;
+	z-index: 10;
 }
 
 .feature-row:hover .media-frame {
 	border-color: rgba(34, 243, 107, 0.3);
 	box-shadow: 0 0 30px rgba(34, 243, 107, 0.2), inset 0 0 30px rgba(34, 243, 107, 0.05);
-	transform: scale(1.02);
+}
+
+.feature-media {
+	overflow: visible;
 }
 
 .media-frame::before {
@@ -455,10 +468,9 @@ ul, ol {
 	width: 100%;
 	border-radius: var(--radius-sm);
 	display: block;
-	transition: transform 0.4s var(--ease-out), filter 0.4s var(--ease-out);
+	transition: filter 0.4s var(--ease-out);
 	filter: brightness(0.9) contrast(1.05);
 	cursor: pointer;
-	transform-origin: center center;
 }
 
 /* Style video controls */
@@ -477,9 +489,8 @@ ul, ol {
 	filter: brightness(1) contrast(1.1);
 }
 
-.media-frame:hover .feature-video,
-.feature-video:hover {
-	transform: scale(1.15);
+.media-frame:hover .feature-video {
+	filter: brightness(1) contrast(1.1);
 }
 
 /* Hero video hover effect */
@@ -489,8 +500,8 @@ ul, ol {
 	transform-origin: center center;
 }
 
-.hero-video:hover {
-	transform: scale(1.1);
+.hero-background:hover .hero-video {
+	transform: scale(1.15);
 }
 
 .hero-video::-webkit-media-controls-panel {

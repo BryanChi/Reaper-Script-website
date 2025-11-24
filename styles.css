@@ -225,8 +225,11 @@ ul, ol {
 	height: 100%;
 	object-fit: cover;
 	object-position: left center; /* Anchors video to the left */
-	opacity: 0.85; /* Increased visibility */
-	filter: brightness(0.7); /* Reduced darkening */
+	opacity: 1;
+	filter: brightness(1.1) contrast(1.05);
+	cursor: pointer;
+	transition: transform 0.4s var(--ease-out), filter 0.4s var(--ease-out);
+	transform-origin: center center;
 }
 
 .hero-background::after {
@@ -469,7 +472,7 @@ ul, ol {
 	border-radius: var(--radius-sm);
 	display: block;
 	transition: filter 0.4s var(--ease-out);
-	filter: brightness(0.9) contrast(1.05);
+	filter: brightness(1.2) contrast(1.1);
 	cursor: pointer;
 }
 
@@ -486,22 +489,17 @@ ul, ol {
 }
 
 .feature-row:hover .feature-video {
-	filter: brightness(1) contrast(1.1);
+	filter: brightness(1.25) contrast(1.15);
 }
 
 .media-frame:hover .feature-video {
-	filter: brightness(1) contrast(1.1);
+	filter: brightness(1.25) contrast(1.15);
 }
 
 /* Hero video hover effect */
-.hero-video {
-	cursor: pointer;
-	transition: transform 0.4s var(--ease-out);
-	transform-origin: center center;
-}
-
 .hero-background:hover .hero-video {
 	transform: scale(1.15);
+	filter: brightness(1.2) contrast(1.1);
 }
 
 .hero-video::-webkit-media-controls-panel {

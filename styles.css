@@ -225,8 +225,8 @@ ul, ol {
 	height: 100%;
 	object-fit: cover;
 	object-position: left center; /* Anchors video to the left */
-	opacity: 1;
-	filter: brightness(1.1) contrast(1.05);
+	opacity: 0.85;
+	filter: brightness(0.7);
 	cursor: pointer;
 	transition: transform 0.4s var(--ease-out), filter 0.4s var(--ease-out);
 	transform-origin: center center;
@@ -349,6 +349,21 @@ ul, ol {
 	z-index: 1;
 }
 
+.feature-text {
+	transition: transform 0.4s var(--ease-out);
+}
+
+/* Adjust text position when video expands to prevent overlap - only on larger screens */
+@media (min-width: 992px) {
+	.feature-row.video-expanded:not(.reverse) .feature-text {
+		transform: translateX(-15%);
+	}
+
+	.feature-row.video-expanded.reverse .feature-text {
+		transform: translateX(15%);
+	}
+}
+
 @media (min-width: 992px) {
 	.feature-row {
 		grid-template-columns: 1fr 1fr;
@@ -434,13 +449,16 @@ ul, ol {
 	width: 100%;
 }
 
-.media-frame:hover {
-	border-color: rgba(34, 243, 107, 0.3);
-	box-shadow: 0 0 30px rgba(34, 243, 107, 0.2), inset 0 0 30px rgba(34, 243, 107, 0.05);
-	width: 150%;
-	margin-left: -25%;
-	margin-right: -25%;
-	z-index: 10;
+/* Only enable video expansion on larger screens where layout is side-by-side */
+@media (min-width: 992px) {
+	.media-frame:hover {
+		border-color: rgba(34, 243, 107, 0.3);
+		box-shadow: 0 0 30px rgba(34, 243, 107, 0.2), inset 0 0 30px rgba(34, 243, 107, 0.05);
+		width: 150%;
+		margin-left: -25%;
+		margin-right: -25%;
+		z-index: 10;
+	}
 }
 
 .feature-row:hover .media-frame {
@@ -472,34 +490,83 @@ ul, ol {
 	border-radius: var(--radius-sm);
 	display: block;
 	transition: filter 0.4s var(--ease-out);
-	filter: brightness(1.2) contrast(1.1);
+	filter: brightness(1) contrast(1);
 	cursor: pointer;
 }
 
-/* Style video controls */
-.feature-video::-webkit-media-controls-panel {
-	background-color: rgba(0, 0, 0, 0.7);
+/* Ensure video stays bright even when controls are shown */
+.feature-video:not(:hover) {
+	filter: brightness(1) contrast(1);
 }
 
-.feature-video::-webkit-media-controls-play-button,
-.feature-video::-webkit-media-controls-timeline,
+/* Style video controls - make transparent and hide everything except progress bar */
+.feature-video::-webkit-media-controls-panel {
+	background-color: transparent !important;
+	background-image: none !important;
+	opacity: 1 !important;
+}
+
+/* Hide play/pause button */
+.feature-video::-webkit-media-controls-play-button {
+	display: none !important;
+}
+
+/* Hide volume controls */
+.feature-video::-webkit-media-controls-volume-slider,
+.feature-video::-webkit-media-controls-mute-button {
+	display: none !important;
+}
+
+/* Hide time displays */
 .feature-video::-webkit-media-controls-current-time-display,
 .feature-video::-webkit-media-controls-time-remaining-display {
-	color: var(--primary);
+	display: none !important;
+}
+
+/* Hide fullscreen button */
+.feature-video::-webkit-media-controls-fullscreen-button {
+	display: none !important;
+}
+
+/* Style progress bar (timeline) - keep it visible */
+.feature-video::-webkit-media-controls-timeline {
+	display: block !important;
+	background-color: rgba(255, 255, 255, 0.3);
+	border-radius: 2px;
+	height: 4px;
+}
+
+.feature-video::-webkit-media-controls-timeline-container {
+	display: block !important;
+}
+
+/* Ensure video doesn't darken when controls are shown - remove overlay */
+.feature-video::-webkit-media-controls-overlay-enclosure {
+	display: none !important;
+	opacity: 0 !important;
+}
+
+.feature-video::-webkit-media-controls-enclosure {
+	background-color: transparent !important;
+	opacity: 1 !important;
+}
+
+/* For Firefox */
+.feature-video::-moz-media-controls {
+	background-color: transparent !important;
 }
 
 .feature-row:hover .feature-video {
-	filter: brightness(1.25) contrast(1.15);
+	filter: brightness(1.1) contrast(1.05);
 }
 
 .media-frame:hover .feature-video {
-	filter: brightness(1.25) contrast(1.15);
+	filter: brightness(1.1) contrast(1.05);
 }
 
 /* Hero video hover effect */
 .hero-background:hover .hero-video {
 	transform: scale(1.15);
-	filter: brightness(1.2) contrast(1.1);
 }
 
 .hero-video::-webkit-media-controls-panel {

@@ -95,19 +95,64 @@
 			});
 		});
 		
-		// Video hover play/pause - play only when hovering directly on video
-		const allVideos = document.querySelectorAll('video');
-		allVideos.forEach(function(video) {
+		// Hero video - always play
+		const heroVideo = document.querySelector('.hero-video');
+		if (heroVideo) {
+			heroVideo.play().catch(function() {
+				// Ignore autoplay restrictions, will play on user interaction
+			});
+			
+			// Ensure hero video keeps playing
+			heroVideo.addEventListener('pause', function() {
+				if (document.visibilityState === 'visible') {
+					heroVideo.play().catch(function() {});
+				}
+			});
+			
+			// Play when page becomes visible
+			document.addEventListener('visibilitychange', function() {
+				if (document.visibilityState === 'visible' && heroVideo.paused) {
+					heroVideo.play().catch(function() {});
+				}
+			});
+		}
+		
+		// Feature videos - play only when hovering directly on video
+		const featureVideos = document.querySelectorAll('.feature-video');
+		featureVideos.forEach(function(video) {
+			const mediaFrame = video.closest('.media-frame');
+			const featureRow = video.closest('.feature-row');
+			
+			if (!mediaFrame || !featureRow) return;
+			
+			// Check if screen is large enough for side-by-side layout
+			function isLargeScreen() {
+				return window.innerWidth >= 992;
+			}
+			
 			// Play on hover
-			video.addEventListener('mouseenter', function() {
+			mediaFrame.addEventListener('mouseenter', function() {
 				video.play().catch(function() {
 					// Ignore autoplay restrictions
 				});
+				// Add class to adjust layout only on large screens
+				if (isLargeScreen()) {
+					featureRow.classList.add('video-expanded');
+				}
 			});
 			
 			// Pause when mouse leaves
-			video.addEventListener('mouseleave', function() {
+			mediaFrame.addEventListener('mouseleave', function() {
 				video.pause();
+				// Remove class to restore layout
+				featureRow.classList.remove('video-expanded');
+			});
+			
+			// Remove class on window resize if screen becomes small
+			window.addEventListener('resize', function() {
+				if (!isLargeScreen()) {
+					featureRow.classList.remove('video-expanded');
+				}
 			});
 			
 			// Pause when not in viewport to save resources
@@ -115,6 +160,7 @@
 				entries.forEach(function(entry) {
 					if (!entry.isIntersecting && !video.paused) {
 						video.pause();
+						featureRow.classList.remove('video-expanded');
 					}
 				});
 			}, { threshold: 0.1 });

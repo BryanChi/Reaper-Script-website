@@ -54,50 +54,183 @@
 
 	wireBuyButtons();
 
-	// Scroll reveal for elements with [data-reveal]
+	// Scroll reveal for elements with [data-reveal] - Enhanced with stagger
 	function setupReveal() {
 		const els = Array.from(document.querySelectorAll('[data-reveal]'));
 		if (!('IntersectionObserver' in window)) {
 			els.forEach(function(el) { el.classList.add('visible'); });
 			return;
 		}
+		
+		// Use a more aggressive threshold and rootMargin for earlier triggering
 		const io = new IntersectionObserver(function(entries) {
 			entries.forEach(function(entry) {
 				if (entry.isIntersecting) {
+					// Remove delay for immediate feedback, handle stagger in CSS
 					entry.target.classList.add('visible');
 					io.unobserve(entry.target);
 				}
 			});
-		}, { threshold: 0.15 });
+		}, { 
+			threshold: 0.05, // Lower threshold
+			rootMargin: '0px 0px -50px 0px' // Trigger slightly before bottom
+		});
+		
 		els.forEach(function(el) { io.observe(el); });
 	}
 
 	setupReveal();
 
-	// Interactive feature row effects
-	function setupFeatureInteractions() {
-		const featureRows = document.querySelectorAll('.feature-row');
-		
-		// Mouse tracking for glow effect
-		featureRows.forEach(function(row) {
-			row.addEventListener('mousemove', function(e) {
-				const rect = row.getBoundingClientRect();
-				const x = ((e.clientX - rect.left) / rect.width) * 100;
-				const y = ((e.clientY - rect.top) / rect.height) * 100;
-				row.style.setProperty('--mouse-x', x + '%');
-				row.style.setProperty('--mouse-y', y + '%');
-			});
+	// Sends Header Scroll-Driven Animation
+	function setupSendsHeaderAnimation() {
+		const header = document.querySelector('.sends-header');
+		if (!header) return;
+
+		function updateAnimation() {
+			const rect = header.getBoundingClientRect();
+			const windowHeight = window.innerHeight;
 			
-			// Reset glow position on mouse leave
-			row.addEventListener('mouseleave', function() {
-				row.style.setProperty('--mouse-x', '50%');
-				row.style.setProperty('--mouse-y', '50%');
-			});
-		});
+			// Calculate progress based on position
+			// Start: entering bottom of viewport (rect.top <= windowHeight)
+			// End: 30% from bottom (rect.top <= windowHeight * 0.7) - meaning it clears well before center
+			
+			const startPoint = windowHeight;
+			const endPoint = windowHeight * 0.7; // 30% up from bottom
+			
+			if (rect.top > startPoint) {
+				// Not visible yet
+				header.style.opacity = '0';
+				header.style.filter = 'blur(20px)';
+				header.style.transform = 'scale(0.9)';
+			} else if (rect.top < endPoint) {
+				// Fully visible
+				header.style.opacity = '1';
+				header.style.filter = 'blur(0px)';
+				header.style.transform = 'scale(1)';
+			} else {
+				// In between - interpolate
+				const range = startPoint - endPoint;
+				const current = startPoint - rect.top;
+				const progress = Math.min(Math.max(current / range, 0), 1);
+				
+				// Ease the progress
+				const eased = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+				
+				header.style.opacity = progress.toFixed(2);
+				header.style.filter = `blur(${(20 * (1 - eased)).toFixed(1)}px)`;
+				header.style.transform = `scale(${0.9 + (0.1 * eased)})`;
+			}
+		}
+
+		// Update on scroll
+		window.addEventListener('scroll', function() {
+			window.requestAnimationFrame(updateAnimation);
+		}, { passive: true });
 		
-		// Hero video - always play
+		// Initial check
+		updateAnimation();
+	}
+
+	setupSendsHeaderAnimation();
+
+	// FX List Title Scroll-Driven Animation
+	function setupFXListTitleAnimation() {
+		const title = document.querySelector('.fx-list-title');
+		if (!title) return;
+
+		function updateAnimation() {
+			const rect = title.getBoundingClientRect();
+			const windowHeight = window.innerHeight;
+			
+			// Calculate progress based on position
+			// Start: entering bottom of viewport (rect.top <= windowHeight)
+			// End: 30% from bottom (rect.top <= windowHeight * 0.7) - meaning it clears well before center
+			
+			const startPoint = windowHeight;
+			const endPoint = windowHeight * 0.7; // 30% up from bottom
+			
+			if (rect.top > startPoint) {
+				// Not visible yet
+				title.style.opacity = '0';
+				title.style.filter = 'blur(20px)';
+				title.style.transform = 'scale(0.9)';
+			} else if (rect.top < endPoint) {
+				// Fully visible
+				title.style.opacity = '1';
+				title.style.filter = 'blur(0px)';
+				title.style.transform = 'scale(1)';
+			} else {
+				// In between - interpolate
+				const range = startPoint - endPoint;
+				const current = startPoint - rect.top;
+				const progress = Math.min(Math.max(current / range, 0), 1);
+				
+				// Ease the progress
+				const eased = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+				
+				title.style.opacity = progress.toFixed(2);
+				title.style.filter = `blur(${(20 * (1 - eased)).toFixed(1)}px)`;
+				title.style.transform = `scale(${0.9 + (0.1 * eased)})`;
+			}
+		}
+
+		// Update on scroll
+		window.addEventListener('scroll', function() {
+			window.requestAnimationFrame(updateAnimation);
+		}, { passive: true });
+		
+		// Initial check
+		updateAnimation();
+	}
+
+	setupFXListTitleAnimation();
+
+	// Interactive feature effects
+	function setupFeatureInteractions() {
+		// Hero video - always play (if video exists)
 		const heroVideo = document.querySelector('.hero-video');
+		const heroBackground = document.querySelector('.hero-background');
 		if (heroVideo) {
+			// Update play icon visibility for hero video
+			function updateHeroPlayIcon() {
+				if (heroBackground) {
+					if (heroVideo.paused) {
+						heroBackground.classList.add('hero-video-paused');
+					} else {
+						heroBackground.classList.remove('hero-video-paused');
+					}
+				}
+			}
+			
+			// Listen for play/pause events
+			heroVideo.addEventListener('play', updateHeroPlayIcon);
+			heroVideo.addEventListener('pause', updateHeroPlayIcon);
+			heroVideo.addEventListener('ended', updateHeroPlayIcon);
+			
+			// Initial state
+			updateHeroPlayIcon();
+			
+			// Make hero play icon clickable
+			if (heroBackground) {
+				heroBackground.addEventListener('click', function(e) {
+					if (heroBackground.classList.contains('hero-video-paused') && heroVideo.paused) {
+						const rect = heroBackground.getBoundingClientRect();
+						const centerX = rect.left + rect.width / 2;
+						const centerY = rect.top + rect.height / 2;
+						const clickX = e.clientX;
+						const clickY = e.clientY;
+						const distance = Math.sqrt(Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2));
+						
+						// If click is near center (within 60px radius), play video
+						if (distance < 60) {
+							e.preventDefault();
+							e.stopPropagation();
+							heroVideo.play();
+						}
+					}
+				});
+			}
+			
 			heroVideo.play().catch(function() {
 				// Ignore autoplay restrictions, will play on user interaction
 			});
@@ -117,79 +250,292 @@
 			});
 		}
 		
-		// Feature videos - play only when hovering directly on video
-		const featureVideos = document.querySelectorAll('.feature-video');
-		featureVideos.forEach(function(video) {
-			const mediaFrame = video.closest('.media-frame');
-			const featureRow = video.closest('.feature-row');
+		
+		// Feature videos - play on hover, continue playing when hover ends
+		const featureBlocks = document.querySelectorAll('.feature-block');
+		featureBlocks.forEach(function(featureBlock) {
+			const video = featureBlock.querySelector('video');
+			const wrapper = featureBlock.querySelector('.video-controls-wrapper');
 			
-			if (!mediaFrame || !featureRow) return;
+			if (!video) return;
 			
-			// Check if screen is large enough for side-by-side layout
-			function isLargeScreen() {
-				return window.innerWidth >= 992;
+			// Update play icon visibility based on video state
+			function updatePlayIcon() {
+				if (wrapper) {
+					if (video.paused) {
+						wrapper.classList.add('video-paused');
+					} else {
+						wrapper.classList.remove('video-paused');
+					}
+				}
 			}
 			
+			// Listen for play/pause events
+			video.addEventListener('play', updatePlayIcon);
+			video.addEventListener('pause', updatePlayIcon);
+			video.addEventListener('ended', updatePlayIcon);
+			
+			// Initial state - videos start paused
+			video.pause();
+			updatePlayIcon();
+			
 			// Play on hover
-			mediaFrame.addEventListener('mouseenter', function() {
+			featureBlock.addEventListener('mouseenter', function() {
 				video.play().catch(function() {
 					// Ignore autoplay restrictions
 				});
-				// Add class to adjust layout only on large screens
-				if (isLargeScreen()) {
-					featureRow.classList.add('video-expanded');
-				}
 			});
-			
-			// Pause when mouse leaves
-			mediaFrame.addEventListener('mouseleave', function() {
-				video.pause();
-				// Remove class to restore layout
-				featureRow.classList.remove('video-expanded');
-			});
-			
-			// Remove class on window resize if screen becomes small
-			window.addEventListener('resize', function() {
-				if (!isLargeScreen()) {
-					featureRow.classList.remove('video-expanded');
-				}
-			});
-			
-			// Pause when not in viewport to save resources
-			const videoObserver = new IntersectionObserver(function(entries) {
-				entries.forEach(function(entry) {
-					if (!entry.isIntersecting && !video.paused) {
-						video.pause();
-						featureRow.classList.remove('video-expanded');
-					}
-				});
-			}, { threshold: 0.1 });
-			
-			videoObserver.observe(video);
 		});
-		
-		// Add subtle parallax on scroll for feature rows
+
+		// Parallax effect - Removed to prevent conflict with entrance animations
+		/* 
+		const featureBlocks = document.querySelectorAll('.feature-block');
 		let ticking = false;
-		function updateParallax() {
-			if (ticking) return;
-			ticking = true;
-			requestAnimationFrame(function() {
-				featureRows.forEach(function(row) {
-					const rect = row.getBoundingClientRect();
-					const scrolled = window.pageYOffset;
-					const rate = (scrolled - rect.top) * 0.02;
-					if (rect.top < window.innerHeight && rect.bottom > 0) {
-						row.style.transform = `translateY(${rate}px)`;
-					}
-				});
-				ticking = false;
-			});
-		}
 		
+		function updateParallax() {
+			...
+		}
 		window.addEventListener('scroll', updateParallax, { passive: true });
+		*/
 	}
 	
 	setupFeatureInteractions();
+
+	// Custom Video Controls with Progress Bar (only for feature videos)
+	function setupVideoControls() {
+		const videoWrappers = document.querySelectorAll('.feature-media .video-controls-wrapper');
+		
+		videoWrappers.forEach(function(wrapper) {
+			const video = wrapper.querySelector('video');
+			const progressBar = wrapper.querySelector('.video-progress-bar');
+			const progressFilled = wrapper.querySelector('.video-progress-filled');
+			const progressHandle = wrapper.querySelector('.video-progress-handle');
+			
+			if (!video || !progressBar || !progressFilled || !progressHandle) return;
+			
+			// Disable default controls to prevent dimming
+			video.controls = false;
+			video.setAttribute('controls', 'false');
+			
+			let isDragging = false;
+			let wasPlaying = false;
+			
+			// Update progress bar
+			function updateProgress(forceProgress) {
+				// Don't update if dragging (unless forced)
+				if (isDragging && forceProgress === undefined) return;
+				
+				// Check if video duration is available
+				if (!video.duration || !isFinite(video.duration) || video.duration === 0) {
+					return;
+				}
+				
+				let progress;
+				if (forceProgress !== undefined) {
+					progress = forceProgress;
+				} else {
+					progress = (video.currentTime / video.duration) * 100;
+				}
+				
+				if (isNaN(progress) || !isFinite(progress)) return;
+				
+				// Clamp progress between 0 and 100
+				progress = Math.max(0, Math.min(100, progress));
+				
+				progressFilled.style.width = progress + '%';
+				progressHandle.style.left = progress + '%';
+			}
+			
+			// Click on video to pause/play (but not on controls)
+			video.addEventListener('click', function(e) {
+				// Don't toggle if clicking on controls
+				if (e.target.closest('.video-controls')) return;
+				
+				// Don't toggle if clicking on play icon overlay (handled separately)
+				if (wrapper && wrapper.classList.contains('video-paused')) {
+					const rect = wrapper.getBoundingClientRect();
+					const centerX = rect.left + rect.width / 2;
+					const centerY = rect.top + rect.height / 2;
+					const clickX = e.clientX;
+					const clickY = e.clientY;
+					const distance = Math.sqrt(Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2));
+					
+					// If click is near center (within 50px radius), play video
+					if (distance < 50) {
+						video.play();
+						return;
+					}
+				}
+				
+				if (video.paused) {
+					video.play();
+				} else {
+					video.pause();
+				}
+			});
+			
+			// Progress bar click/drag
+			function seekTo(e) {
+				const rect = progressBar.getBoundingClientRect();
+				const pos = (e.clientX - rect.left) / rect.width;
+				const newTime = pos * video.duration;
+				
+				if (!isNaN(newTime) && isFinite(newTime)) {
+					const clampedTime = Math.max(0, Math.min(newTime, video.duration));
+					video.currentTime = clampedTime;
+					// Manually update progress for smooth dragging
+					const progressPercent = (clampedTime / video.duration) * 100;
+					updateProgress(progressPercent);
+				}
+			}
+			
+			// Seek function for both click and drag
+			function startSeek(e) {
+				if (e.preventDefault) {
+					e.preventDefault();
+				}
+				isDragging = true;
+				wrapper.classList.add('dragging');
+				wasPlaying = !video.paused;
+				if (wasPlaying) {
+					video.pause();
+				}
+				seekTo(e);
+			}
+			
+			// Click on progress bar
+			progressBar.addEventListener('click', function(e) {
+				if (!isDragging) {
+					seekTo(e);
+				}
+			});
+			
+			// Drag functionality - allow dragging anywhere on progress bar
+			progressBar.addEventListener('mousedown', function(e) {
+				startSeek(e);
+			});
+			
+			// Also allow dragging via handle
+			progressHandle.addEventListener('mousedown', function(e) {
+				startSeek(e);
+			});
+			
+			document.addEventListener('mousemove', function(e) {
+				if (isDragging) {
+					seekTo(e);
+				}
+			});
+			
+			document.addEventListener('mouseup', function() {
+				if (isDragging) {
+					isDragging = false;
+					wrapper.classList.remove('dragging');
+					if (wasPlaying) {
+						video.play();
+					}
+				}
+			});
+			
+			// Touch support for mobile - allow dragging anywhere on progress bar
+			progressBar.addEventListener('touchstart', function(e) {
+				e.preventDefault();
+				if (e.touches.length > 0) {
+					const touch = e.touches[0];
+					// Create a synthetic event object for seekTo
+					const syntheticEvent = {
+						clientX: touch.clientX,
+						preventDefault: function() {}
+					};
+					startSeek(syntheticEvent);
+				}
+			});
+			
+			// Also allow dragging via handle
+			progressHandle.addEventListener('touchstart', function(e) {
+				e.preventDefault();
+				if (e.touches.length > 0) {
+					const touch = e.touches[0];
+					const syntheticEvent = {
+						clientX: touch.clientX,
+						preventDefault: function() {}
+					};
+					startSeek(syntheticEvent);
+				}
+			});
+			
+			document.addEventListener('touchmove', function(e) {
+				if (isDragging && e.touches.length > 0) {
+					const touch = e.touches[0];
+					const rect = progressBar.getBoundingClientRect();
+					const pos = (touch.clientX - rect.left) / rect.width;
+					const newTime = pos * video.duration;
+					
+					if (!isNaN(newTime) && isFinite(newTime)) {
+						const clampedTime = Math.max(0, Math.min(newTime, video.duration));
+						video.currentTime = clampedTime;
+						const progressPercent = (clampedTime / video.duration) * 100;
+						updateProgress(progressPercent);
+					}
+				}
+			});
+			
+			document.addEventListener('touchend', function() {
+				if (isDragging) {
+					isDragging = false;
+					wrapper.classList.remove('dragging');
+					if (wasPlaying) {
+						video.play();
+					}
+				}
+			});
+			
+			// Update progress on timeupdate - use named function to ensure it's attached
+			function handleTimeUpdate() {
+				updateProgress();
+			}
+			
+			video.addEventListener('timeupdate', handleTimeUpdate);
+			video.addEventListener('loadedmetadata', function() {
+				updateProgress();
+			});
+			video.addEventListener('loadeddata', function() {
+				updateProgress();
+			});
+			video.addEventListener('canplay', function() {
+				updateProgress();
+			});
+			
+			// Initial state - wait a bit for video to load
+			setTimeout(function() {
+				updateProgress();
+			}, 100);
+			
+			// Fallback: periodic update check in case timeupdate doesn't fire
+			const progressInterval = setInterval(function() {
+				if (!video.paused && !isDragging) {
+					updateProgress();
+				}
+			}, 100); // Update every 100ms as fallback
+			
+			// Clean up interval when video is removed
+			video.addEventListener('removed', function() {
+				clearInterval(progressInterval);
+			});
+			
+			// Show controls on hover
+			wrapper.addEventListener('mouseenter', function() {
+				wrapper.classList.add('controls-visible');
+			});
+			
+			wrapper.addEventListener('mouseleave', function() {
+				if (!isDragging) {
+					wrapper.classList.remove('controls-visible');
+				}
+			});
+		});
+	}
+	
+	setupVideoControls();
 
 	// Simple in-page editing
 	var editEnabled = false;
@@ -281,6 +627,161 @@
 			simpleModal('terms-modal', 'Terms of Use', '<p>Add your terms.</p>');
 		});
 	}
+
+	// Licensing: trial start, activation, status check
+	const apiBase = (document.body && document.body.dataset.apiBase) || '';
+	const licenseStatusEl = document.getElementById('licenseStatus');
+	const licenseDetailEl = document.getElementById('licenseDetail');
+	const trialMessage = document.getElementById('trialMessage');
+	const licenseMessage = document.getElementById('licenseMessage');
+
+	function setText(el, text) {
+		if (el) el.textContent = text || '';
+	}
+
+	function setBadge(status, detail) {
+		if (!licenseStatusEl || !licenseDetailEl) return;
+		licenseStatusEl.classList.remove('is-active', 'is-trial', 'is-expired');
+		let label = 'Status: unknown';
+		if (status === 'active') {
+			label = 'Status: Active';
+			licenseStatusEl.classList.add('is-active');
+		} else if (status === 'trial') {
+			label = 'Status: Trial';
+			licenseStatusEl.classList.add('is-trial');
+		} else if (status === 'expired') {
+			label = 'Status: Expired';
+			licenseStatusEl.classList.add('is-expired');
+		} else if (status === 'inactive') {
+			label = 'Status: Inactive';
+		}
+		licenseStatusEl.textContent = label;
+		licenseDetailEl.textContent = detail || 'Start a trial or check a license to see status.';
+	}
+
+	function prettyExpiry(ts) {
+		if (!ts) return '';
+		const date = new Date(ts);
+		if (Number.isNaN(date.getTime())) return '';
+		return date.toLocaleString();
+	}
+
+	async function postJson(path, payload) {
+		const resp = await fetch((apiBase || '') + path, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload || {})
+		});
+		let data = {};
+		try { data = await resp.json(); } catch (err) { /* ignore */ }
+		if (!resp.ok) {
+			const errMsg = data && (data.error || data.reason);
+			throw new Error(errMsg || 'Request failed');
+		}
+		return data;
+	}
+
+	function wireLicensingForms() {
+		const trialForm = document.getElementById('trialForm');
+		const trialEmail = document.getElementById('trialEmail');
+		const trialSubmit = document.getElementById('trialSubmit');
+
+		if (trialForm && trialEmail && trialSubmit) {
+			trialForm.addEventListener('submit', async function(e) {
+				e.preventDefault();
+				const email = (trialEmail.value || '').trim();
+				if (!email) return;
+				trialSubmit.disabled = true;
+				trialSubmit.textContent = 'Working...';
+				setText(trialMessage, '');
+				try {
+					const res = await postJson('/api/trial/start', { email });
+					const expiry = prettyExpiry(res.expiresAt);
+					setText(trialMessage, res.message + (expiry ? ` · Expires: ${expiry}` : ''));
+					setBadge(res.status, expiry ? `Expires on ${expiry}` : 'Trial created.');
+				} catch (err) {
+					const msg = err.message || 'Unable to start trial.';
+					setText(trialMessage, msg);
+					setBadge('inactive', msg);
+				} finally {
+					trialSubmit.disabled = false;
+					trialSubmit.textContent = 'Start trial';
+				}
+			});
+		}
+
+		const licenseForm = document.getElementById('licenseForm');
+		const licenseEmail = document.getElementById('licenseEmail');
+		const licenseKey = document.getElementById('licenseKey');
+		const licenseSubmit = document.getElementById('licenseSubmit');
+		const licenseCheck = document.getElementById('licenseCheck');
+
+		async function handleVerify(includeKey) {
+			const email = (licenseEmail && licenseEmail.value || '').trim();
+			const key = (licenseKey && licenseKey.value || '').trim();
+			if (!email) {
+				setText(licenseMessage, 'Email is required.');
+				return;
+			}
+			try {
+				const res = await postJson('/api/license/verify', { email, licenseKey: includeKey ? key : undefined });
+				const expiry = prettyExpiry(res.expiresAt);
+				let detail = '';
+				if (res.status === 'active') {
+					detail = 'License active.';
+				} else if (res.status === 'trial') {
+					detail = expiry ? `Trial active until ${expiry}.` : 'Trial active.';
+				} else if (res.status === 'expired') {
+					detail = expiry ? `Trial expired on ${expiry}.` : 'Trial expired.';
+				} else {
+					detail = res.reason || 'No active license or trial.';
+				}
+				setText(licenseMessage, detail);
+				setBadge(res.status, detail);
+			} catch (err) {
+				const msg = err.message || 'Unable to verify.';
+				setText(licenseMessage, msg);
+				setBadge('inactive', msg);
+			}
+		}
+
+		if (licenseForm && licenseEmail && licenseKey && licenseSubmit) {
+			licenseForm.addEventListener('submit', async function(e) {
+				e.preventDefault();
+				const email = (licenseEmail.value || '').trim();
+				const key = (licenseKey.value || '').trim();
+				if (!email || !key) {
+					setText(licenseMessage, 'Email and license key are required.');
+					return;
+				}
+				licenseSubmit.disabled = true;
+				licenseSubmit.textContent = 'Activating...';
+				setText(licenseMessage, '');
+				try {
+					const res = await postJson('/api/license/activate', { email, licenseKey: key });
+					const expiry = prettyExpiry(res.expiresAt);
+					const msg = `License activated${expiry ? ` · Expires ${expiry}` : ''}.`;
+					setText(licenseMessage, msg);
+					setBadge('active', msg);
+				} catch (err) {
+					const msg = err.message || 'Unable to activate.';
+					setText(licenseMessage, msg);
+					setBadge('inactive', msg);
+				} finally {
+					licenseSubmit.disabled = false;
+					licenseSubmit.textContent = 'Activate';
+				}
+			});
+		}
+
+		if (licenseCheck) {
+			licenseCheck.addEventListener('click', function() {
+				handleVerify(true);
+			});
+		}
+	}
+
+	wireLicensingForms();
 })();
 
 

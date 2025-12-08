@@ -47,8 +47,11 @@ You own your content. The template code is provided under the MIT License.
 - Add detailed sections under the Features area using the `.feature-rows` markup in `index.html`.
 - Each row has a `.feature-text` column and a `.feature-media` column that accepts .mov or .mp4 videos.
 - To reverse the layout, add the `reverse` class to `.feature-row`.
-- Place your media files in an `assets/` folder and reference them like `./assets/sends basic.mov` (for sends) or `./assets/feature-name.mov` (for others).
+- Place your media files in organized subfolders within `assets/`:
+  - Videos: `assets/Videos/` (e.g., `./assets/Videos/Main-basic.mov`)
+  - Icons: `assets/icons/` (e.g., `./assets/icons/MouseL.png`)
+  - Background images: `assets/Bg pics/` (e.g., `./assets/Bg pics/BG5.png`)
 - Videos autoplay on loop, are muted by default, and don't show controls for a cleaner presentation.
-- Hero section includes a background video (`./assets/Main-basic.mov`) that plays behind the text content.
+- Hero section includes a background video (`./assets/Videos/Main-basic.mov`) that plays behind the text content.
 
 

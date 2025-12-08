@@ -1,0 +1,13 @@
+{
+  "name": "reaper-script-website",
+  "version": "1.0.0",
+  "description": "Reaper script landing page with licensing APIs",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.3",
+    "@vercel/kv": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

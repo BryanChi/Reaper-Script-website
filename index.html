@@ -8,8 +8,8 @@
 
 	<!-- Fonts -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
 
 	<!-- Open Graph -->
 	<meta property="og:title" content="Reaper Script – Boost Your Workflow">
@@ -54,14 +54,15 @@
 	<!-- Analytics (optional) -->
 	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
 </head>
-<body>
-	<header class="site-header">
+<body data-api-base="">
+	<header class="site-header scrolled">
 		<div class="container header-inner">
 			<a class="brand" href="#home">Reaper Script</a>
 			<nav class="nav">
 				<a href="#features">Features</a>
 				<a href="#demo">Demo</a>
 				<a href="#how-it-works">How it works</a>
+				<a href="#license">License</a>
 				<a href="#pricing">Pricing</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
@@ -77,7 +78,7 @@
 	<main id="home" data-editable="" contenteditable="true">
 		<section class="hero">
 			<div class="hero-background">
-				<video class="hero-video" src="./assets/Main-basic.mov" autoplay muted loop preload="auto" playsinline></video>
+				<video class="hero-video" src="./assets/Videos/Main-basic.mov" muted loop autoplay playsinline></video>
 			</div>
 			<div class="container hero-inner">
 				<div class="hero-copy">
@@ -93,158 +94,234 @@
 
 		<section id="features" class="section">
 			<div class="container">
-				<h2>Features</h2>
+				<div class="section-header">
+					<h2 class="fx-list-title">FX list</h2>
+					<p class="lead-text">A completely new way to manage FX in REAPER.</p>
+				</div>
 
-				<!-- Detailed feature rows (text + GIF) -->
-				<div class="feature-rows visible" data-reveal="">
-					<article class="feature-row">
-						<div class="feature-text">
-							<h3>Control FX at a glance</h3>
-							<p class="muted">Open, bypass, reorder, and group FX directly in the vertical list—no window juggling.</p>
-							<ul class="feature-points">
-								<li>Inline FX buttons beside your tracks for easy access</li><li>Instruments are color coded for distinction</li><li>Drag to reorder</li>
-								<li>Alt+Click to delete</li><li>Shift + Click to bypass</li><li>Command + Drag to copy</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/feature-fx-control.mov" muted="" loop="" preload="auto" controls alt="Inline FX control demo"></video>
+				<div class="features-list">
+					<!-- Feature 1: Control FX - Full Width Video -->
+					<div class="feature-block feature-1" data-reveal="">
+						<div class="feature-inner">
+							<div class="feature-content">
+								<h3>The basics</h3>
+								<p>Open, bypass, reorder, and group FX directly in the vertical list—no window juggling required.</p>
 							</div>
-							<p class="muted tiny"><br></p>
+							<div class="feature-media">
+								<div class="video-controls-wrapper">
+									<video src="./assets/Videos/feature-fx-control.mov" muted="" loop="" preload="auto" playsinline=""></video>
+									<div class="video-controls">
+										<div class="video-progress-bar">
+											<div class="video-progress-filled"></div>
+											<div class="video-progress-handle"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="feature-shortcuts">
+								<div class="shortcut-bubble">
+									<span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Open/Close FX
+								</div>
+								<div class="shortcut-bubble">
+									<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete FX
+								</div>
+								<div class="shortcut-bubble">
+									<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass FX
+								</div>
+								<div class="shortcut-bubble">
+									<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle FX Online/Offline
+								</div>
+								<div class="shortcut-bubble">
+									<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Rename FX
+								</div>
+							</div>
 						</div>
-					</article>
+					</div>
 
-					<article class="feature-row reverse visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Adjust sends and pan in place</h3>
-							<p class="muted">Tweak destination track volume and pan from the same view, with clear value overlays.</p>
-							<ul class="feature-points">
-								<li>Volume drag with visual fill</li>
-								<li>Centered pan overlay readout</li>
-								<li>Click to reset to defaults</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/Sends Basic.mov" muted="" loop="" preload="auto" controls alt="Sends and pan demo"></video>
+					<!-- Feature 7: FX Linking - Moved to pos 2 -->
+					<div class="feature-block feature-7" data-reveal="">
+						<div class="feature-inner reverse">
+							<div class="feature-content">
+								<h3>FX Linking</h3>
+								<p>Link FX parameters between different instances of the same plugin. Good for dubbing and harmonies etc.<br><br>
+								<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left Click" style="width: 18px; vertical-align: text-bottom;"></span> <strong>Drag</strong> to initiate.</p>
 							</div>
-							<p class="muted tiny">&nbsp;</p>
+							<div class="feature-media">
+								<div class="video-controls-wrapper">
+									<video src="./assets/Videos/Fx Linking.mov" muted="" loop="" preload="auto" playsinline=""></video>
+									<div class="video-controls">
+										<div class="video-progress-bar">
+											<div class="video-progress-filled"></div>
+											<div class="video-progress-handle"></div>
+										</div>
+									</div>
+								</div>
+							</div>
 						</div>
-					</article>
+					</div>
 
-					<article class="feature-row visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Send favorites and quick access</h3>
-							<p class="muted">Save and quickly access your most-used sends and FX chains for faster workflow.</p>
-							<ul class="feature-points">
-								<li>Star favorite sends for instant recall</li>
-								<li>One-click access to common FX chains</li>
-								<li>Organize complex routing with ease</li>
-							</ul>
+					<!-- Sends Section: Features 2-5 -->
+					<div class="sends-section">
+						<div class="sends-header">
+							<h2 class="sends-title">Sends management</h2>
+							<p class="lead-text">Master your signal flow with a complete suite of send tools.</p>
 						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/send favorites.mov" muted="" loop="" preload="auto" controls alt="Send favorites demo"></video>
-							</div>
-							<p class="muted tiny">&nbsp;</p>
-						</div>
-					</article>
 
-					<article class="feature-row visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Make sends hidden from TCP, but still accessible at all times.</h3>
-							<ul class="feature-points"><li>Click the eye icon to toggle hide the send tracks</li><li>Clicking on sends shows a popup that includes all essential controls like volume, pan, and FX buttons, having access to this popup means you can keep your sends hidden from TCP all the time and still be able to tweak it easily.</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/Send Hide Popup.mov" muted="" loop="" preload="auto" controls alt="Sends popup and hide demo"></video>
+						<!-- Feature 2: Sends - Video Left, Text Right -->
+						<div class="feature-block feature-2" data-reveal="">
+							<div class="feature-inner reverse">
+								<div class="feature-content">
+									<h3>Manage sends with ease</h3>
+									<p>Create sends by dragging between tracks, then adjust volume and routing directly in the FX list.</p>
+								</div>
+								<div class="feature-media">
+									<div class="video-controls-wrapper">
+										<video src="./assets/Videos/Sends Basic.mov" muted="" loop="" preload="auto" playsinline=""></video>
+										<div class="video-controls">
+											<div class="video-progress-bar">
+												<div class="video-progress-filled"></div>
+												<div class="video-progress-handle"></div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="feature-shortcuts">
+									<div class="shortcut-bubble">
+										<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete send
+									</div>
+									<div class="shortcut-bubble">
+										<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Mute send
+									</div>
+									<div class="shortcut-bubble">
+										<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Create Send Volume Envelope
+									</div>
+								</div>
 							</div>
-							<p class="muted tiny"><br></p>
 						</div>
-					</article>
 
-					<article class="feature-row visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Send channel selection shortcuts</h3>
-							<p class="muted">Press number keys while dragging sends to instantly route to specific channels, or Alt+number to select source channels.</p>
-							<ul class="feature-points">
-								<li>1-8 keys select destination channels while dragging</li>
-								<li>Alt+1-8 selects source channels for routing</li>
-								<li>Visual feedback shows selected channels</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/Send Channels.mov" muted="" loop="" preload="auto" controls alt="Send channel selection demo"></video>
+						<!-- Feature 3: Send Favorites - Centered Text, Video Below -->
+						<div class="feature-block feature-3" data-reveal="">
+							<div class="feature-inner centered">
+								<div class="feature-content">
+									<h3>Send favorites</h3>
+									<p>Save and quickly access your most-used sends and FX chains.</p>
+								</div>
+								<div class="feature-media">
+									<div class="video-controls-wrapper">
+										<video src="./assets/Videos/Send Favorites.mov" muted="" loop="" preload="auto" playsinline=""></video>
+										<div class="video-controls">
+											<div class="video-progress-bar">
+												<div class="video-progress-filled"></div>
+												<div class="video-progress-handle"></div>
+											</div>
+										</div>
+									</div>
+								</div>
 							</div>
-							<p class="muted tiny"><br></p>
 						</div>
-					</article>
 
-					<article class="feature-row reverse visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Hidden parent tracks, clean mixers</h3>
-							<p class="muted">Hide parent tracks from the TCP/MCP while keeping full control. Work uncluttered without losing access to essential parameters.</p>
-							<ul class="feature-points">
-								<li>Hide/unhide parent tracks without breaking routing</li>
-								<li>Access volume, pan, FX from the UI</li>
-								<li>Great for bus-heavy or template-driven sessions</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/Hidden parent.mov" muted="" loop="" preload="auto" controls alt="Hidden parent tracks demo"></video>
+						<!-- Feature 4: Hide Popup - Full Width Video Above Text -->
+						<div class="feature-block feature-4" data-reveal="">
+							<div class="feature-inner video-top">
+								<div class="feature-media">
+									<div class="video-controls-wrapper">
+										<video src="./assets/Videos/Send Hide Popup.mov" muted="" loop="" preload="auto" playsinline=""></video>
+										<div class="video-controls">
+											<div class="video-progress-bar">
+												<div class="video-progress-filled"></div>
+												<div class="video-progress-handle"></div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="feature-content">
+									<h3>Hidden, but accessible</h3>
+									<p>Keep your TCP clean by hiding sends, but access them instantly via the popup controls.</p>
+									<ul class="feature-tags">
+										<li>Toggle Visibility</li>
+										<li>Popup Controls</li>
+										<li>Clean TCP</li>
+									</ul>
+								</div>
 							</div>
-							<p class="muted tiny"><br></p>
 						</div>
-					</article>
 
-					<article class="feature-row reverse visible" data-reveal="">
-						<div class="feature-text">
-							<h3>Advanced: marquee, parallel, containers</h3>
-							<p class="muted">Scale up your workflow with multi‑select, parallel groups, and container‑aware rendering when you need it.</p>
-							<ul class="feature-points">
-								<li>Marquee selection and batch ops</li>
-								<li>Parallel peers auto‑grouping</li>
-								<li>Container collapse/expand with children inline</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/feature-advanced.mov" muted="" loop="" preload="auto" controls alt="Advanced features demo"></video>
+						<!-- Feature 5: Channels - Video Below Text (Wide) -->
+						<div class="feature-block feature-5" data-reveal="">
+							<div class="feature-inner">
+								<div class="feature-content">
+									<h3>Channel shortcuts</h3>
+									<p>Press 1-8 while dragging to route to specific channels instantly.</p>
+								</div>
+								<div class="feature-media">
+									<div class="video-controls-wrapper">
+										<video src="./assets/Videos/Send Channels.mov" muted="" loop="" preload="auto" playsinline=""></video>
+										<div class="video-controls">
+											<div class="video-progress-bar">
+												<div class="video-progress-filled"></div>
+												<div class="video-progress-handle"></div>
+											</div>
+										</div>
+									</div>
+								</div>
 							</div>
-							<p class="muted tiny"><br></p>
 						</div>
-					</article>
+					</div>
 
-					<article class="feature-row visible" data-reveal="">
-						<div class="feature-text">
-							<h3>FX Linking — Sync parameters across tracks</h3>
-							<p class="muted">Link FX plugins together so their parameters stay perfectly synchronized. Perfect for parallel processing, stereo pairs, and multi-track mixing.</p>
-							<ul class="feature-points">
-								<li>Link FX when copying with Ctrl+Drag for instant sync</li>
-								<li>Visual link cable indicator shows connected plugins</li>
-								<li>Parameters stay synchronized in real-time</li>
-								<li>Perfect for stereo pairs and parallel processing chains</li>
-								<li>Works across multiple tracks seamlessly</li>
-							</ul>
-						</div>
-						<div class="feature-media">
-							<div class="media-frame">
-								<video class="feature-video" src="./assets/Fx Linking.mov" muted="" loop="" preload="auto" controls alt="FX Linking demo"></video>
+					<!-- Feature 6: Hidden Parent - Split Screen Style -->
+					<div class="feature-block feature-6" data-reveal="">
+						<div class="feature-inner split">
+							<div class="feature-content">
+								<h3>Hide Folder Tracks, but keep them accessible</h3><h3><span style="color: rgb(156, 163, 175); font-size: clamp(18px, 2vw, 24px);">Hidden parent tracks will be shown as buttons in FX list, right clicking on them will unhide them, while left clicking shows a popup that let's you adjust all essential controls.</span></h3>
 							</div>
-							<p class="muted tiny"><br></p>
+							<div class="feature-media">
+								<div class="video-controls-wrapper">
+									<video src="./assets/Videos/Hidden parent.mov" muted="" loop="" preload="auto" playsinline=""></video>
+									<div class="video-controls">
+										<div class="video-progress-bar">
+											<div class="video-progress-filled"></div>
+											<div class="video-progress-handle"></div>
+										</div>
+									</div>
+								</div>
+							</div>
 						</div>
-					</article>
+					</div>
+
+
+					<!-- Feature 8: Advanced - Grid Layout -->
+					<div class="feature-block feature-8" data-reveal="">
+						<div class="feature-inner grid-layout">
+							<div class="feature-content">
+								<h3>Advanced Power Features</h3>
+								<p>Designed for power users who need scalability.</p>
+							</div>
+							<div class="feature-grid-list">
+								<div class="feature-grid-item">
+									<h4>Marquee Select</h4>
+									<p>Select multiple FX at once for batch operations.</p>
+								</div>
+								<div class="feature-grid-item">
+									<h4>Parallel Groups</h4>
+									<p>Auto-group parallel peers for easier management.</p>
+								</div>
+								<div class="feature-grid-item">
+									<h4>Keyboard Shortcuts</h4>
+									<p>Extensive hotkey support for speed.</p>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</section>
 
 		<section id="demo" class="section alt">
 			<div class="container">
-				<h2>Watch it in Action</h2>
-				<p class="lead" style="max-width: 600px;">See how the script transforms your workflow in real-time. No more menu diving.</p>
+				<div class="header-wrapper" data-reveal="anim-zoom-in">
+					<h2>Watch it in Action</h2>
+					<p class="lead" style="max-width: 600px;">See how the script transforms your workflow in real-time. No more menu diving.</p>
+				</div>
 				<div class="demo-grid">
 					<div class="video">
 						<!-- Replace data-youtube-id with your video ID, or swap iframe src -->
@@ -293,6 +370,42 @@
 					<li>SWS Extension recommended</li>
 					<li>ReaImGui 0.9.3+ (bundled in script)</li>
 				</ul>
+			</div>
+		</section>
+
+		<section id="license" class="section">
+			<div class="container license-grid">
+				<div class="license-card">
+					<h3>Start your 14-day free trial</h3>
+					<p class="lead-text">Enter your email to unlock the script for two weeks. No card required.</p>
+					<form id="trialForm" class="license-form">
+						<label for="trialEmail" class="sr-only">Email</label>
+						<input id="trialEmail" name="email" type="email" placeholder="you@example.com" required="" autocomplete="email">
+						<button class="btn btn-primary" type="submit" id="trialSubmit">Start trial</button>
+						<p class="tiny muted" id="trialMessage"></p>
+					</form>
+				</div>
+
+				<div class="license-card">
+					<h3>Activate or check a license</h3>
+					<p class="lead-text">Paste the license key from your purchase email. You can also re-check status anytime.</p>
+					<form id="licenseForm" class="license-form">
+						<label for="licenseEmail" class="sr-only">Email</label>
+						<input id="licenseEmail" name="email" type="email" placeholder="you@example.com" required="" autocomplete="email">
+						<label for="licenseKey" class="sr-only">License key</label>
+						<input id="licenseKey" name="licenseKey" type="text" placeholder="XXXX-XXXX" required="" autocomplete="off">
+						<div class="license-actions">
+							<button class="btn btn-primary" type="submit" id="licenseSubmit">Activate</button>
+							<button class="btn btn-secondary" type="button" id="licenseCheck">Check status</button>
+						</div>
+						<p class="tiny muted" id="licenseMessage"></p>
+					</form>
+				</div>
+			</div>
+
+			<div class="container license-status">
+				<div class="status-badge" id="licenseStatus">Status: unknown</div>
+				<div class="status-detail" id="licenseDetail">Start a trial or check your license to see status.</div>
 			</div>
 		</section>
 
@@ -381,6 +494,7 @@
 			<p class="muted">© <span id="year">2025</span> YourName. Not affiliated with Cockos Incorporated.</p>
 			<nav class="footer-nav">
 				<a href="#pricing">Buy</a>
+				<a href="#license">License</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
 				<a href="#" id="privacyLink">Privacy</a>
@@ -396,4 +510,4 @@
 	<script src="./script.js" defer=""></script>
 
 
-</body><div></div></html>
+<div></div></body><div></div></html>

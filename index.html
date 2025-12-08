@@ -51,8 +51,8 @@
 	}
 	</script>
 
-	<!-- PayPal SDK (public client ID is safe to expose) -->
-	<script src="https://www.paypal.com/sdk/js?client-id=AaF1jijRuEgQKi0vt4zt0ulrB695xHKrA2qnSOwEsYCuwt3K-v6iCTQl8EuGQ6wmSRoVjwemTLSW6ml5&currency=USD&intent=CAPTURE" data-sdk-integration-source="button-factory"></script>
+	<!-- PayPal SDK (Sandbox/Test Mode) -->
+	<script src="https://www.paypal.com/sdk/js?client-id=AW1bo3Og1P_xaSVEzcv3R-umo6OPXCMmnaBgdl7Xk3GoTQacCwuKxJqOmz4Vnirl9VOhVIguwbLUfKoC&currency=USD&intent=capture"></script>
 
 	<!-- Analytics (optional) -->
 	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
@@ -489,6 +489,17 @@
 			<div class="container">
 				<h2>Contact</h2>
 				<p>Questions or support? Email <a href="mailto:support@example.com">support@example.com</a>.</p>
+				
+				<div style="margin-top: 32px; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+					<h3 style="font-size: 18px; margin-bottom: 12px;">Test Email Sending</h3>
+					<p class="muted tiny" style="margin-bottom: 16px;">Test the license email delivery system.</p>
+					<form id="testEmailForm" class="license-form" style="max-width: 400px;">
+						<label for="testEmailInput" class="sr-only">Test Email</label>
+						<input id="testEmailInput" name="email" type="email" placeholder="your@email.com" required="" autocomplete="email" style="margin-bottom: 12px;">
+						<button class="btn btn-secondary" type="submit" id="testEmailSubmit">Send Test Email</button>
+						<p class="tiny muted" id="testEmailMessage" style="margin-top: 8px;"></p>
+					</form>
+				</div>
 			</div>
 		</section>
 	</main>
@@ -510,6 +521,34 @@
 	<noscript>
 		<div class="noscript">This site works best with JavaScript enabled.</div>
 	</noscript>
+
+	<!-- Success Modal -->
+	<div id="success-modal" class="modal" style="display: none;">
+		<div class="modal-content">
+			<div class="success-icon">✅</div>
+			<h2>Payment Successful!</h2>
+			<p>Thank you for your purchase. Your license key has been sent to your email.</p>
+			<div class="license-info">
+				<h3>Your License Key:</h3>
+				<div class="license-key" id="license-key-display">
+					<span id="license-key-text">Loading...</span>
+					<button id="copy-license-btn" class="copy-btn">Copy</button>
+				</div>
+			</div>
+			<div class="next-steps">
+				<h3>Next Steps:</h3>
+				<ol style="text-align: left; margin: 16px auto; max-width: 300px; padding-left: 20px;">
+					<li>Check your email for the license key</li>
+					<li>Download the script if you haven't already</li>
+					<li>Enter your license key in the Activate section</li>
+					<li>Enjoy your faster workflow!</li>
+				</ol>
+			</div>
+			<div class="modal-actions">
+				<button id="close-modal-btn" class="secondary-button">Close</button>
+			</div>
+		</div>
+	</div>
 
 	<script src="./script.js" defer=""></script>
 

@@ -22,3 +22,7 @@ module.exports = async function handler(req, res) {
 		expiresAt: result.expiresAt || null
 	});
 };
+
+
+
+

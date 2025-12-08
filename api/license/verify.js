@@ -20,3 +20,7 @@ module.exports = async function handler(req, res) {
 		licenseKey: result.licenseKey || null
 	});
 };
+
+
+
+

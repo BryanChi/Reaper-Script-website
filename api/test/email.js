@@ -22,32 +22,21 @@ module.exports = async function handler(req, res) {
 	}
 
 	const body = req.body || {};
+	const testEmail = normalizeEmail(body.email || body.testEmail);
 
-	// Minimal validation: ensure we have an email and an order id
-	const payerEmail = normalizeEmail(
-		body.payerEmail ||
-		body.email ||
-		body.payer?.email_address ||
-		body.purchase_units?.[0]?.payee?.email_address ||
-		body.purchase_units?.[0]?.shipping?.email_address
-	);
-
-	if (!payerEmail) {
-		return res.status(400).json({ ok: false, error: 'Missing payer email' });
+	if (!testEmail) {
+		return res.status(400).json({ 
+			ok: false, 
+			error: 'Missing email. Send POST with { "email": "your@email.com" }' 
+		});
 	}
 
-	const orderId = body.orderId || body.id || body.transactionId;
-	const amount = body.amount || body.purchase_units?.[0]?.amount?.value || '19.00';
-	const currency = body.currency || body.purchase_units?.[0]?.amount?.currency_code || 'USD';
-	const payerName =
-		body.payerName ||
-		(body.payer?.name && `${body.payer.name.given_name || ''} ${body.payer.name.surname || ''}`.trim()) ||
-		'';
+	const payerName = body.name || body.payerName || 'Test User';
 
 	// Activate or generate a license
 	let licenseResult;
 	try {
-		licenseResult = await activateLicense(payerEmail);
+		licenseResult = await activateLicense(testEmail);
 		if (!licenseResult.ok) {
 			return res.status(400).json({ ok: false, error: licenseResult.error || 'Unable to activate license' });
 		}
@@ -57,16 +46,18 @@ module.exports = async function handler(req, res) {
 
 	// Attempt to send email via Resend if configured
 	let emailSent = false;
+	let emailError = null;
 	const resend = getResend();
 	const fromEmail = process.env.RESEND_FROM_EMAIL;
+	
 	if (resend && fromEmail) {
 		try {
 			await resend.emails.send({
 				from: fromEmail,
-				to: payerEmail,
+				to: testEmail,
 				subject: 'Your Reaper Script License',
 				html: `
-					<p>Hi ${payerName || 'there'},</p>
+					<p>Hi ${payerName},</p>
 					<p>Thank you for your purchase. Here is your license key:</p>
 					<pre style="font-size:16px;font-weight:bold;">${licenseResult.licenseKey}</pre>
 					<p>Status: ${licenseResult.status}</p>
@@ -76,18 +67,25 @@ module.exports = async function handler(req, res) {
 			});
 			emailSent = true;
 		} catch (err) {
-			// Email failed; log and continue
+			emailError = err.message || 'Unknown error';
 			console.error('Resend email failed:', err);
 		}
+	} else {
+		emailError = 'Resend not configured. Check RESEND_API_KEY and RESEND_FROM_EMAIL environment variables.';
 	}
 
 	return res.status(200).json({
 		ok: true,
-		orderId: orderId || null,
-		email: payerEmail,
+		email: testEmail,
 		licenseKey: licenseResult.licenseKey,
 		status: licenseResult.status,
 		expiresAt: licenseResult.expiresAt || null,
-		emailSent
+		emailSent,
+		emailError: emailError || null,
+		message: emailSent 
+			? 'Email sent successfully!' 
+			: emailError 
+				? `Email not sent: ${emailError}` 
+				: 'License generated but email not configured'
 	});
 };

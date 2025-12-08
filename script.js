@@ -674,18 +674,26 @@
 	}
 
 	async function postJson(path, payload) {
-		const resp = await fetch((apiBase || '') + path, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload || {})
-		});
-		let data = {};
-		try { data = await resp.json(); } catch (err) { /* ignore */ }
-		if (!resp.ok) {
-			const errMsg = data && (data.error || data.reason);
-			throw new Error(errMsg || 'Request failed');
+		try {
+			const resp = await fetch((apiBase || '') + path, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload || {})
+			});
+			let data = {};
+			try { data = await resp.json(); } catch (err) { /* ignore */ }
+			if (!resp.ok) {
+				const errMsg = data && (data.error || data.reason);
+				throw new Error(errMsg || `Request failed with status ${resp.status}`);
+			}
+			return data;
+		} catch (err) {
+			// Re-throw with more context if it's a network error
+			if (err instanceof TypeError && err.message.includes('fetch')) {
+				throw new Error('Failed to connect to server. Make sure the server is running or check your network connection.');
+			}
+			throw err;
 		}
-		return data;
 	}
 
 	function wireLicensingForms() {
@@ -790,6 +798,276 @@
 
 	wireLicensingForms();
 
+	// Test Email Form Handler
+	function wireTestEmailForm() {
+		const testEmailForm = document.getElementById('testEmailForm');
+		const testEmailInput = document.getElementById('testEmailInput');
+		const testEmailSubmit = document.getElementById('testEmailSubmit');
+		const testEmailMessage = document.getElementById('testEmailMessage');
+
+		if (testEmailForm && testEmailInput && testEmailSubmit && testEmailMessage) {
+			testEmailForm.addEventListener('submit', async function(e) {
+				e.preventDefault();
+				const email = (testEmailInput.value || '').trim();
+				if (!email) {
+					setText(testEmailMessage, 'Please enter an email address.');
+					return;
+				}
+				testEmailSubmit.disabled = true;
+				testEmailSubmit.textContent = 'Sending...';
+				setText(testEmailMessage, '');
+				try {
+					const res = await postJson('/api/test/email', { email, name: 'Test User' });
+					if (res.ok) {
+						if (res.emailSent) {
+							setText(testEmailMessage, `✅ Test email sent successfully to ${email}! Check your inbox. License key: ${res.licenseKey}`);
+							showInfo(`Test email sent to ${email}`);
+						} else {
+							setText(testEmailMessage, `⚠️ ${res.message || 'Email not sent'}. ${res.emailError ? `Error: ${res.emailError}` : ''}`);
+							showError(res.message || 'Email sending failed');
+						}
+					} else {
+						setText(testEmailMessage, `❌ ${res.error || 'Failed to send test email'}`);
+						showError(res.error || 'Failed to send test email');
+					}
+				} catch (err) {
+					console.error('Test email error:', err);
+					let msg = err.message || 'Unable to send test email.';
+					// Provide more helpful error messages
+					if (msg.includes('Failed to connect') || msg.includes('Failed to fetch') || msg.includes('NetworkError') || err instanceof TypeError) {
+						msg = 'Failed to connect to server. If testing locally, run "vercel dev" in your terminal. If deployed, make sure the endpoint is deployed.';
+					}
+					setText(testEmailMessage, `❌ ${msg}`);
+					showError(msg);
+				} finally {
+					testEmailSubmit.disabled = false;
+					testEmailSubmit.textContent = 'Send Test Email';
+				}
+			});
+		}
+	}
+
+	wireTestEmailForm();
+
+	// Helper Functions for UI
+	function showLoadingState() {
+		let overlay = document.getElementById('payment-loading-overlay');
+		if (!overlay) {
+			overlay = document.createElement('div');
+			overlay.id = 'payment-loading-overlay';
+			overlay.innerHTML = `
+				<div class="loading-backdrop"></div>
+				<div class="loading-panel">
+					<div class="spinner"></div>
+					<p>Processing payment...</p>
+				</div>
+			`;
+			document.body.appendChild(overlay);
+		}
+		overlay.style.display = 'block';
+	}
+
+	function hideLoadingState() {
+		const overlay = document.getElementById('payment-loading-overlay');
+		if (overlay) {
+			overlay.style.display = 'none';
+		}
+	}
+
+	function showError(message) {
+		const notification = document.createElement('div');
+		notification.className = 'error-notification';
+		notification.innerHTML = `
+			<div class="notification-content">
+				<span class="error-icon">❌</span>
+				<span class="error-message">${message}</span>
+				<button class="close-notification" onclick="this.parentElement.parentElement.remove()">×</button>
+			</div>
+		`;
+		document.body.appendChild(notification);
+		
+		// Animate in
+		setTimeout(() => {
+			notification.style.transform = 'translateX(0)';
+		}, 100);
+		
+		// Auto remove after 5 seconds
+		setTimeout(() => {
+			if (notification.parentElement) {
+				notification.style.transform = 'translateX(100%)';
+				setTimeout(() => {
+					if (notification.parentElement) {
+						notification.remove();
+					}
+				}, 300);
+			}
+		}, 5000);
+	}
+
+	function showInfo(message) {
+		const notification = document.createElement('div');
+		notification.className = 'info-notification';
+		notification.innerHTML = `
+			<div class="notification-content">
+				<span class="info-icon">ℹ️</span>
+				<span class="info-message">${message}</span>
+				<button class="close-notification" onclick="this.parentElement.parentElement.remove()">×</button>
+			</div>
+		`;
+		document.body.appendChild(notification);
+		
+		// Animate in
+		setTimeout(() => {
+			notification.style.transform = 'translateX(0)';
+		}, 100);
+		
+		// Auto remove after 3 seconds
+		setTimeout(() => {
+			if (notification.parentElement) {
+				notification.style.transform = 'translateX(100%)';
+				setTimeout(() => {
+					if (notification.parentElement) {
+						notification.remove();
+					}
+				}, 300);
+			}
+		}, 3000);
+	}
+
+	function showSuccessModal(email, licenseKey) {
+		const modal = document.getElementById('success-modal');
+		const licenseKeyText = document.getElementById('license-key-text');
+		const copyBtn = document.getElementById('copy-license-btn');
+		const licenseInfoDiv = document.querySelector('.license-info');
+		
+		// Show the license key if provided; otherwise indicate email delivery
+		if (licenseKeyText) {
+			if (licenseKey) {
+				licenseKeyText.textContent = licenseKey;
+			} else if (email) {
+				licenseKeyText.textContent = `Sent to ${email}`;
+			} else {
+				licenseKeyText.textContent = 'License will be emailed shortly.';
+			}
+		}
+		
+		if (copyBtn) {
+			if (licenseKey) {
+				copyBtn.style.display = 'inline-flex';
+				copyBtn.onclick = function() {
+					navigator.clipboard.writeText(licenseKey).then(() => {
+						copyBtn.textContent = 'Copied!';
+						setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+					});
+				};
+			} else {
+				copyBtn.style.display = 'none';
+			}
+		}
+		
+		// Close modal button
+		const closeBtn = document.getElementById('close-modal-btn');
+		if (closeBtn) {
+			closeBtn.addEventListener('click', function() {
+				modal.style.display = 'none';
+				modal.classList.remove('active');
+			});
+		}
+		
+		// Show modal
+		modal.style.display = 'flex';
+		// Small timeout to allow display:flex to apply before adding active class for opacity transition
+		setTimeout(() => {
+			modal.classList.add('active');
+		}, 10);
+	}
+
+	function applyPayPalDarkModeFixes() {
+		// Check if dark mode is active (always true for this site theme)
+		const isDarkMode = true;
+		
+		if (!isDarkMode) return;
+		
+		// Function to style PayPal text elements
+		const stylePayPalText = () => {
+			const container = document.getElementById('paypal-button-container');
+			if (!container) return;
+			
+			// Style all text elements within the PayPal container
+			const textElements = container.querySelectorAll('label, span, p, div, a, li');
+			textElements.forEach(el => {
+				const computedStyle = window.getComputedStyle(el);
+				const textColor = computedStyle.color;
+				
+				// Check if text is likely hard to read (dark text colors)
+				if (textColor) {
+					if (textColor.includes('#1f2937') || 
+					    textColor.includes('#374151') ||
+					    textColor.includes('#4b5563') ||
+					    textColor.includes('#6b7280') ||
+					    textColor.includes('rgb(31, 41, 55)')) {
+						el.style.color = '#e2e8f0';
+					}
+				}
+			});
+			
+			// Also check for common PayPal text patterns
+			const allElements = container.querySelectorAll('*');
+			allElements.forEach(el => {
+				const text = el.textContent || '';
+				if (text.includes('Ship to billing address') || 
+					text.includes("you're 18 years or older") ||
+					text.includes('By continuing')) {
+					el.style.color = '#e2e8f0';
+				}
+			});
+		};
+		
+		// Apply styles immediately
+		stylePayPalText();
+		
+		// Use MutationObserver to watch for dynamically added PayPal elements
+		const observer = new MutationObserver(function(mutations) {
+			stylePayPalText();
+		});
+		
+		const container = document.getElementById('paypal-button-container');
+		if (container) {
+			observer.observe(container, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				attributeFilter: ['style', 'class']
+			});
+		}
+	}
+
+	async function sendPaymentToBackend({ orderId, details }) {
+		const payload = {
+			orderId: orderId || details?.id,
+			status: details?.status,
+			payerEmail: details?.payer?.email_address,
+			payerName: details?.payer?.name ? `${details.payer.name.given_name || ''} ${details.payer.name.surname || ''}`.trim() : '',
+			purchase_units: details?.purchase_units,
+			amount: details?.purchase_units?.[0]?.amount?.value,
+			currency: details?.purchase_units?.[0]?.amount?.currency_code
+		};
+
+		const resp = await fetch('/api/paypal/webhook', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+
+		let json = {};
+		try { json = await resp.json(); } catch (_) { /* ignore */ }
+
+		if (!resp.ok || !json.ok) {
+			throw new Error(json.error || 'Webhook call failed');
+		}
+		return json;
+	}
+
 	// PayPal Smart Buttons
 	function setupPayPalButtons() {
 		if (!paypalContainer) return;
@@ -797,9 +1075,9 @@
 
 		paypal.Buttons({
 			style: {
-				shape: 'rect',
-				color: 'gold',
 				layout: 'vertical',
+				color: 'blue',
+				shape: 'rect',
 				label: 'paypal'
 			},
 			createOrder: function(data, actions) {
@@ -808,23 +1086,52 @@
 				return actions.order.create({
 					purchase_units: [{
 						amount: { value: '19.00', currency_code: 'USD' },
-						custom_id: email || 'no-email'
+						custom_id: email || 'no-email',
+						description: 'Vertical FX List for REAPER - Lifetime License'
 					}]
 				});
 			},
 			onApprove: function(data, actions) {
-				return actions.order.capture().then(function(details) {
+				showLoadingState();
+				
+				return actions.order.capture().then(async function(details) {
+					console.log('Payment completed:', details);
+					
+					const customerEmail = details.payer?.email_address;
 					const msg = 'Payment captured via PayPal. Your license will be issued via email.';
 					setText(licenseMessage, msg);
 					setBadge('active', msg);
+					
+					// Send to backend to issue license and email
+					let backendResponse = null;
+					try {
+						backendResponse = await sendPaymentToBackend({ orderId: data.orderID, details });
+					} catch (err) {
+						console.error('Backend license issuance failed:', err);
+						showError('Payment captured, but license delivery failed. We will follow up via email.');
+					}
+
+					hideLoadingState();
+					showSuccessModal(customerEmail, backendResponse && backendResponse.licenseKey);
+					
+				}).catch(function(error) {
+					console.error('Payment capture error:', error);
+					showError('Payment processing failed. Please try again.');
+					hideLoadingState();
 				});
 			},
 			onError: function(err) {
-				const msg = 'PayPal error. Please try again or use the standard Buy button.';
-				setText(licenseMessage, msg);
-				setBadge('inactive', msg);
+				console.error('PayPal error:', err);
+				showError('Payment failed. Please try again.');
+				hideLoadingState();
+			},
+			onCancel: function(data) {
+				showInfo('Payment was cancelled. You can try again anytime.');
 			}
 		}).render(paypalContainer);
+		
+		// Apply dark mode fixes
+		setTimeout(applyPayPalDarkModeFixes, 1000);
 	}
 
 	// Attempt to initialize PayPal buttons once SDK is available

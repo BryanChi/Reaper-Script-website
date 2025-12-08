@@ -57,11 +57,18 @@ module.exports = async function handler(req, res) {
 
 	// Attempt to send email via Resend if configured
 	let emailSent = false;
+	let emailError = null;
 	const resend = getResend();
 	const fromEmail = process.env.RESEND_FROM_EMAIL;
-	if (resend && fromEmail) {
+	if (!resend) {
+		emailError = 'Resend client not initialized. Check RESEND_API_KEY environment variable.';
+		console.error('Resend not configured:', emailError);
+	} else if (!fromEmail) {
+		emailError = 'RESEND_FROM_EMAIL environment variable not set.';
+		console.error('Resend FROM email not configured:', emailError);
+	} else {
 		try {
-			await resend.emails.send({
+			const emailResponse = await resend.emails.send({
 				from: fromEmail,
 				to: payerEmail,
 				subject: 'Your Reaper Script License',
@@ -74,10 +81,24 @@ module.exports = async function handler(req, res) {
 					<p>If you have any questions, reply to this email.</p>
 				`
 			});
-			emailSent = true;
+			
+			// Check if Resend returned an error in the response
+			if (emailResponse.error) {
+				emailError = emailResponse.error.message || JSON.stringify(emailResponse.error);
+				console.error('Resend API error:', emailResponse.error);
+			} else if (emailResponse.data && emailResponse.data.id) {
+				emailSent = true;
+				console.log('Email sent successfully:', { id: emailResponse.data.id, to: payerEmail });
+			} else {
+				emailError = 'Unexpected response from Resend API';
+				console.error('Unexpected Resend response:', emailResponse);
+			}
 		} catch (err) {
-			// Email failed; log and continue
+			emailError = err.message || 'Unknown error';
 			console.error('Resend email failed:', err);
+			if (err.response) {
+				console.error('Resend error response:', err.response);
+			}
 		}
 	}
 
@@ -88,6 +109,7 @@ module.exports = async function handler(req, res) {
 		licenseKey: licenseResult.licenseKey,
 		status: licenseResult.status,
 		expiresAt: licenseResult.expiresAt || null,
-		emailSent
+		emailSent,
+		emailError: emailError || null
 	});
 };

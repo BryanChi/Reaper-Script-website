@@ -47,12 +47,17 @@ module.exports = async function handler(req, res) {
 	// Attempt to send email via Resend if configured
 	let emailSent = false;
 	let emailError = null;
+	let emailDetails = null;
 	const resend = getResend();
 	const fromEmail = process.env.RESEND_FROM_EMAIL;
 	
-	if (resend && fromEmail) {
+	if (!resend) {
+		emailError = 'Resend client not initialized. Check RESEND_API_KEY environment variable.';
+	} else if (!fromEmail) {
+		emailError = 'RESEND_FROM_EMAIL environment variable not set.';
+	} else {
 		try {
-			await resend.emails.send({
+			const emailResponse = await resend.emails.send({
 				from: fromEmail,
 				to: testEmail,
 				subject: 'Your Reaper Script License',
@@ -65,13 +70,26 @@ module.exports = async function handler(req, res) {
 					<p>If you have any questions, reply to this email.</p>
 				`
 			});
-			emailSent = true;
+			
+			// Check if Resend returned an error in the response
+			if (emailResponse.error) {
+				emailError = emailResponse.error.message || JSON.stringify(emailResponse.error);
+				console.error('Resend API error:', emailResponse.error);
+			} else if (emailResponse.data && emailResponse.data.id) {
+				emailSent = true;
+				emailDetails = { id: emailResponse.data.id, from: fromEmail, to: testEmail };
+			} else {
+				emailError = 'Unexpected response from Resend API';
+				console.error('Unexpected Resend response:', emailResponse);
+			}
 		} catch (err) {
 			emailError = err.message || 'Unknown error';
 			console.error('Resend email failed:', err);
+			// Log full error details for debugging
+			if (err.response) {
+				console.error('Resend error response:', err.response);
+			}
 		}
-	} else {
-		emailError = 'Resend not configured. Check RESEND_API_KEY and RESEND_FROM_EMAIL environment variables.';
 	}
 
 	return res.status(200).json({
@@ -82,8 +100,9 @@ module.exports = async function handler(req, res) {
 		expiresAt: licenseResult.expiresAt || null,
 		emailSent,
 		emailError: emailError || null,
+		emailDetails: emailDetails || null,
 		message: emailSent 
-			? 'Email sent successfully!' 
+			? `Email sent successfully! (ID: ${emailDetails?.id || 'unknown'})` 
 			: emailError 
 				? `Email not sent: ${emailError}` 
 				: 'License generated but email not configured'

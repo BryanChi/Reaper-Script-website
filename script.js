@@ -820,11 +820,13 @@
 					const res = await postJson('/api/test/email', { email, name: 'Test User' });
 					if (res.ok) {
 						if (res.emailSent) {
-							setText(testEmailMessage, `✅ Test email sent successfully to ${email}! Check your inbox. License key: ${res.licenseKey}`);
-							showInfo(`Test email sent to ${email}`);
+							const detailsMsg = res.emailDetails ? ` (Email ID: ${res.emailDetails.id})` : '';
+							setText(testEmailMessage, `✅ Test email sent successfully to ${email}!${detailsMsg} Check your inbox (and spam folder). License key: ${res.licenseKey}`);
+							showInfo(`Test email sent to ${email}. Check spam folder if not received.`);
 						} else {
-							setText(testEmailMessage, `⚠️ ${res.message || 'Email not sent'}. ${res.emailError ? `Error: ${res.emailError}` : ''}`);
-							showError(res.message || 'Email sending failed');
+							const errorMsg = res.emailError || 'Unknown error';
+							setText(testEmailMessage, `⚠️ Email not sent: ${errorMsg}. License key generated: ${res.licenseKey}`);
+							showError(`Email sending failed: ${errorMsg}`);
 						}
 					} else {
 						setText(testEmailMessage, `❌ ${res.error || 'Failed to send test email'}`);

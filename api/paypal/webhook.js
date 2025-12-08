@@ -59,7 +59,12 @@ module.exports = async function handler(req, res) {
 	let emailSent = false;
 	let emailError = null;
 	const resend = getResend();
-	const fromEmail = process.env.RESEND_FROM_EMAIL;
+	// Clean up the FROM email - remove extra quotes and whitespace
+	let fromEmail = process.env.RESEND_FROM_EMAIL;
+	if (fromEmail) {
+		fromEmail = fromEmail.trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+	}
+	
 	if (!resend) {
 		emailError = 'Resend client not initialized. Check RESEND_API_KEY environment variable.';
 		console.error('Resend not configured:', emailError);
@@ -67,6 +72,16 @@ module.exports = async function handler(req, res) {
 		emailError = 'RESEND_FROM_EMAIL environment variable not set.';
 		console.error('Resend FROM email not configured:', emailError);
 	} else {
+		// Validate format
+		const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		const nameEmailFormat = /^.+<[^\s@]+@[^\s@]+\.[^\s@]+>$/;
+		if (!emailFormat.test(fromEmail) && !nameEmailFormat.test(fromEmail)) {
+			emailError = `Invalid RESEND_FROM_EMAIL format. Use "email@example.com" or "Name <email@example.com>". Current value: "${fromEmail}"`;
+			console.error('Invalid FROM email format:', emailError);
+		}
+	}
+	
+	if (!emailError) {
 		try {
 			const emailResponse = await resend.emails.send({
 				from: fromEmail,

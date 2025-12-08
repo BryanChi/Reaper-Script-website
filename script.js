@@ -46,6 +46,12 @@
 				if (paymentLink && paymentLink.trim().length > 0) {
 					window.location.href = paymentLink;
 				} else {
+					// Fallback to PayPal buttons if no direct link is set
+					const paypalEl = document.getElementById('paypal-button-container');
+					if (paypalEl) {
+						paypalEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+						return;
+					}
 					alert('Connect a checkout link first. Edit data-payment-link on the Buy buttons.');
 				}
 			});
@@ -634,6 +640,7 @@
 	const licenseDetailEl = document.getElementById('licenseDetail');
 	const trialMessage = document.getElementById('trialMessage');
 	const licenseMessage = document.getElementById('licenseMessage');
+	const paypalContainer = document.getElementById('paypal-button-container');
 
 	function setText(el, text) {
 		if (el) el.textContent = text || '';
@@ -782,6 +789,64 @@
 	}
 
 	wireLicensingForms();
+
+	// PayPal Smart Buttons
+	function setupPayPalButtons() {
+		if (!paypalContainer) return;
+		if (typeof paypal === 'undefined' || !paypal.Buttons) return;
+
+		paypal.Buttons({
+			style: {
+				shape: 'rect',
+				color: 'gold',
+				layout: 'vertical',
+				label: 'paypal'
+			},
+			createOrder: function(data, actions) {
+				const emailInput = document.getElementById('licenseEmail') || document.getElementById('trialEmail');
+				const email = emailInput ? (emailInput.value || '').trim() : '';
+				return actions.order.create({
+					purchase_units: [{
+						amount: { value: '19.00', currency_code: 'USD' },
+						custom_id: email || 'no-email'
+					}]
+				});
+			},
+			onApprove: function(data, actions) {
+				return actions.order.capture().then(function(details) {
+					const msg = 'Payment captured via PayPal. Your license will be issued via email.';
+					setText(licenseMessage, msg);
+					setBadge('active', msg);
+				});
+			},
+			onError: function(err) {
+				const msg = 'PayPal error. Please try again or use the standard Buy button.';
+				setText(licenseMessage, msg);
+				setBadge('inactive', msg);
+			}
+		}).render(paypalContainer);
+	}
+
+	// Attempt to initialize PayPal buttons once SDK is available
+	if (paypalContainer) {
+		if (typeof paypal !== 'undefined') {
+			setupPayPalButtons();
+		} else {
+			const readyCheck = setInterval(function() {
+				if (typeof paypal !== 'undefined') {
+					clearInterval(readyCheck);
+					setupPayPalButtons();
+				}
+			}, 200);
+			// Safety timeout to stop polling after 10 seconds
+			setTimeout(function() {
+				clearInterval(readyCheck);
+				if (typeof paypal === 'undefined') {
+					setText(paypalContainer, 'PayPal failed to load. Please try again or use the standard Buy button.');
+				}
+			}, 10000);
+		}
+	}
 })();
 
 

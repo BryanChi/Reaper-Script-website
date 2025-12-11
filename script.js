@@ -27,6 +27,275 @@
 	window.addEventListener('scroll', updateHeader);
 	updateHeader();
 
+	// Authentication (Supabase)
+	const authConfig = {
+		supabaseUrl: document.body?.dataset?.supabaseUrl || '',
+		supabaseAnonKey: document.body?.dataset?.supabaseAnonKey || '',
+		redirectTo: document.body?.dataset?.supabaseRedirect || window.location.origin
+	};
+
+	const loginButton = document.getElementById('loginButton');
+	const authModal = document.getElementById('auth-modal');
+	const closeAuthModal = document.getElementById('closeAuthModal');
+	const authTabs = Array.from(document.querySelectorAll('.auth-tab'));
+	const authMessage = document.getElementById('authMessage');
+	const emailAuthForm = document.getElementById('emailAuthForm');
+	const emailSubmit = document.getElementById('emailSubmit');
+	const authEmailInput = document.getElementById('authEmail');
+	const authPasswordInput = document.getElementById('authPassword');
+	const googleSignIn = document.getElementById('googleSignIn');
+	const userMenu = document.getElementById('userMenu');
+	const userMenuButton = document.getElementById('userMenuButton');
+	const userMenuPanel = document.getElementById('userMenuPanel');
+	const logoutButton = document.getElementById('logoutButton');
+	const userEmailDisplay = document.getElementById('userEmailDisplay');
+	const userEmailFull = document.getElementById('userEmailFull');
+	const userAvatar = document.getElementById('userAvatar');
+	const userAvatarSmall = document.getElementById('userAvatarSmall');
+
+	let authMode = 'signin';
+	let supabaseClient = null;
+	let currentUser = null;
+
+	function createSupabaseClient() {
+		if (!window.supabase || !authConfig.supabaseUrl || !authConfig.supabaseAnonKey) {
+			return null;
+		}
+		try {
+			return window.supabase.createClient(authConfig.supabaseUrl, authConfig.supabaseAnonKey, {
+				auth: { persistSession: true, autoRefreshToken: true }
+			});
+		} catch (err) {
+			console.error('Failed to init Supabase:', err);
+			return null;
+		}
+	}
+
+	function openAuthModal() {
+		if (!authModal) return;
+		authModal.style.display = 'flex';
+		setTimeout(function() { authModal.classList.add('active'); }, 10);
+		authEmailInput && authEmailInput.focus();
+		if (!supabaseClient && authMessage) {
+			authMessage.textContent = 'Add Supabase URL and anon key to the <body> data attributes to enable login.';
+		} else if (authMessage) {
+			authMessage.textContent = '';
+		}
+	}
+
+	function hideAuthModal() {
+		if (!authModal) return;
+		authModal.classList.remove('active');
+		setTimeout(function() { authModal.style.display = 'none'; }, 180);
+	}
+
+	function setAuthMode(mode) {
+		authMode = mode;
+		authTabs.forEach(function(tab) {
+			tab.classList.toggle('active', tab.dataset.mode === mode);
+		});
+		if (emailSubmit) {
+			emailSubmit.textContent = mode === 'signup' ? 'Create account' : 'Log in';
+		}
+		if (authPasswordInput && mode === 'signup') {
+			authPasswordInput.placeholder = 'Password (min 6 chars)';
+		}
+		if (authMessage) authMessage.textContent = '';
+	}
+
+	function userInitials(user) {
+		const email = user?.email || '';
+		if (!email) return 'U';
+		return email.charAt(0).toUpperCase();
+	}
+
+	function updateUserUI(user) {
+		currentUser = user || null;
+		const email = user?.email || '';
+		const hasUser = Boolean(user);
+
+		if (loginButton) {
+			loginButton.style.display = hasUser ? 'none' : 'inline-flex';
+		}
+		if (userMenu) {
+			userMenu.hidden = !hasUser;
+		}
+		if (userMenuPanel) {
+			userMenuPanel.hidden = true;
+		}
+		if (userEmailDisplay) {
+			userEmailDisplay.textContent = email || '';
+		}
+		if (userEmailFull) {
+			userEmailFull.textContent = email || '';
+		}
+		const initials = userInitials(user);
+		if (userAvatar) userAvatar.textContent = initials;
+		if (userAvatarSmall) userAvatarSmall.textContent = initials;
+		if (!hasUser && authModal) {
+			hideAuthModal();
+		}
+	}
+
+	async function hydrateSession() {
+		if (!supabaseClient) return;
+		try {
+			const { data, error } = await supabaseClient.auth.getSession();
+			if (error) throw error;
+			updateUserUI(data?.session?.user || null);
+		} catch (err) {
+			console.error('Failed to get session:', err);
+			updateUserUI(null);
+		}
+
+		supabaseClient.auth.onAuthStateChange(function(_event, session) {
+			updateUserUI(session?.user || null);
+			if (session?.user) {
+				hideAuthModal();
+			}
+		});
+	}
+
+	function ensureSupabase() {
+		if (!supabaseClient) {
+			if (authMessage) {
+				authMessage.textContent = 'Supabase auth is not configured. Set data-supabase-url and data-supabase-anon-key on <body>.';
+			}
+			return false;
+		}
+		return true;
+	}
+
+	function setupAuthUI() {
+		supabaseClient = createSupabaseClient();
+		if (supabaseClient) {
+			hydrateSession();
+		} else {
+			updateUserUI(null);
+		}
+
+		if (loginButton) {
+			loginButton.addEventListener('click', function() {
+				openAuthModal();
+			});
+		}
+
+		if (closeAuthModal) {
+			closeAuthModal.addEventListener('click', hideAuthModal);
+		}
+
+		if (authModal) {
+			authModal.addEventListener('click', function(e) {
+				if (e.target === authModal) hideAuthModal();
+			});
+		}
+
+		authTabs.forEach(function(tab) {
+			tab.addEventListener('click', function() {
+				setAuthMode(tab.dataset.mode === 'signup' ? 'signup' : 'signin');
+			});
+		});
+
+		if (googleSignIn) {
+			googleSignIn.addEventListener('click', async function() {
+				if (!ensureSupabase()) return;
+				googleSignIn.disabled = true;
+				try {
+					const { error } = await supabaseClient.auth.signInWithOAuth({
+						provider: 'google',
+						options: { redirectTo: authConfig.redirectTo || window.location.href }
+					});
+					if (error) throw error;
+					if (authMessage) authMessage.textContent = 'Redirecting to Google...';
+				} catch (err) {
+					console.error('Google login failed:', err);
+					if (authMessage) authMessage.textContent = err.message || 'Unable to start Google login.';
+				} finally {
+					googleSignIn.disabled = false;
+				}
+			});
+		}
+
+		if (emailAuthForm) {
+			emailAuthForm.addEventListener('submit', async function(e) {
+				e.preventDefault();
+				if (!ensureSupabase()) return;
+				const email = (authEmailInput?.value || '').trim();
+				const password = authPasswordInput?.value || '';
+				if (!email || !password) {
+					if (authMessage) authMessage.textContent = 'Email and password are required.';
+					return;
+				}
+				if (password.length < 6) {
+					if (authMessage) authMessage.textContent = 'Password must be at least 6 characters.';
+					return;
+				}
+				if (emailSubmit) {
+					emailSubmit.disabled = true;
+					emailSubmit.textContent = authMode === 'signup' ? 'Creating account...' : 'Logging in...';
+				}
+				if (authMessage) authMessage.textContent = '';
+				try {
+					if (authMode === 'signup') {
+						const { data, error } = await supabaseClient.auth.signUp({
+							email,
+							password,
+							options: { emailRedirectTo: authConfig.redirectTo || window.location.origin }
+						});
+						if (error) throw error;
+						updateUserUI(data?.user || null);
+						if (authMessage) authMessage.textContent = 'Check your email to confirm, then you will be signed in.';
+					} else {
+						const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+						if (error) throw error;
+						updateUserUI(data?.user || data?.session?.user || null);
+						hideAuthModal();
+					}
+				} catch (err) {
+					console.error('Email auth error:', err);
+					if (authMessage) authMessage.textContent = err.message || 'Unable to authenticate.';
+				} finally {
+					if (emailSubmit) {
+						emailSubmit.disabled = false;
+						emailSubmit.textContent = authMode === 'signup' ? 'Create account' : 'Log in';
+					}
+				}
+			});
+		}
+
+		if (userMenuButton && userMenuPanel) {
+			userMenuButton.addEventListener('click', function(e) {
+				e.stopPropagation();
+				userMenuPanel.hidden = !userMenuPanel.hidden;
+			});
+
+			document.addEventListener('click', function(e) {
+				if (userMenuPanel.hidden) return;
+				if (!userMenuPanel.contains(e.target) && !userMenuButton.contains(e.target)) {
+					userMenuPanel.hidden = true;
+				}
+			});
+		}
+
+		if (logoutButton) {
+			logoutButton.addEventListener('click', async function() {
+				if (!supabaseClient) {
+					updateUserUI(null);
+					return;
+				}
+				try {
+					await supabaseClient.auth.signOut();
+				} catch (err) {
+					console.error('Sign out failed:', err);
+				} finally {
+					updateUserUI(null);
+				}
+			});
+		}
+	}
+
+	setupAuthUI();
+
 	// Set current year in footer
 	const yearEl = document.getElementById('year');
 	if (yearEl) yearEl.textContent = String(new Date().getFullYear());
@@ -542,58 +811,6 @@
 	}
 	
 	setupVideoControls();
-
-	// Simple in-page editing
-	var editEnabled = false;
-	var toggleBtn = document.getElementById('editToggle');
-	var saveBtn = document.getElementById('saveFile');
-	var editableRoot = document.querySelector('[data-editable]');
-
-	function setEditable(enabled) {
-		if (!editableRoot) return;
-		editEnabled = enabled;
-		editableRoot.contentEditable = enabled ? 'true' : 'false';
-		toggleBtn && (toggleBtn.textContent = enabled ? 'Stop Edit' : 'Edit');
-	}
-
-	if (toggleBtn) {
-		toggleBtn.addEventListener('click', function() {
-			setEditable(!editEnabled);
-		});
-	}
-
-	var fileHandle = null;
-	if (saveBtn) {
-		saveBtn.addEventListener('click', async function() {
-			if (!editableRoot) return;
-			// Prefer File System Access API when available (Chrome/Edge)
-			if (window.showSaveFilePicker) {
-				try {
-					if (!fileHandle) {
-						fileHandle = await window.showSaveFilePicker({
-							suggestedName: 'index.html',
-							types: [{ description: 'HTML', accept: { 'text/html': ['.html', '.htm'] } }]
-						});
-					}
-					const writable = await fileHandle.createWritable();
-					await writable.write(document.documentElement.outerHTML);
-					await writable.close();
-					saveBtn.textContent = 'Saved';
-					setTimeout(function(){ saveBtn.textContent = 'Save'; }, 1200);
-					return;
-				} catch (err) {
-					// fall back to download
-				}
-			}
-			var blob = new Blob([document.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
-			var a = document.createElement('a');
-			a.href = URL.createObjectURL(blob);
-			a.download = 'index.html';
-			a.click();
-			URL.revokeObjectURL(a.href);
-		});
-	}
-
 	// Optional: open modal for Privacy/Terms
 	function simpleModal(id, title, contentHtml) {
 		const existing = document.getElementById(id);

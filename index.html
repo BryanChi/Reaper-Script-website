@@ -57,7 +57,7 @@
 	<!-- Analytics (optional) -->
 	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
 </head>
-<body data-api-base="">
+<body data-api-base="" data-supabase-url="https://txevakkpyrnbrwbqizov.supabase.co" data-supabase-anon-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZXZha2tweXJuYnJ3YnFpem92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNDQ4MzcsImV4cCI6MjA4MDcyMDgzN30.T7PDcDzQ5Vn9NqRG6-34wizqznMWHt0aHKc0Osv2D7w" data-supabase-redirect="">
 	<header class="site-header scrolled">
 		<div class="container header-inner">
 			<a class="brand" href="#home">Reaper Script</a>
@@ -70,15 +70,33 @@
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
 			</nav>
-			<div class="edit-controls">
-				<button class="btn btn-secondary" id="editToggle" title="Toggle edit mode">Stop Edit</button>
-				<button class="btn btn-secondary" id="saveFile" title="Save HTML">Save</button>
+			<div class="header-actions">
+				<div class="auth-controls">
+					<button class="btn btn-ghost" id="loginButton" type="button">Log in</button>
+					<div class="user-menu" id="userMenu" hidden="">
+						<button class="user-chip" id="userMenuButton" type="button">
+							<div class="user-avatar" id="userAvatar">U</div>
+							<div class="user-meta">
+								<span class="user-label">Signed in</span>
+								<span class="user-email" id="userEmailDisplay"></span>
+							</div>
+							<span class="chevron" aria-hidden="true">▾</span>
+						</button>
+						<div class="user-menu-panel" id="userMenuPanel" hidden="">
+							<div class="user-menu-row">
+								<div class="user-avatar small" id="userAvatarSmall">U</div>
+								<div class="user-email-full" id="userEmailFull"></div>
+							</div>
+							<button class="user-menu-item" id="logoutButton" type="button">Sign out</button>
+						</div>
+					</div>
+				</div>
+				<a class="btn btn-primary buy-now" href="#pricing" id="buyNowTop">Buy Now</a>
 			</div>
-			<a class="btn btn-primary buy-now" href="#pricing" id="buyNowTop">Buy Now</a>
 		</div>
 	</header>
 
-	<main id="home" data-editable="" contenteditable="true">
+	<main id="home">
 		<section class="hero">
 			<div class="hero-background">
 				<video class="hero-video" src="./assets/Videos/Main-basic.mov" muted loop autoplay playsinline></video>
@@ -438,7 +456,7 @@
 							<li>Email support</li>
 						</ul>
 						<button class="btn btn-primary btn-lg" id="buyButtonPricing" data-payment-link="">Buy Now</button>
-						<div id="paypal-button-container" style="margin-top: 16px;" contenteditable="false"></div>
+						<div id="paypal-button-container" style="margin-top: 16px;"></div>
 						<p class="muted tiny">30-day money-back guarantee.</p>
 					</div>
 				</div>
@@ -522,6 +540,38 @@
 		<div class="noscript">This site works best with JavaScript enabled.</div>
 	</noscript>
 
+	<!-- Auth Modal -->
+	<div id="auth-modal" class="modal" style="display: none;">
+		<div class="modal-content auth-modal-content">
+			<div class="auth-modal-header">
+				<div>
+					<p class="muted tiny">Welcome back</p>
+					<h3 style="margin-bottom: 8px;">Access your account</h3>
+				</div>
+				<button class="btn btn-secondary" id="closeAuthModal" type="button" aria-label="Close auth modal">Close</button>
+			</div>
+			<div class="auth-tabs" role="tablist">
+				<button class="auth-tab active" data-mode="signin" type="button">Log in</button>
+				<button class="auth-tab" data-mode="signup" type="button">Create account</button>
+			</div>
+			<div class="auth-body">
+				<button class="btn btn-google" id="googleSignIn" type="button">
+					<span class="google-mark">G</span>
+					<span>Continue with Google</span>
+				</button>
+				<div class="auth-divider"><span>or use email</span></div>
+				<form id="emailAuthForm" class="auth-form">
+					<label class="sr-only" for="authEmail">Email</label>
+					<input id="authEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required="">
+					<label class="sr-only" for="authPassword">Password</label>
+					<input id="authPassword" name="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" required="">
+					<button class="btn btn-primary" id="emailSubmit" type="submit">Log in</button>
+				</form>
+				<p class="tiny muted" id="authMessage"></p>
+			</div>
+		</div>
+	</div>
+
 	<!-- Success Modal -->
 	<div id="success-modal" class="modal" style="display: none;">
 		<div class="modal-content">
@@ -550,7 +600,8 @@
 		</div>
 	</div>
 
+	<!-- Supabase CDN (for auth) -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js"></script>
 	<script src="./script.js" defer=""></script>
-
-
-<div></div></body><div></div></html>
+	</body>
+</html>

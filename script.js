@@ -144,7 +144,12 @@
 		if (menuButton && menuPanel) {
 			menuButton.addEventListener('click', function(e) {
 				e.stopPropagation();
+				const wasHidden = menuPanel.hidden;
 				menuPanel.hidden = !menuPanel.hidden;
+				// Load license info when opening the menu
+				if (wasHidden && currentUser) {
+					loadLicenseInfo();
+				}
 			});
 
 			document.addEventListener('click', function(e) {
@@ -170,6 +175,158 @@
 				}
 			});
 		}
+
+		// Setup refresh license button
+		const refreshLicenseBtn = document.getElementById('refreshLicenseBtn');
+		if (refreshLicenseBtn) {
+			refreshLicenseBtn.addEventListener('click', function(e) {
+				e.stopPropagation();
+				loadLicenseInfo();
+			});
+		}
+	}
+
+	async function loadLicenseInfo() {
+		const email = getSignedInEmail();
+		if (!email) return;
+
+		const licenseStatusDisplay = document.getElementById('licenseStatusDisplay');
+		if (!licenseStatusDisplay) return;
+
+		licenseStatusDisplay.innerHTML = '<div class="license-loading">Loading license information...</div>';
+
+		try {
+			const res = await postJson('/api/license/info', { email });
+			
+			if (!res.ok) {
+				licenseStatusDisplay.innerHTML = `<div class="license-error">Unable to load license information.</div>`;
+				return;
+			}
+
+			let html = '';
+
+			// License key section
+			if (res.licenseKey) {
+				html += `<div class="license-key-section">
+					<div class="license-key-label">License Key:</div>
+					<div class="license-key-value">
+						<code class="license-key-code">${res.licenseKey}</code>
+						<button class="btn-copy-key" data-key="${res.licenseKey}" title="Copy license key">📋</button>
+					</div>
+				</div>`;
+			} else {
+				html += `<div class="license-key-section">
+					<div class="license-status-badge status-${res.status}">Status: ${res.status || 'inactive'}</div>
+					<div class="license-no-key">No active license found.</div>
+				</div>`;
+			}
+
+			// License status
+			if (res.licenseKey) {
+				const statusClass = res.status === 'active' ? 'status-active' : 'status-inactive';
+				html += `<div class="license-status-section">
+					<div class="license-status-badge ${statusClass}">Status: ${res.status || 'inactive'}</div>
+					${res.expiresAt ? `<div class="license-expiry">Expires: ${prettyExpiry(res.expiresAt)}</div>` : '<div class="license-expiry">Lifetime license</div>'}
+				</div>`;
+			}
+
+			// Device activations section
+			if (res.licenseKey && res.activations && res.activations.length > 0) {
+				html += `<div class="device-activations-section">
+					<div class="device-activations-header">Device Activations (${res.activations.length})</div>
+					<div class="device-activations-list">`;
+				
+				res.activations.forEach(function(activation) {
+					const activatedDate = activation.activated_at ? prettyExpiry(new Date(activation.activated_at).getTime()) : 'Unknown';
+					html += `<div class="device-activation-item">
+						<div class="device-info">
+							<div class="device-id">${escapeHtml(activation.device_id || 'Unknown Device')}</div>
+							<div class="device-activated-date">Activated: ${activatedDate}</div>
+						</div>
+						<button class="btn-deactivate-device" data-license-key="${escapeHtml(res.licenseKey)}" data-device-id="${escapeHtml(activation.device_id)}" title="Deactivate device">Deactivate</button>
+					</div>`;
+				});
+				
+				html += `</div></div>`;
+			} else if (res.licenseKey) {
+				html += `<div class="device-activations-section">
+					<div class="device-activations-header">Device Activations</div>
+					<div class="device-activations-empty">No active device activations.</div>
+				</div>`;
+			}
+
+			licenseStatusDisplay.innerHTML = html;
+
+			// Setup copy button handlers
+			const copyButtons = licenseStatusDisplay.querySelectorAll('.btn-copy-key');
+			copyButtons.forEach(function(btn) {
+				btn.addEventListener('click', function(e) {
+					e.stopPropagation();
+					const key = btn.getAttribute('data-key');
+					if (key) {
+						navigator.clipboard.writeText(key).then(function() {
+							btn.textContent = '✓';
+							setTimeout(function() {
+								btn.textContent = '📋';
+							}, 1500);
+						}).catch(function() {
+							btn.textContent = '✗';
+							setTimeout(function() {
+								btn.textContent = '📋';
+							}, 1500);
+						});
+					}
+				});
+			});
+
+			// Setup deactivate device button handlers
+			const deactivateButtons = licenseStatusDisplay.querySelectorAll('.btn-deactivate-device');
+			deactivateButtons.forEach(function(btn) {
+				btn.addEventListener('click', async function(e) {
+					e.stopPropagation();
+					const licenseKey = btn.getAttribute('data-license-key');
+					const deviceId = btn.getAttribute('data-device-id');
+					
+					if (!confirm(`Are you sure you want to deactivate device "${deviceId}"?`)) {
+						return;
+					}
+
+					btn.disabled = true;
+					btn.textContent = 'Deactivating...';
+
+					try {
+						const result = await postJson('/api/device/deactivate', {
+							email: email,
+							licenseKey: licenseKey,
+							deviceId: deviceId
+						});
+
+						if (result.ok) {
+							// Reload license info
+							loadLicenseInfo();
+						} else {
+							alert('Failed to deactivate device: ' + (result.error || 'Unknown error'));
+							btn.disabled = false;
+							btn.textContent = 'Deactivate';
+						}
+					} catch (err) {
+						alert('Error deactivating device: ' + (err.message || 'Unknown error'));
+						btn.disabled = false;
+						btn.textContent = 'Deactivate';
+					}
+				});
+			});
+
+		} catch (err) {
+			console.error('Failed to load license info:', err);
+			licenseStatusDisplay.innerHTML = `<div class="license-error">Error loading license information: ${err.message || 'Unknown error'}</div>`;
+		}
+	}
+
+	function escapeHtml(text) {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
 	}
 
 	function updateUserUI(user) {

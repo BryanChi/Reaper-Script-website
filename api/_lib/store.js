@@ -238,10 +238,171 @@ async function verifyLicense(email, licenseKey) {
 	return { ok: true, status: 'inactive', reason: 'No trial or license' };
 }
 
+async function getLicenseInfo(email) {
+	const normalized = normalizeEmail(email);
+	if (!normalized) {
+		return { ok: false, error: 'Email required' };
+	}
+
+	if (!supabase) {
+		// Memory fallback - return basic info
+		const store = getMemoryStore();
+		const licenseEntry = Object.entries(store.licenses).find(([key, lic]) => lic.email === normalized && lic.status === 'active');
+		if (licenseEntry) {
+			const [licenseKey, lic] = licenseEntry;
+			return {
+				ok: true,
+				licenseKey,
+				status: 'active',
+				expiresAt: lic.expiresAt || null,
+				activations: [] // Memory store doesn't support activations
+			};
+		}
+		return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
+	}
+
+	// Get license info
+	const { data: licRows, error: licErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false })
+		.limit(1);
+
+	if (licErr || !licRows || licRows.length === 0) {
+		return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
+	}
+
+	const license = licRows[0];
+	const licenseKey = license.license_key;
+
+	// Get device activations for this license
+	const { data: activations, error: actErr } = await supabase
+		.from('device_activations')
+		.select('*')
+		.eq('license_key', licenseKey)
+		.eq('active', true)
+		.order('activated_at', { ascending: false });
+
+	return {
+		ok: true,
+		licenseKey,
+		status: 'active',
+		expiresAt: license.expires_at ? new Date(license.expires_at).getTime() : null,
+		activations: activations || []
+	};
+}
+
+async function activateDevice(email, licenseKey, deviceId) {
+	const normalized = normalizeEmail(email);
+	if (!normalized || !deviceId) {
+		return { ok: false, error: 'Email and device ID required' };
+	}
+
+	if (!supabase) {
+		return { ok: false, error: 'Device activation requires Supabase' };
+	}
+
+	// Verify license belongs to user
+	const { data: licRows, error: licErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('license_key', licenseKey)
+		.eq('status', 'active')
+		.single();
+
+	if (licErr || !licRows) {
+		return { ok: false, error: 'License not found or invalid' };
+	}
+
+	const now = Date.now();
+
+	// Check if device is already activated
+	const { data: existing, error: existErr } = await supabase
+		.from('device_activations')
+		.select('*')
+		.eq('license_key', licenseKey)
+		.eq('device_id', deviceId)
+		.single();
+
+	if (!existErr && existing) {
+		// Reactivate if inactive
+		if (!existing.active) {
+			const { error: updateErr } = await supabase
+				.from('device_activations')
+				.update({ active: true, activated_at: iso(now) })
+				.eq('id', existing.id);
+			if (updateErr) {
+				return { ok: false, error: updateErr.message || 'Failed to reactivate device' };
+			}
+		}
+		return { ok: true, message: 'Device already activated' };
+	}
+
+	// Create new activation
+	const { error: insertErr } = await supabase
+		.from('device_activations')
+		.insert({
+			license_key: licenseKey,
+			device_id: deviceId,
+			active: true,
+			activated_at: iso(now)
+		});
+
+	if (insertErr) {
+		return { ok: false, error: insertErr.message || 'Failed to activate device' };
+	}
+
+	return { ok: true, message: 'Device activated successfully' };
+}
+
+async function deactivateDevice(email, licenseKey, deviceId) {
+	const normalized = normalizeEmail(email);
+	if (!normalized || !deviceId) {
+		return { ok: false, error: 'Email and device ID required' };
+	}
+
+	if (!supabase) {
+		return { ok: false, error: 'Device deactivation requires Supabase' };
+	}
+
+	// Verify license belongs to user
+	const { data: licRows, error: licErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('license_key', licenseKey)
+		.eq('status', 'active')
+		.single();
+
+	if (licErr || !licRows) {
+		return { ok: false, error: 'License not found or invalid' };
+	}
+
+	// Deactivate device
+	const { error: updateErr } = await supabase
+		.from('device_activations')
+		.update({ active: false })
+		.eq('license_key', licenseKey)
+		.eq('device_id', deviceId)
+		.eq('active', true);
+
+	if (updateErr) {
+		return { ok: false, error: updateErr.message || 'Failed to deactivate device' };
+	}
+
+	return { ok: true, message: 'Device deactivated successfully' };
+}
+
 module.exports = {
 	startTrial,
 	activateLicense,
 	verifyLicense,
+	getLicenseInfo,
+	activateDevice,
+	deactivateDevice,
 	normalizeEmail
 };
 

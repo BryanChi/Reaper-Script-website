@@ -316,7 +316,9 @@ ul, ol {
 	border-radius: 12px;
 	padding: 10px;
 	box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-	min-width: 240px;
+	min-width: 320px;
+	max-width: 480px;
+	width: max-content;
 	z-index: 120;
 }
 
@@ -351,6 +353,242 @@ ul, ol {
 .user-menu-item:hover {
 	background: rgba(255, 255, 255, 0.08);
 	border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* License Management Section */
+.license-management-section {
+	margin: 12px 0;
+	padding: 12px;
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid var(--glass-border);
+	border-radius: 10px;
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+.license-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+
+.license-section-header h4 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.btn-refresh-license {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--glass-border);
+	color: var(--text-main);
+	padding: 4px 8px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-refresh-license:hover {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.16);
+}
+
+.license-status-display {
+	font-size: 13px;
+	color: var(--text-main);
+}
+
+.license-loading,
+.license-error {
+	padding: 8px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.license-error {
+	color: #ef4444;
+}
+
+.license-key-section {
+	margin-bottom: 12px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--glass-border);
+}
+
+.license-key-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-bottom: 6px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.license-key-value {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.license-key-code {
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid var(--glass-border);
+	border-radius: 6px;
+	padding: 6px 10px;
+	font-family: 'Courier New', monospace;
+	font-size: 12px;
+	color: var(--primary);
+	flex: 1;
+	word-break: break-all;
+}
+
+.btn-copy-key {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--glass-border);
+	color: var(--text-main);
+	padding: 6px 10px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: background 0.2s, border-color 0.2s;
+	flex-shrink: 0;
+}
+
+.btn-copy-key:hover {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.16);
+}
+
+.license-status-section {
+	margin-bottom: 12px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--glass-border);
+}
+
+.license-status-badge {
+	display: inline-block;
+	padding: 4px 10px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 6px;
+}
+
+.license-status-badge.status-active {
+	background: rgba(34, 197, 94, 0.15);
+	color: #22c55e;
+	border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.license-status-badge.status-inactive,
+.license-status-badge.status-trial,
+.license-status-badge.status-expired {
+	background: rgba(239, 68, 68, 0.15);
+	color: #ef4444;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.license-expiry {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+.license-no-key {
+	font-size: 12px;
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.device-activations-section {
+	margin-top: 12px;
+}
+
+.device-activations-header {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-main);
+	margin-bottom: 8px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.device-activations-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.device-activations-empty {
+	font-size: 11px;
+	color: var(--text-muted);
+	font-style: italic;
+	padding: 8px;
+	text-align: center;
+}
+
+.device-activation-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px;
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid var(--glass-border);
+	border-radius: 8px;
+	transition: background 0.2s, border-color 0.2s;
+}
+
+.device-activation-item:hover {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: rgba(255, 255, 255, 0.12);
+}
+
+.device-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.device-id {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-main);
+	margin-bottom: 4px;
+	word-break: break-all;
+}
+
+.device-activated-date {
+	font-size: 10px;
+	color: var(--text-muted);
+}
+
+.btn-deactivate-device {
+	background: rgba(239, 68, 68, 0.1);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	color: #ef4444;
+	padding: 6px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 11px;
+	font-weight: 500;
+	transition: background 0.2s, border-color 0.2s;
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.btn-deactivate-device:hover:not(:disabled) {
+	background: rgba(239, 68, 68, 0.2);
+	border-color: rgba(239, 68, 68, 0.5);
+}
+
+.btn-deactivate-device:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 @media (min-width: 768px) {

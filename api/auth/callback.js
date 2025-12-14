@@ -1,6 +1,11 @@
 // OAuth callback handler - receives Google OAuth callback and displays authorization code
 // This endpoint receives the OAuth callback from Google and redirects to a nice success page
 module.exports = async function handler(req, res) {
+	// Handle GET requests (OAuth callbacks are GET)
+	if (req.method !== 'GET') {
+		return res.status(405).json({ error: 'Method not allowed' });
+	}
+
 	const { code, error, state } = req.query;
 
 	if (error) {

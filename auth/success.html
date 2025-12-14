@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Login Successful - REAPER Script</title>
+	<link rel="stylesheet" href="../styles.css">
+	<style>
+		body {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			margin: 0;
+			background: linear-gradient(135deg, #07110c 0%, #0a1a12 100%);
+			font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+		}
+		.container {
+			background: rgba(255, 255, 255, 0.05);
+			backdrop-filter: blur(10px);
+			border-radius: 16px;
+			padding: 48px;
+			max-width: 600px;
+			width: 90%;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+		}
+		.success-icon {
+			width: 64px;
+			height: 64px;
+			margin: 0 auto 24px;
+			background: #289F81;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 32px;
+		}
+		h1 {
+			color: #fff;
+			text-align: center;
+			margin: 0 0 16px;
+			font-size: 28px;
+			font-weight: 700;
+		}
+		.subtitle {
+			color: rgba(255, 255, 255, 0.7);
+			text-align: center;
+			margin: 0 0 32px;
+			font-size: 16px;
+		}
+		.code-container {
+			background: rgba(0, 0, 0, 0.3);
+			border: 2px solid rgba(255, 255, 255, 0.1);
+			border-radius: 8px;
+			padding: 20px;
+			margin: 24px 0;
+			position: relative;
+		}
+		.code-label {
+			color: rgba(255, 255, 255, 0.6);
+			font-size: 12px;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			margin-bottom: 12px;
+		}
+		.code-value {
+			color: #289F81;
+			font-family: 'Courier New', monospace;
+			font-size: 18px;
+			word-break: break-all;
+			user-select: all;
+			cursor: text;
+			background: rgba(40, 159, 129, 0.1);
+			padding: 12px;
+			border-radius: 4px;
+		}
+		.copy-button {
+			width: 100%;
+			background: #289F81;
+			color: white;
+			border: none;
+			padding: 14px 24px;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s;
+			margin-top: 16px;
+		}
+		.copy-button:hover {
+			background: #2fb896;
+			transform: translateY(-1px);
+		}
+		.copy-button:active {
+			transform: translateY(0);
+		}
+		.copy-button.copied {
+			background: #4CAF50;
+		}
+		.instructions {
+			color: rgba(255, 255, 255, 0.8);
+			font-size: 14px;
+			line-height: 1.6;
+			margin-top: 24px;
+			padding: 16px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 8px;
+		}
+		.instructions ol {
+			margin: 12px 0;
+			padding-left: 20px;
+		}
+		.instructions li {
+			margin: 8px 0;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="success-icon">✓</div>
+		<h1>Login Successful!</h1>
+		<p class="subtitle">Your Google account has been authenticated</p>
+		
+		<div class="code-container">
+			<div class="code-label">Authorization Code</div>
+			<div class="code-value" id="authCode">Loading...</div>
+		</div>
+		
+		<button class="copy-button" id="copyButton" onclick="copyCode()">Copy Code</button>
+		
+		<div class="instructions">
+			<strong>Next steps:</strong>
+			<ol>
+				<li>Click "Copy Code" above (or select and copy the code manually)</li>
+				<li>Return to REAPER</li>
+				<li>Paste the code into the "Submit Code" field</li>
+				<li>Click "Submit Code" to complete authentication</li>
+			</ol>
+		</div>
+	</div>
+
+	<script>
+		// Get authorization code from URL
+		const urlParams = new URLSearchParams(window.location.search);
+		const code = urlParams.get('code');
+		
+		if (code) {
+			document.getElementById('authCode').textContent = code;
+		} else {
+			document.getElementById('authCode').textContent = 'No code found';
+			document.getElementById('copyButton').disabled = true;
+		}
+		
+		function copyCode() {
+			const codeElement = document.getElementById('authCode');
+			const code = codeElement.textContent;
+			
+			// Copy to clipboard
+			navigator.clipboard.writeText(code).then(() => {
+				const button = document.getElementById('copyButton');
+				const originalText = button.textContent;
+				button.textContent = '✓ Copied!';
+				button.classList.add('copied');
+				
+				setTimeout(() => {
+					button.textContent = originalText;
+					button.classList.remove('copied');
+				}, 2000);
+			}).catch(err => {
+				// Fallback for older browsers
+				const textArea = document.createElement('textarea');
+				textArea.value = code;
+				document.body.appendChild(textArea);
+				textArea.select();
+				document.execCommand('copy');
+				document.body.removeChild(textArea);
+				
+				const button = document.getElementById('copyButton');
+				button.textContent = '✓ Copied!';
+				button.classList.add('copied');
+				setTimeout(() => {
+					button.textContent = 'Copy Code';
+					button.classList.remove('copied');
+				}, 2000);
+			});
+		}
+		
+		// Auto-select code on click
+		document.getElementById('authCode').addEventListener('click', function() {
+			const range = document.createRange();
+			range.selectNodeContents(this);
+			const selection = window.getSelection();
+			selection.removeAllRanges();
+			selection.addRange(range);
+		});
+	</script>
+</body>
+</html>

@@ -56,6 +56,17 @@
 	let authMode = 'signin';
 	let supabaseClient = null;
 	let currentUser = null;
+	let userMenuHTML = null; // Store user menu HTML for recreation
+
+	// Helper functions to get user menu elements (they may be removed/recreated)
+	function getUserMenu() { return document.getElementById('userMenu'); }
+	function getUserMenuButton() { return document.getElementById('userMenuButton'); }
+	function getUserMenuPanel() { return document.getElementById('userMenuPanel'); }
+	function getLogoutButton() { return document.getElementById('logoutButton'); }
+	function getUserEmailDisplay() { return document.getElementById('userEmailDisplay'); }
+	function getUserEmailFull() { return document.getElementById('userEmailFull'); }
+	function getUserAvatar() { return document.getElementById('userAvatar'); }
+	function getUserAvatarSmall() { return document.getElementById('userAvatarSmall'); }
 
 	function createSupabaseClient() {
 		if (!window.supabase || !authConfig.supabaseUrl || !authConfig.supabaseAnonKey) {
@@ -109,6 +120,58 @@
 		return email.charAt(0).toUpperCase();
 	}
 
+	function recreateUserMenu() {
+		const authControls = document.querySelector('.auth-controls');
+		if (!authControls || userMenuHTML === null) return;
+		
+		// Create a temporary container to parse HTML
+		const temp = document.createElement('div');
+		temp.innerHTML = userMenuHTML;
+		const newUserMenu = temp.firstElementChild;
+		
+		// Insert before the Buy Now button (or at end of auth-controls)
+		authControls.insertBefore(newUserMenu, authControls.querySelector('.buy-now') || null);
+		
+		// Reattach event listeners
+		setupUserMenuListeners();
+	}
+
+	function setupUserMenuListeners() {
+		const menuButton = getUserMenuButton();
+		const menuPanel = getUserMenuPanel();
+		const logoutBtn = getLogoutButton();
+		
+		if (menuButton && menuPanel) {
+			menuButton.addEventListener('click', function(e) {
+				e.stopPropagation();
+				menuPanel.hidden = !menuPanel.hidden;
+			});
+
+			document.addEventListener('click', function(e) {
+				if (menuPanel.hidden) return;
+				if (!menuPanel.contains(e.target) && !menuButton.contains(e.target)) {
+					menuPanel.hidden = true;
+				}
+			});
+		}
+
+		if (logoutBtn) {
+			logoutBtn.addEventListener('click', async function() {
+				if (!supabaseClient) {
+					updateUserUI(null);
+					return;
+				}
+				try {
+					await supabaseClient.auth.signOut();
+				} catch (err) {
+					console.error('Sign out failed:', err);
+				} finally {
+					updateUserUI(null);
+				}
+			});
+		}
+	}
+
 	function updateUserUI(user) {
 		currentUser = user || null;
 		const email = user?.email || '';
@@ -117,21 +180,50 @@
 		if (loginButton) {
 			loginButton.style.display = hasUser ? 'none' : 'inline-flex';
 		}
-		if (userMenu) {
-			userMenu.hidden = !hasUser;
+		
+		const currentUserMenu = getUserMenu();
+		
+		// Store user menu HTML on first access if not already stored
+		if (currentUserMenu && userMenuHTML === null) {
+			userMenuHTML = currentUserMenu.outerHTML;
 		}
-		if (userMenuPanel) {
-			userMenuPanel.hidden = true;
+		
+		if (currentUserMenu) {
+			if (hasUser) {
+				// Show user menu if user is signed in
+				currentUserMenu.hidden = false;
+			} else {
+				// Remove user menu from DOM if user is not signed in
+				currentUserMenu.remove();
+			}
+		} else if (hasUser && userMenuHTML) {
+			// Recreate user menu if user signed in and it was removed
+			recreateUserMenu();
 		}
-		if (userEmailDisplay) {
-			userEmailDisplay.textContent = email || '';
+		
+		// Update user menu content if it exists
+		const menu = getUserMenu();
+		if (menu && hasUser) {
+			const menuPanel = getUserMenuPanel();
+			const emailDisplay = getUserEmailDisplay();
+			const emailFull = getUserEmailFull();
+			const avatar = getUserAvatar();
+			const avatarSmall = getUserAvatarSmall();
+			
+			if (menuPanel) {
+				menuPanel.hidden = true;
+			}
+			if (emailDisplay) {
+				emailDisplay.textContent = email || '';
+			}
+			if (emailFull) {
+				emailFull.textContent = email || '';
+			}
+			const initials = userInitials(user);
+			if (avatar) avatar.textContent = initials;
+			if (avatarSmall) avatarSmall.textContent = initials;
 		}
-		if (userEmailFull) {
-			userEmailFull.textContent = email || '';
-		}
-		const initials = userInitials(user);
-		if (userAvatar) userAvatar.textContent = initials;
-		if (userAvatarSmall) userAvatarSmall.textContent = initials;
+		
 		updateLicenseUserText(user);
 		if (!hasUser) {
 			setBadge('inactive', 'Sign in to start a trial or check your license.');
@@ -271,35 +363,8 @@
 			});
 		}
 
-		if (userMenuButton && userMenuPanel) {
-			userMenuButton.addEventListener('click', function(e) {
-				e.stopPropagation();
-				userMenuPanel.hidden = !userMenuPanel.hidden;
-			});
-
-			document.addEventListener('click', function(e) {
-				if (userMenuPanel.hidden) return;
-				if (!userMenuPanel.contains(e.target) && !userMenuButton.contains(e.target)) {
-					userMenuPanel.hidden = true;
-				}
-			});
-		}
-
-		if (logoutButton) {
-			logoutButton.addEventListener('click', async function() {
-				if (!supabaseClient) {
-					updateUserUI(null);
-					return;
-				}
-				try {
-					await supabaseClient.auth.signOut();
-				} catch (err) {
-					console.error('Sign out failed:', err);
-				} finally {
-					updateUserUI(null);
-				}
-			});
-		}
+		// Setup user menu listeners (will be called on initial load and after recreation)
+		setupUserMenuListeners();
 	}
 
 	setupAuthUI();

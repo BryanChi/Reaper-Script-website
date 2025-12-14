@@ -132,6 +132,10 @@
 		const initials = userInitials(user);
 		if (userAvatar) userAvatar.textContent = initials;
 		if (userAvatarSmall) userAvatarSmall.textContent = initials;
+		updateLicenseUserText(user);
+		if (!hasUser) {
+			setBadge('inactive', 'Sign in to start a trial or check your license.');
+		}
 		if (!hasUser && authModal) {
 			hideAuthModal();
 		}
@@ -143,6 +147,9 @@
 			const { data, error } = await supabaseClient.auth.getSession();
 			if (error) throw error;
 			updateUserUI(data?.session?.user || null);
+			if (data?.session?.user) {
+				refreshLicenseStatus({ targetMessage: licenseMessage });
+			}
 		} catch (err) {
 			console.error('Failed to get session:', err);
 			updateUserUI(null);
@@ -152,6 +159,7 @@
 			updateUserUI(session?.user || null);
 			if (session?.user) {
 				hideAuthModal();
+				refreshLicenseStatus({ targetMessage: licenseMessage });
 			}
 		});
 	}
@@ -858,6 +866,8 @@
 	const trialMessage = document.getElementById('trialMessage');
 	const licenseMessage = document.getElementById('licenseMessage');
 	const paypalContainer = document.getElementById('paypal-button-container');
+	const trialUserLine = document.getElementById('trialUserLine');
+	const licenseUserLine = document.getElementById('licenseUserLine');
 
 	function setText(el, text) {
 		if (el) el.textContent = text || '';
@@ -881,6 +891,33 @@
 		}
 		licenseStatusEl.textContent = label;
 		licenseDetailEl.textContent = detail || 'Start a trial or check a license to see status.';
+	}
+
+	function getSignedInEmail() {
+		return currentUser?.email || '';
+	}
+
+	function updateLicenseUserText(user) {
+		const email = user?.email || '';
+		if (trialUserLine) {
+			trialUserLine.textContent = email
+				? `Signed in as ${email}`
+				: 'Sign in to link the trial to your account.';
+		}
+		if (licenseUserLine) {
+			licenseUserLine.textContent = email
+				? `Signed in as ${email}`
+				: 'Sign in to check or activate your access.';
+		}
+	}
+
+	function requireUserEmail(messageEl) {
+		const email = getSignedInEmail();
+		if (email) return email;
+		if (messageEl) setText(messageEl, 'Sign in with Google or email to continue.');
+		setBadge('inactive', 'Sign in to manage your license.');
+		openAuthModal();
+		return null;
 	}
 
 	function prettyExpiry(ts) {
@@ -913,15 +950,40 @@
 		}
 	}
 
+	async function refreshLicenseStatus(options) {
+		const targetMessage = options && options.targetMessage ? options.targetMessage : licenseMessage;
+		const email = requireUserEmail(targetMessage);
+		if (!email) return;
+
+		try {
+			const res = await postJson('/api/license/verify', { email });
+			const expiry = prettyExpiry(res.expiresAt);
+			let detail = '';
+			if (res.status === 'active') {
+				detail = expiry ? `License active · Expires ${expiry}` : 'License active.';
+			} else if (res.status === 'trial') {
+				detail = expiry ? `Trial active until ${expiry}.` : 'Trial active.';
+			} else if (res.status === 'expired') {
+				detail = expiry ? `Trial expired on ${expiry}.` : 'Trial expired.';
+			} else {
+				detail = res.reason || 'No active license or trial.';
+			}
+			setText(targetMessage, detail);
+			setBadge(res.status, detail);
+		} catch (err) {
+			const msg = err.message || 'Unable to verify.';
+			setText(targetMessage, msg);
+			setBadge('inactive', msg);
+		}
+	}
+
 	function wireLicensingForms() {
 		const trialForm = document.getElementById('trialForm');
-		const trialEmail = document.getElementById('trialEmail');
 		const trialSubmit = document.getElementById('trialSubmit');
-
-		if (trialForm && trialEmail && trialSubmit) {
+		if (trialForm && trialSubmit) {
 			trialForm.addEventListener('submit', async function(e) {
 				e.preventDefault();
-				const email = (trialEmail.value || '').trim();
+				const email = requireUserEmail(trialMessage);
 				if (!email) return;
 				trialSubmit.disabled = true;
 				trialSubmit.textContent = 'Working...';
@@ -931,6 +993,8 @@
 					const expiry = prettyExpiry(res.expiresAt);
 					setText(trialMessage, res.message + (expiry ? ` · Expires: ${expiry}` : ''));
 					setBadge(res.status, expiry ? `Expires on ${expiry}` : 'Trial created.');
+					// Refresh status panel
+					refreshLicenseStatus({ targetMessage: licenseMessage });
 				} catch (err) {
 					const msg = err.message || 'Unable to start trial.';
 					setText(trialMessage, msg);
@@ -943,72 +1007,28 @@
 		}
 
 		const licenseForm = document.getElementById('licenseForm');
-		const licenseEmail = document.getElementById('licenseEmail');
-		const licenseKey = document.getElementById('licenseKey');
 		const licenseSubmit = document.getElementById('licenseSubmit');
-		const licenseCheck = document.getElementById('licenseCheck');
 
-		async function handleVerify(includeKey) {
-			const email = (licenseEmail && licenseEmail.value || '').trim();
-			const key = (licenseKey && licenseKey.value || '').trim();
-			if (!email) {
-				setText(licenseMessage, 'Email is required.');
-				return;
-			}
-			try {
-				const res = await postJson('/api/license/verify', { email, licenseKey: includeKey ? key : undefined });
-				const expiry = prettyExpiry(res.expiresAt);
-				let detail = '';
-				if (res.status === 'active') {
-					detail = 'License active.';
-				} else if (res.status === 'trial') {
-					detail = expiry ? `Trial active until ${expiry}.` : 'Trial active.';
-				} else if (res.status === 'expired') {
-					detail = expiry ? `Trial expired on ${expiry}.` : 'Trial expired.';
-				} else {
-					detail = res.reason || 'No active license or trial.';
-				}
-				setText(licenseMessage, detail);
-				setBadge(res.status, detail);
-			} catch (err) {
-				const msg = err.message || 'Unable to verify.';
-				setText(licenseMessage, msg);
-				setBadge('inactive', msg);
-			}
+		async function handleVerify() {
+			await refreshLicenseStatus({ targetMessage: licenseMessage });
 		}
 
-		if (licenseForm && licenseEmail && licenseKey && licenseSubmit) {
+		if (licenseForm && licenseSubmit) {
 			licenseForm.addEventListener('submit', async function(e) {
 				e.preventDefault();
-				const email = (licenseEmail.value || '').trim();
-				const key = (licenseKey.value || '').trim();
-				if (!email || !key) {
-					setText(licenseMessage, 'Email and license key are required.');
-					return;
-				}
 				licenseSubmit.disabled = true;
-				licenseSubmit.textContent = 'Activating...';
+				licenseSubmit.textContent = 'Checking...';
 				setText(licenseMessage, '');
 				try {
-					const res = await postJson('/api/license/activate', { email, licenseKey: key });
-					const expiry = prettyExpiry(res.expiresAt);
-					const msg = `License activated${expiry ? ` · Expires ${expiry}` : ''}.`;
-					setText(licenseMessage, msg);
-					setBadge('active', msg);
+					await handleVerify();
 				} catch (err) {
 					const msg = err.message || 'Unable to activate.';
 					setText(licenseMessage, msg);
 					setBadge('inactive', msg);
 				} finally {
 					licenseSubmit.disabled = false;
-					licenseSubmit.textContent = 'Activate';
+					licenseSubmit.textContent = 'Check status';
 				}
-			});
-		}
-
-		if (licenseCheck) {
-			licenseCheck.addEventListener('click', function() {
-				handleVerify(true);
 			});
 		}
 	}
@@ -1300,12 +1320,16 @@
 				label: 'paypal'
 			},
 			createOrder: function(data, actions) {
-				const emailInput = document.getElementById('licenseEmail') || document.getElementById('trialEmail');
-				const email = emailInput ? (emailInput.value || '').trim() : '';
+				const email = getSignedInEmail();
+				if (!email) {
+					showError('Please sign in before purchasing so we can link your license.');
+					openAuthModal();
+					return Promise.reject(new Error('Sign-in required'));
+				}
 				return actions.order.create({
 					purchase_units: [{
 						amount: { value: '19.00', currency_code: 'USD' },
-						custom_id: email || 'no-email',
+						custom_id: email,
 						description: 'Vertical FX List for REAPER - Lifetime License'
 					}]
 				});
@@ -1332,6 +1356,7 @@
 
 					hideLoadingState();
 					showSuccessModal(customerEmail, backendResponse && backendResponse.licenseKey);
+					refreshLicenseStatus({ targetMessage: licenseMessage });
 					
 				}).catch(function(error) {
 					console.error('Payment capture error:', error);

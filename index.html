@@ -398,26 +398,21 @@
 			<div class="container license-grid">
 				<div class="license-card">
 					<h3>Start your 14-day free trial</h3>
-					<p class="lead-text">Enter your email to unlock the script for two weeks. No card required.</p>
+					<p class="lead-text">Sign in with Google or email to link the trial to your account. No card required.</p>
 					<form id="trialForm" class="license-form">
-						<label for="trialEmail" class="sr-only">Email</label>
-						<input id="trialEmail" name="email" type="email" placeholder="you@example.com" required="" autocomplete="email">
+						<p class="tiny muted" id="trialUserLine">Sign in to link the trial to your account.</p>
 						<button class="btn btn-primary" type="submit" id="trialSubmit">Start trial</button>
 						<p class="tiny muted" id="trialMessage"></p>
 					</form>
 				</div>
 
 				<div class="license-card">
-					<h3>Activate or check a license</h3>
-					<p class="lead-text">Paste the license key from your purchase email. You can also re-check status anytime.</p>
+					<h3>Check your access</h3>
+					<p class="lead-text">We’ll check your license or trial using your signed-in account. No license key needed.</p>
 					<form id="licenseForm" class="license-form">
-						<label for="licenseEmail" class="sr-only">Email</label>
-						<input id="licenseEmail" name="email" type="email" placeholder="you@example.com" required="" autocomplete="email">
-						<label for="licenseKey" class="sr-only">License key</label>
-						<input id="licenseKey" name="licenseKey" type="text" placeholder="XXXX-XXXX" required="" autocomplete="off">
+						<p class="tiny muted" id="licenseUserLine">Sign in to check your access.</p>
 						<div class="license-actions">
-							<button class="btn btn-primary" type="submit" id="licenseSubmit">Activate</button>
-							<button class="btn btn-secondary" type="button" id="licenseCheck">Check status</button>
+							<button class="btn btn-primary" type="submit" id="licenseSubmit">Check status</button>
 						</div>
 						<p class="tiny muted" id="licenseMessage"></p>
 					</form>

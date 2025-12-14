@@ -88,11 +88,22 @@ async function memVerifyLicense(email, licenseKey) {
 		return { ok: false, status: 'invalid', reason: 'Email required' };
 	}
 
-	if (licenseKey) {
-		const lic = store.licenses[licenseKey];
-		if (lic && lic.email === normalized && lic.status === 'active' && (!lic.expiresAt || now < lic.expiresAt)) {
-			return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, licenseKey };
+	// Find any active license linked to this email (license key optional)
+	let matchedKey = null;
+	const licenseEntry = Object.entries(store.licenses).find(([key, lic]) => {
+		const isOwner = lic.email === normalized;
+		const isActive = lic.status === 'active';
+		const notExpired = !lic.expiresAt || now < lic.expiresAt;
+		if (isOwner && isActive && notExpired) {
+			matchedKey = key;
+			return true;
 		}
+		return false;
+	});
+
+	if (licenseEntry) {
+		const [, lic] = licenseEntry;
+		return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, licenseKey: matchedKey };
 	}
 
 	const trial = store.trials[normalized];
@@ -192,19 +203,20 @@ async function verifyLicense(email, licenseKey) {
 		return memVerifyLicense(email, licenseKey);
 	}
 
-	// Check license
-	if (licenseKey) {
-		const { data: lic, error: licErr } = await supabase
-			.from('licenses')
-			.select('*')
-			.eq('license_key', licenseKey)
-			.single();
+	// Look up any active license for this email; license key is optional now
+	const { data: licRows, error: licErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false })
+		.limit(1);
 
-		if (!licErr && lic && lic.email === normalized && lic.status === 'active') {
-			const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
-			if (!exp || now < exp) {
-				return { ok: true, status: 'active', expiresAt: exp, licenseKey };
-			}
+	if (!licErr && Array.isArray(licRows) && licRows.length > 0) {
+		const lic = licRows[0];
+		const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
+		if (!exp || now < exp) {
+			return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key || licenseKey || null };
 		}
 	}
 

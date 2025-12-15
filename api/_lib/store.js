@@ -209,6 +209,91 @@ async function verifyLicense(licenseKey, deviceId) {
 	return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key };
 }
 
+async function getLicenseOrTrialStatus(email) {
+	const normalized = normalizeEmail(email);
+	if (!normalized) {
+		return { ok: false, status: 'inactive', reason: 'Email required' };
+	}
+
+	const now = Date.now();
+
+	if (!supabase) {
+		// Memory fallback - check license first, then trial
+		const store = getMemoryStore();
+		const licenseEntry = Object.entries(store.licenses).find(([key, lic]) => lic.email === normalized && lic.status === 'active');
+		if (licenseEntry) {
+			const [licenseKey, lic] = licenseEntry;
+			const notExpired = !lic.expiresAt || now < lic.expiresAt;
+			if (notExpired) {
+				return {
+					ok: true,
+					status: 'active',
+					expiresAt: lic.expiresAt || null,
+					licenseKey: licenseKey
+				};
+			}
+			return { ok: false, status: 'expired', reason: 'License expired' };
+		}
+
+		// Check trial
+		const trial = store.trials[normalized];
+		if (trial) {
+			const active = now < trial.expiresAt;
+			return {
+				ok: true,
+				status: active ? 'trial' : 'expired',
+				expiresAt: trial.expiresAt,
+				reason: active ? null : 'Trial expired'
+			};
+		}
+
+		return { ok: false, status: 'inactive', reason: 'No active license or trial' };
+	}
+
+	// Check for active license first
+	const { data: licRows, error: licErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false })
+		.limit(1);
+
+	if (!licErr && licRows && licRows.length > 0) {
+		const license = licRows[0];
+		const exp = license.expires_at ? new Date(license.expires_at).getTime() : null;
+		if (!exp || now < exp) {
+			return {
+				ok: true,
+				status: 'active',
+				expiresAt: exp,
+				licenseKey: license.license_key
+			};
+		}
+		return { ok: false, status: 'expired', reason: 'License expired', expiresAt: exp };
+	}
+
+	// Check for trial
+	const { data: trialRow, error: trialErr } = await supabase
+		.from('trials')
+		.select('*')
+		.eq('email', normalized)
+		.single();
+
+	if (!trialErr && trialRow) {
+		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
+		const active = now < expiresAt;
+		return {
+			ok: true,
+			status: active ? 'trial' : 'expired',
+			expiresAt: expiresAt,
+			reason: active ? null : 'Trial expired'
+		};
+	}
+
+	return { ok: false, status: 'inactive', reason: 'No active license or trial' };
+}
+
 async function getLicenseInfo(email) {
 	const normalized = normalizeEmail(email);
 	if (!normalized) {
@@ -372,6 +457,7 @@ module.exports = {
 	activateLicense,
 	verifyLicense,
 	getLicenseInfo,
+	getLicenseOrTrialStatus,
 	activateDevice,
 	deactivateDevice,
 	normalizeEmail

@@ -449,10 +449,11 @@
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${started}</td>
 						<td>${expires}</td>
-						<td class="actions">
-							<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}')">Edit</button>
-							<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}')">Regenerate Key</button>
-						</td>
+					<td class="actions">
+						<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}')">Edit</button>
+						<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}')">Regenerate Key</button>
+						<button class="btn btn-danger" onclick="deleteTrial('${escapeHtml(trial.email)}')">Delete</button>
+					</td>
 					</tr>
 				`;
 			}).join('');
@@ -535,6 +536,33 @@
 					loadTrials();
 				} else {
 					showMessage(data.error || 'Failed to regenerate key', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Error: ' + err.message, 'error');
+			});
+		}
+
+		function deleteTrial(email) {
+			if (!confirm(`Are you sure you want to delete the trial for ${email}? This will completely remove the trial entry and allow them to start a fresh trial. This action cannot be undone.`)) {
+				return;
+			}
+
+			fetch('/api/admin?action=trial-delete', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ email, action: 'trial-delete' })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					showMessage('Trial deleted successfully. The user can now start a fresh trial.', 'success');
+					loadTrials();
+				} else {
+					showMessage(data.error || 'Failed to delete trial', 'error');
 				}
 			})
 			.catch(err => {

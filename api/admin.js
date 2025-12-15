@@ -336,5 +336,43 @@ module.exports = async function handler(req, res) {
 		return res.status(200).json({ ok: true, newLicenseKey });
 	}
 
+	// Handle POST /api/admin/trial/delete
+	if (action === 'trial-delete') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+
+		const { email } = body || {};
+
+		if (!email) {
+			return res.status(400).json({ ok: false, error: 'Email required' });
+		}
+
+		const normalizedEmail = email.toLowerCase().trim();
+		const supabase = getSupabaseClient();
+		
+		if (!supabase) {
+			const store = getMemoryStore() || global.__licenseStore;
+			if (store && store.trials && store.trials[normalizedEmail]) {
+				delete store.trials[normalizedEmail];
+				return res.status(200).json({ ok: true, message: 'Trial deleted successfully' });
+			}
+			return res.status(404).json({ ok: false, error: 'Trial not found' });
+		}
+
+		// Delete the trial entry
+		const { error: deleteError } = await supabase
+			.from('trials')
+			.delete()
+			.eq('email', normalizedEmail);
+
+		if (deleteError) {
+			return res.status(500).json({ ok: false, error: deleteError.message });
+		}
+
+		return res.status(200).json({ ok: true, message: 'Trial deleted successfully' });
+	}
+
 	return res.status(404).json({ ok: false, error: 'Action not found' });
 };

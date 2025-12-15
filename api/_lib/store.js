@@ -138,14 +138,25 @@ async function startTrial(email) {
 	if (!trialErr && trialRow) {
 		const active = now < new Date(trialRow.expires_at || trialRow.expiresAt || 0).getTime();
 		// Generate license key if it doesn't exist (for existing trials)
-		let licenseKey = trialRow.license_key;
+		let licenseKey = trialRow.license_key || null;
 		if (!licenseKey) {
 			licenseKey = generateLicenseKey();
-			// Update the trial with the license key
-			await supabase
+			// Try to update the trial with the license key
+			const { error: updateErr } = await supabase
 				.from('trials')
 				.update({ license_key: licenseKey })
 				.eq('email', normalized);
+			
+			// If update fails due to missing column, return error with helpful message
+			if (updateErr) {
+				const errorMsg = updateErr.message || '';
+				if (errorMsg.includes('license_key') && (errorMsg.includes('schema cache') || errorMsg.includes('column'))) {
+					return { 
+						ok: false, 
+						error: `Database schema error: The 'license_key' column does not exist in the 'trials' table. Please add this column to your Supabase database. Run this SQL: ALTER TABLE trials ADD COLUMN license_key TEXT;` 
+					};
+				}
+			}
 		}
 		return {
 			ok: true,
@@ -164,6 +175,14 @@ async function startTrial(email) {
 		.single();
 
 	if (insertErr) {
+		const errorMsg = insertErr.message || '';
+		// Check if error is about missing license_key column
+		if (errorMsg.includes('license_key') && (errorMsg.includes('schema cache') || errorMsg.includes('column'))) {
+			return { 
+				ok: false, 
+				error: `Database schema error: The 'license_key' column does not exist in the 'trials' table. Please add this column to your Supabase database. Run this SQL: ALTER TABLE trials ADD COLUMN license_key TEXT;` 
+			};
+		}
 		return { ok: false, error: insertErr.message || 'Unable to start trial' };
 	}
 
@@ -232,11 +251,23 @@ async function verifyLicense(licenseKey, deviceId) {
 	}
 
 	// If not found in licenses, check if it's a trial license key
+	// Note: This query will fail if license_key column doesn't exist, but that's okay
+	// as it means no trials have license keys yet
 	const { data: trialRow, error: trialErr } = await supabase
 		.from('trials')
 		.select('*')
 		.eq('license_key', licenseKey)
 		.single();
+
+	// If error is about missing column, just treat as license not found
+	if (trialErr) {
+		const errorMsg = trialErr.message || '';
+		if (errorMsg.includes('license_key') && (errorMsg.includes('schema cache') || errorMsg.includes('column'))) {
+			// Column doesn't exist, so this license key can't be a trial key
+			return { ok: false, status: 'invalid', reason: 'License not found or inactive' };
+		}
+		// Other errors (like not found) are fine, just continue
+	}
 
 	if (!trialErr && trialRow) {
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();

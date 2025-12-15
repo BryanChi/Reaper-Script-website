@@ -295,10 +295,11 @@
 					btn.textContent = 'Deactivating...';
 
 					try {
-						const result = await postJson('/api/device/deactivate', {
+						const result = await postJson('/api/device?action=deactivate', {
 							email: email,
 							licenseKey: licenseKey,
-							deviceId: deviceId
+							deviceId: deviceId,
+							action: 'deactivate'
 						});
 
 						if (result.ok) {

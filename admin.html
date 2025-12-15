@@ -338,10 +338,10 @@
 				return;
 			}
 
-			fetch('/api/admin/auth', {
+			fetch('/api/admin?action=auth', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password })
+				body: JSON.stringify({ password, action: 'auth' })
 			})
 			.then(r => r.json())
 			.then(data => {
@@ -369,7 +369,7 @@
 		}
 
 		function loadLicenses() {
-			fetch('/api/admin/licenses', {
+			fetch('/api/admin?action=licenses', {
 				headers: { 'Authorization': `Bearer ${adminToken}` }
 			})
 			.then(r => r.json())
@@ -386,7 +386,7 @@
 		}
 
 		function loadTrials() {
-			fetch('/api/admin/trials', {
+			fetch('/api/admin?action=trials', {
 				headers: { 'Authorization': `Bearer ${adminToken}` }
 			})
 			.then(r => r.json())
@@ -493,13 +493,13 @@
 				return;
 			}
 
-			fetch('/api/admin/license/regenerate', {
+			fetch('/api/admin?action=license-regenerate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${adminToken}`
 				},
-				body: JSON.stringify({ licenseKey })
+				body: JSON.stringify({ licenseKey, action: 'license-regenerate' })
 			})
 			.then(r => r.json())
 			.then(data => {
@@ -520,13 +520,13 @@
 				return;
 			}
 
-			fetch('/api/admin/trial/regenerate', {
+			fetch('/api/admin?action=trial-regenerate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${adminToken}`
 				},
-				body: JSON.stringify({ email })
+				body: JSON.stringify({ email, action: 'trial-regenerate' })
 			})
 			.then(r => r.json())
 			.then(data => {
@@ -547,7 +547,7 @@
 				const email = document.getElementById('editEmail').value;
 				const status = document.getElementById('editStatus').value;
 
-				fetch('/api/admin/license/update', {
+				fetch('/api/admin?action=license-update', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -556,7 +556,8 @@
 					body: JSON.stringify({
 						licenseKey: currentEditId,
 						email,
-						status
+						status,
+						action: 'license-update'
 					})
 				})
 				.then(r => r.json())
@@ -579,7 +580,7 @@
 					return;
 				}
 
-				fetch('/api/admin/trial/update', {
+				fetch('/api/admin?action=trial-update', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -587,7 +588,8 @@
 					},
 					body: JSON.stringify({
 						email: currentEditId,
-						expiresAt: new Date(expiresAt).toISOString()
+						expiresAt: new Date(expiresAt).toISOString(),
+						action: 'trial-update'
 					})
 				})
 				.then(r => r.json())

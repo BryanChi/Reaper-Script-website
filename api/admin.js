@@ -302,15 +302,35 @@ module.exports = async function handler(req, res) {
 			return res.status(404).json({ ok: false, error: 'Trial not found' });
 		}
 
+		// First, check if the trial exists and get current data
+		const { data: existingTrial, error: fetchError } = await supabase
+			.from('trials')
+			.select('*')
+			.eq('email', normalizedEmail)
+			.single();
+
+		if (fetchError || !existingTrial) {
+			return res.status(404).json({ ok: false, error: 'Trial not found' });
+		}
+
 		const newLicenseKey = generateLicenseKey();
 
-		const { error } = await supabase
+		// Try to update with license_key
+		const { error: updateError } = await supabase
 			.from('trials')
 			.update({ license_key: newLicenseKey })
 			.eq('email', normalizedEmail);
 
-		if (error) {
-			return res.status(500).json({ ok: false, error: error.message });
+		if (updateError) {
+			// Check if error is about missing license_key column
+			const errorMsg = updateError.message || '';
+			if (errorMsg.includes('license_key') && (errorMsg.includes('schema cache') || errorMsg.includes('column'))) {
+				return res.status(500).json({ 
+					ok: false, 
+					error: `Database schema error: The 'license_key' column does not exist in the 'trials' table. Please add this column to your Supabase database. Run this SQL: ALTER TABLE trials ADD COLUMN license_key TEXT;` 
+				});
+			}
+			return res.status(500).json({ ok: false, error: updateError.message });
 		}
 
 		return res.status(200).json({ ok: true, newLicenseKey });

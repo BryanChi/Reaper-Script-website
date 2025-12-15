@@ -64,3 +64,12 @@ The admin password should **always** be stored as an environment variable, never
 - Verify you're using the correct password from your environment variables
 - Check for extra spaces or special characters
 - Make sure you're using the password from the correct environment (dev vs prod)
+
+**"Could not find the 'license_key' column" error when regenerating trial keys:**
+- This error occurs when the `trials` table in your Supabase database is missing the `license_key` column
+- To fix this, run the following SQL in your Supabase SQL Editor:
+  ```sql
+  ALTER TABLE trials ADD COLUMN IF NOT EXISTS license_key TEXT;
+  ```
+- After adding the column, the regenerate trial key feature should work correctly
+- Note: The `license_key` column is required for trials to function properly with the admin panel

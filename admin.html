@@ -364,8 +364,21 @@
 			document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 			document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
 			
-			event.target.classList.add('active');
+			// Find and activate the correct tab button
+			document.querySelectorAll('.tab').forEach(t => {
+				if (t.textContent.trim().toLowerCase() === tab + 's') {
+					t.classList.add('active');
+				}
+			});
+			
 			document.getElementById(tab + 'Tab').classList.add('active');
+			
+			// Reload data when switching tabs
+			if (tab === 'licenses') {
+				loadLicenses();
+			} else if (tab === 'trials') {
+				loadTrials();
+			}
 		}
 
 		function loadLicenses() {
@@ -420,10 +433,11 @@
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${created}</td>
 						<td>${expires}</td>
-						<td class="actions">
-							<button class="btn btn-secondary" onclick="editLicense('${lic.license_key}', '${escapeHtml(lic.email)}', '${status}')">Edit</button>
-							<button class="btn btn-primary" onclick="regenerateLicenseKey('${lic.license_key}')">Regenerate Key</button>
-						</td>
+					<td class="actions">
+						<button class="btn btn-secondary" onclick="editLicense('${lic.license_key}', '${escapeHtml(lic.email)}', '${status}')">Edit</button>
+						<button class="btn btn-primary" onclick="regenerateLicenseKey('${lic.license_key}')">Regenerate Key</button>
+						<button class="btn btn-danger" onclick="deleteLicense('${lic.license_key}', '${escapeHtml(lic.email)}')">Delete</button>
+					</td>
 					</tr>
 				`;
 			}).join('');
@@ -563,6 +577,33 @@
 					loadTrials();
 				} else {
 					showMessage(data.error || 'Failed to delete trial', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Error: ' + err.message, 'error');
+			});
+		}
+
+		function deleteLicense(licenseKey, email) {
+			if (!confirm(`Are you sure you want to delete the license for ${email}? This will completely remove the license entry. This action cannot be undone.`)) {
+				return;
+			}
+
+			fetch('/api/admin?action=license-delete', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ licenseKey, action: 'license-delete' })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					showMessage('License deleted successfully', 'success');
+					loadLicenses();
+				} else {
+					showMessage(data.error || 'Failed to delete license', 'error');
 				}
 			})
 			.catch(err => {

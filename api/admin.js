@@ -374,5 +374,42 @@ module.exports = async function handler(req, res) {
 		return res.status(200).json({ ok: true, message: 'Trial deleted successfully' });
 	}
 
+	// Handle POST /api/admin/license/delete
+	if (action === 'license-delete') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+
+		const { licenseKey } = body || {};
+
+		if (!licenseKey) {
+			return res.status(400).json({ ok: false, error: 'License key required' });
+		}
+
+		const supabase = getSupabaseClient();
+		
+		if (!supabase) {
+			const store = getMemoryStore() || global.__licenseStore;
+			if (store && store.licenses && store.licenses[licenseKey]) {
+				delete store.licenses[licenseKey];
+				return res.status(200).json({ ok: true, message: 'License deleted successfully' });
+			}
+			return res.status(404).json({ ok: false, error: 'License not found' });
+		}
+
+		// Delete the license entry
+		const { error: deleteError } = await supabase
+			.from('licenses')
+			.delete()
+			.eq('license_key', licenseKey);
+
+		if (deleteError) {
+			return res.status(500).json({ ok: false, error: deleteError.message });
+		}
+
+		return res.status(200).json({ ok: true, message: 'License deleted successfully' });
+	}
+
 	return res.status(404).json({ ok: false, error: 'Action not found' });
 };

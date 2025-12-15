@@ -223,10 +223,10 @@
 
 			// License status
 			if (res.licenseKey) {
-				const statusClass = res.status === 'active' ? 'status-active' : 'status-inactive';
+				const statusClass = res.status === 'active' ? 'status-active' : (res.status === 'trial' ? 'status-trial' : 'status-inactive');
 				html += `<div class="license-status-section">
 					<div class="license-status-badge ${statusClass}">Status: ${res.status || 'inactive'}</div>
-					${res.expiresAt ? `<div class="license-expiry">Expires: ${prettyExpiry(res.expiresAt)}</div>` : '<div class="license-expiry">Lifetime license</div>'}
+					${res.expiresAt ? `<div class="license-expiry">Expires: ${prettyExpiry(res.expiresAt)}</div>` : (res.status === 'trial' ? '' : '<div class="license-expiry">Lifetime license</div>')}
 				</div>`;
 			}
 

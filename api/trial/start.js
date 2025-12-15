@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
 		ok: true,
 		status: result.status,
 		expiresAt: result.expiresAt,
+		licenseKey: result.licenseKey || null,
 		message: result.message
 	});
 };

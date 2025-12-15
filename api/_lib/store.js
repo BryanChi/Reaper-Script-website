@@ -19,7 +19,7 @@ function getMemoryStore() {
 	if (!global.__licenseStore) {
 		global.__licenseStore = {
 			users: {},      // email -> { email, createdAt }
-			trials: {},     // email -> { expiresAt, startedAt }
+			trials: {},     // email -> { expiresAt, startedAt, licenseKey }
 			licenses: {}    // licenseKey -> { email, status, createdAt, expiresAt }
 		};
 	}
@@ -51,14 +51,16 @@ async function memStartTrial(email) {
 			ok: true,
 			status: active ? 'trial' : 'expired',
 			expiresAt: existing.expiresAt,
+			licenseKey: existing.licenseKey || null,
 			message: active ? 'Trial already active' : 'Trial expired'
 		};
 	}
 
 	const expiresAt = now + TRIAL_DAYS * 24 * 60 * 60 * 1000;
+	const licenseKey = generateLicenseKey();
 	store.users[normalized] = store.users[normalized] || { email: normalized, createdAt: iso(now) };
-	store.trials[normalized] = { startedAt: iso(now), expiresAt };
-	return { ok: true, status: 'trial', expiresAt, message: 'Trial started' };
+	store.trials[normalized] = { startedAt: iso(now), expiresAt, licenseKey };
+	return { ok: true, status: 'trial', expiresAt, licenseKey, message: 'Trial started' };
 }
 
 async function memActivateLicense(email, providedKey) {
@@ -124,17 +126,29 @@ async function startTrial(email) {
 
 	if (!trialErr && trialRow) {
 		const active = now < new Date(trialRow.expires_at || trialRow.expiresAt || 0).getTime();
+		// Generate license key if it doesn't exist (for existing trials)
+		let licenseKey = trialRow.license_key;
+		if (!licenseKey) {
+			licenseKey = generateLicenseKey();
+			// Update the trial with the license key
+			await supabase
+				.from('trials')
+				.update({ license_key: licenseKey })
+				.eq('email', normalized);
+		}
 		return {
 			ok: true,
 			status: active ? 'trial' : 'expired',
 			expiresAt: new Date(trialRow.expires_at || trialRow.expiresAt).getTime(),
+			licenseKey: licenseKey,
 			message: active ? 'Trial already active' : 'Trial expired'
 		};
 	}
 
+	const licenseKey = generateLicenseKey();
 	const { error: insertErr, data: inserted } = await supabase
 		.from('trials')
-		.upsert({ email: normalized, started_at: iso(now), expires_at: iso(expiresAt) })
+		.upsert({ email: normalized, started_at: iso(now), expires_at: iso(expiresAt), license_key: licenseKey })
 		.select()
 		.single();
 
@@ -142,7 +156,7 @@ async function startTrial(email) {
 		return { ok: false, error: insertErr.message || 'Unable to start trial' };
 	}
 
-	return { ok: true, status: 'trial', expiresAt, message: 'Trial started', trial: inserted };
+	return { ok: true, status: 'trial', expiresAt, licenseKey, message: 'Trial started', trial: inserted };
 }
 
 async function activateLicense(email, providedKey) {
@@ -243,6 +257,7 @@ async function getLicenseOrTrialStatus(email) {
 				ok: true,
 				status: active ? 'trial' : 'expired',
 				expiresAt: trial.expiresAt,
+				licenseKey: trial.licenseKey || null,
 				reason: active ? null : 'Trial expired'
 			};
 		}
@@ -283,10 +298,21 @@ async function getLicenseOrTrialStatus(email) {
 	if (!trialErr && trialRow) {
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
 		const active = now < expiresAt;
+		// Generate license key if it doesn't exist (for existing trials)
+		let licenseKey = trialRow.license_key;
+		if (!licenseKey) {
+			licenseKey = generateLicenseKey();
+			// Update the trial with the license key
+			await supabase
+				.from('trials')
+				.update({ license_key: licenseKey })
+				.eq('email', normalized);
+		}
 		return {
 			ok: true,
 			status: active ? 'trial' : 'expired',
 			expiresAt: expiresAt,
+			licenseKey: licenseKey,
 			reason: active ? null : 'Trial expired'
 		};
 	}
@@ -301,7 +327,7 @@ async function getLicenseInfo(email) {
 	}
 
 	if (!supabase) {
-		// Memory fallback - return basic info
+		// Memory fallback - check license first, then trial
 		const store = getMemoryStore();
 		const licenseEntry = Object.entries(store.licenses).find(([key, lic]) => lic.email === normalized && lic.status === 'active');
 		if (licenseEntry) {
@@ -314,10 +340,23 @@ async function getLicenseInfo(email) {
 				activations: [] // Memory store doesn't support activations
 			};
 		}
+		// Check for trial
+		const trial = store.trials[normalized];
+		if (trial) {
+			const now = Date.now();
+			const active = now < trial.expiresAt;
+			return {
+				ok: true,
+				licenseKey: trial.licenseKey || null,
+				status: active ? 'trial' : 'expired',
+				expiresAt: trial.expiresAt || null,
+				activations: []
+			};
+		}
 		return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
 	}
 
-	// Get license info
+	// Get license info - check license first, then trial
 	const { data: licRows, error: licErr } = await supabase
 		.from('licenses')
 		.select('*')
@@ -326,28 +365,58 @@ async function getLicenseInfo(email) {
 		.order('created_at', { ascending: false })
 		.limit(1);
 
-	if (licErr || !licRows || licRows.length === 0) {
-		return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
+	if (!licErr && licRows && licRows.length > 0) {
+		const license = licRows[0];
+		const licenseKey = license.license_key;
+
+		// Get device activations for this license
+		const { data: activations, error: actErr } = await supabase
+			.from('device_activations')
+			.select('*')
+			.eq('license_key', licenseKey)
+			.eq('active', true)
+			.order('activated_at', { ascending: false });
+
+		return {
+			ok: true,
+			licenseKey,
+			status: 'active',
+			expiresAt: license.expires_at ? new Date(license.expires_at).getTime() : null,
+			activations: activations || []
+		};
 	}
 
-	const license = licRows[0];
-	const licenseKey = license.license_key;
-
-	// Get device activations for this license
-	const { data: activations, error: actErr } = await supabase
-		.from('device_activations')
+	// Check for trial if no active license
+	const { data: trialRow, error: trialErr } = await supabase
+		.from('trials')
 		.select('*')
-		.eq('license_key', licenseKey)
-		.eq('active', true)
-		.order('activated_at', { ascending: false });
+		.eq('email', normalized)
+		.single();
 
-	return {
-		ok: true,
-		licenseKey,
-		status: 'active',
-		expiresAt: license.expires_at ? new Date(license.expires_at).getTime() : null,
-		activations: activations || []
-	};
+	if (!trialErr && trialRow) {
+		const now = Date.now();
+		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
+		const active = now < expiresAt;
+		// Generate license key if it doesn't exist (for existing trials)
+		let licenseKey = trialRow.license_key;
+		if (!licenseKey) {
+			licenseKey = generateLicenseKey();
+			// Update the trial with the license key
+			await supabase
+				.from('trials')
+				.update({ license_key: licenseKey })
+				.eq('email', normalized);
+		}
+		return {
+			ok: true,
+			licenseKey: licenseKey,
+			status: active ? 'trial' : 'expired',
+			expiresAt: expiresAt,
+			activations: []
+		};
+	}
+
+	return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
 }
 
 async function activateDevice(email, licenseKey, deviceId) {

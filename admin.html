@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Admin Panel - License Management</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			background: #0a0e1a;
+			color: #e5e7eb;
+			padding: 20px;
+			line-height: 1.6;
+		}
+		.container {
+			max-width: 1400px;
+			margin: 0 auto;
+		}
+		.header {
+			margin-bottom: 30px;
+			padding-bottom: 20px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		}
+		.header h1 {
+			font-size: 28px;
+			margin-bottom: 10px;
+		}
+		.auth-section {
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 8px;
+			padding: 20px;
+			margin-bottom: 30px;
+			max-width: 400px;
+		}
+		.auth-section input {
+			width: 100%;
+			padding: 10px;
+			background: rgba(0, 0, 0, 0.3);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 6px;
+			color: #e5e7eb;
+			margin-bottom: 10px;
+			font-size: 14px;
+		}
+		.auth-section button {
+			width: 100%;
+			padding: 10px;
+			background: #3b82f6;
+			border: none;
+			border-radius: 6px;
+			color: white;
+			font-weight: 600;
+			cursor: pointer;
+			font-size: 14px;
+		}
+		.auth-section button:hover {
+			background: #2563eb;
+		}
+		.tabs {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 20px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		}
+		.tab {
+			padding: 12px 24px;
+			background: transparent;
+			border: none;
+			border-bottom: 2px solid transparent;
+			color: #9ca3af;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: 500;
+		}
+		.tab.active {
+			color: #3b82f6;
+			border-bottom-color: #3b82f6;
+		}
+		.tab-content {
+			display: none;
+		}
+		.tab-content.active {
+			display: block;
+		}
+		.table-container {
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 8px;
+			overflow: hidden;
+		}
+		table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+		th {
+			background: rgba(255, 255, 255, 0.05);
+			padding: 12px;
+			text-align: left;
+			font-weight: 600;
+			font-size: 12px;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #9ca3af;
+		}
+		td {
+			padding: 12px;
+			border-top: 1px solid rgba(255, 255, 255, 0.05);
+			font-size: 13px;
+		}
+		.license-key {
+			font-family: 'Courier New', monospace;
+			font-size: 11px;
+			background: rgba(0, 0, 0, 0.3);
+			padding: 4px 8px;
+			border-radius: 4px;
+		}
+		.status-badge {
+			display: inline-block;
+			padding: 4px 10px;
+			border-radius: 4px;
+			font-size: 11px;
+			font-weight: 600;
+			text-transform: uppercase;
+		}
+		.status-active {
+			background: rgba(34, 197, 94, 0.2);
+			color: #22c55e;
+		}
+		.status-trial {
+			background: rgba(246, 195, 68, 0.2);
+			color: #f6c344;
+		}
+		.status-expired {
+			background: rgba(239, 68, 68, 0.2);
+			color: #ef4444;
+		}
+		.status-inactive {
+			background: rgba(107, 114, 128, 0.2);
+			color: #9ca3af;
+		}
+		.actions {
+			display: flex;
+			gap: 8px;
+		}
+		.btn {
+			padding: 6px 12px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: 500;
+		}
+		.btn-primary {
+			background: #3b82f6;
+			color: white;
+		}
+		.btn-primary:hover {
+			background: #2563eb;
+		}
+		.btn-danger {
+			background: #ef4444;
+			color: white;
+		}
+		.btn-danger:hover {
+			background: #dc2626;
+		}
+		.btn-secondary {
+			background: rgba(255, 255, 255, 0.1);
+			color: #e5e7eb;
+		}
+		.btn-secondary:hover {
+			background: rgba(255, 255, 255, 0.2);
+		}
+		.message {
+			padding: 12px;
+			border-radius: 6px;
+			margin-bottom: 20px;
+			display: none;
+		}
+		.message.success {
+			background: rgba(34, 197, 94, 0.2);
+			border: 1px solid rgba(34, 197, 94, 0.3);
+			color: #22c55e;
+		}
+		.message.error {
+			background: rgba(239, 68, 68, 0.2);
+			border: 1px solid rgba(239, 68, 68, 0.3);
+			color: #ef4444;
+		}
+		.refresh-btn {
+			margin-bottom: 20px;
+			padding: 10px 20px;
+			background: #3b82f6;
+			border: none;
+			border-radius: 6px;
+			color: white;
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.refresh-btn:hover {
+			background: #2563eb;
+		}
+		.modal {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(0, 0, 0, 0.7);
+			z-index: 1000;
+			align-items: center;
+			justify-content: center;
+		}
+		.modal.active {
+			display: flex;
+		}
+		.modal-content {
+			background: #1a1f2e;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 8px;
+			padding: 24px;
+			max-width: 500px;
+			width: 90%;
+		}
+		.modal-content h3 {
+			margin-bottom: 16px;
+		}
+		.modal-content input,
+		.modal-content select {
+			width: 100%;
+			padding: 10px;
+			background: rgba(0, 0, 0, 0.3);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 6px;
+			color: #e5e7eb;
+			margin-bottom: 16px;
+		}
+		.modal-actions {
+			display: flex;
+			gap: 10px;
+			justify-content: flex-end;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>🔐 Admin Panel - License Management</h1>
+			<p>Manage licenses and trials for testing purposes</p>
+		</div>
+
+		<div id="authSection" class="auth-section">
+			<h3>Authentication</h3>
+			<input type="password" id="adminPassword" placeholder="Enter admin password" />
+			<button onclick="authenticate()">Login</button>
+		</div>
+
+		<div id="adminPanel" style="display: none;">
+			<div id="message" class="message"></div>
+
+			<div class="tabs">
+				<button class="tab active" onclick="switchTab('licenses')">Licenses</button>
+				<button class="tab" onclick="switchTab('trials')">Trials</button>
+			</div>
+
+			<div id="licensesTab" class="tab-content active">
+				<button class="refresh-btn" onclick="loadLicenses()">🔄 Refresh Licenses</button>
+				<div class="table-container">
+					<table id="licensesTable">
+						<thead>
+							<tr>
+								<th>Email</th>
+								<th>License Key</th>
+								<th>Status</th>
+								<th>Created</th>
+								<th>Expires</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="licensesBody">
+							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<div id="trialsTab" class="tab-content">
+				<button class="refresh-btn" onclick="loadTrials()">🔄 Refresh Trials</button>
+				<div class="table-container">
+					<table id="trialsTable">
+						<thead>
+							<tr>
+								<th>Email</th>
+								<th>License Key</th>
+								<th>Status</th>
+								<th>Started</th>
+								<th>Expires</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="trialsBody">
+							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal for editing -->
+	<div id="editModal" class="modal">
+		<div class="modal-content">
+			<h3 id="modalTitle">Edit License</h3>
+			<div id="modalBody"></div>
+			<div class="modal-actions">
+				<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+				<button class="btn btn-primary" onclick="saveChanges()">Save</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		let adminToken = null;
+		let currentEditType = null;
+		let currentEditId = null;
+
+		function authenticate() {
+			const password = document.getElementById('adminPassword').value;
+			if (!password) {
+				showMessage('Please enter a password', 'error');
+				return;
+			}
+
+			fetch('/api/admin/auth', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					adminToken = data.token;
+					document.getElementById('authSection').style.display = 'none';
+					document.getElementById('adminPanel').style.display = 'block';
+					loadLicenses();
+					loadTrials();
+				} else {
+					showMessage(data.error || 'Invalid password', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Authentication failed: ' + err.message, 'error');
+			});
+		}
+
+		function switchTab(tab) {
+			document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+			document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+			
+			event.target.classList.add('active');
+			document.getElementById(tab + 'Tab').classList.add('active');
+		}
+
+		function loadLicenses() {
+			fetch('/api/admin/licenses', {
+				headers: { 'Authorization': `Bearer ${adminToken}` }
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (!data.ok) {
+					showMessage(data.error || 'Failed to load licenses', 'error');
+					return;
+				}
+				renderLicenses(data.licenses || []);
+			})
+			.catch(err => {
+				showMessage('Error loading licenses: ' + err.message, 'error');
+			});
+		}
+
+		function loadTrials() {
+			fetch('/api/admin/trials', {
+				headers: { 'Authorization': `Bearer ${adminToken}` }
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (!data.ok) {
+					showMessage(data.error || 'Failed to load trials', 'error');
+					return;
+				}
+				renderTrials(data.trials || []);
+			})
+			.catch(err => {
+				showMessage('Error loading trials: ' + err.message, 'error');
+			});
+		}
+
+		function renderLicenses(licenses) {
+			const tbody = document.getElementById('licensesBody');
+			if (licenses.length === 0) {
+				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No licenses found</td></tr>';
+				return;
+			}
+
+			tbody.innerHTML = licenses.map(lic => {
+				const created = lic.created_at ? new Date(lic.created_at).toLocaleString() : 'N/A';
+				const expires = lic.expires_at ? new Date(lic.expires_at).toLocaleString() : 'Lifetime';
+				const status = lic.status || 'inactive';
+				return `
+					<tr>
+						<td>${escapeHtml(lic.email || 'N/A')}</td>
+						<td><code class="license-key">${escapeHtml(lic.license_key || 'N/A')}</code></td>
+						<td><span class="status-badge status-${status}">${status}</span></td>
+						<td>${created}</td>
+						<td>${expires}</td>
+						<td class="actions">
+							<button class="btn btn-secondary" onclick="editLicense('${lic.license_key}', '${escapeHtml(lic.email)}', '${status}')">Edit</button>
+							<button class="btn btn-primary" onclick="regenerateLicenseKey('${lic.license_key}')">Regenerate Key</button>
+						</td>
+					</tr>
+				`;
+			}).join('');
+		}
+
+		function renderTrials(trials) {
+			const tbody = document.getElementById('trialsBody');
+			if (trials.length === 0) {
+				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No trials found</td></tr>';
+				return;
+			}
+
+			const now = Date.now();
+			tbody.innerHTML = trials.map(trial => {
+				const started = trial.started_at ? new Date(trial.started_at).toLocaleString() : 'N/A';
+				const expires = trial.expires_at ? new Date(trial.expires_at).toLocaleString() : 'N/A';
+				const expiresTs = trial.expires_at ? new Date(trial.expires_at).getTime() : 0;
+				const status = expiresTs > now ? 'trial' : 'expired';
+				return `
+					<tr>
+						<td>${escapeHtml(trial.email || 'N/A')}</td>
+						<td><code class="license-key">${escapeHtml(trial.license_key || 'N/A')}</code></td>
+						<td><span class="status-badge status-${status}">${status}</span></td>
+						<td>${started}</td>
+						<td>${expires}</td>
+						<td class="actions">
+							<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}')">Edit</button>
+							<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}')">Regenerate Key</button>
+						</td>
+					</tr>
+				`;
+			}).join('');
+		}
+
+		function editLicense(licenseKey, email, status) {
+			currentEditType = 'license';
+			currentEditId = licenseKey;
+			document.getElementById('modalTitle').textContent = 'Edit License';
+			document.getElementById('modalBody').innerHTML = `
+				<label>Email:</label>
+				<input type="email" id="editEmail" value="${escapeHtml(email)}" />
+				<label>Status:</label>
+				<select id="editStatus">
+					<option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
+					<option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
+				</select>
+			`;
+			document.getElementById('editModal').classList.add('active');
+		}
+
+		function editTrial(email, expiresAt) {
+			currentEditType = 'trial';
+			currentEditId = email;
+			const expiresDate = expiresAt ? new Date(expiresAt).toISOString().split('T')[0] : '';
+			document.getElementById('modalTitle').textContent = 'Edit Trial';
+			document.getElementById('modalBody').innerHTML = `
+				<label>Email:</label>
+				<input type="email" id="editEmail" value="${escapeHtml(email)}" readonly />
+				<label>Expires At (Date):</label>
+				<input type="date" id="editExpiresAt" value="${expiresDate}" />
+			`;
+			document.getElementById('editModal').classList.add('active');
+		}
+
+		function regenerateLicenseKey(licenseKey) {
+			if (!confirm('Are you sure you want to regenerate this license key? The old key will no longer work.')) {
+				return;
+			}
+
+			fetch('/api/admin/license/regenerate', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ licenseKey })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					showMessage('License key regenerated successfully', 'success');
+					loadLicenses();
+				} else {
+					showMessage(data.error || 'Failed to regenerate key', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Error: ' + err.message, 'error');
+			});
+		}
+
+		function regenerateTrialKey(email) {
+			if (!confirm('Are you sure you want to regenerate this trial license key? The old key will no longer work.')) {
+				return;
+			}
+
+			fetch('/api/admin/trial/regenerate', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ email })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					showMessage('Trial license key regenerated successfully', 'success');
+					loadTrials();
+				} else {
+					showMessage(data.error || 'Failed to regenerate key', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Error: ' + err.message, 'error');
+			});
+		}
+
+		function saveChanges() {
+			if (currentEditType === 'license') {
+				const email = document.getElementById('editEmail').value;
+				const status = document.getElementById('editStatus').value;
+
+				fetch('/api/admin/license/update', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${adminToken}`
+					},
+					body: JSON.stringify({
+						licenseKey: currentEditId,
+						email,
+						status
+					})
+				})
+				.then(r => r.json())
+				.then(data => {
+					if (data.ok) {
+						showMessage('License updated successfully', 'success');
+						closeModal();
+						loadLicenses();
+					} else {
+						showMessage(data.error || 'Failed to update license', 'error');
+					}
+				})
+				.catch(err => {
+					showMessage('Error: ' + err.message, 'error');
+				});
+			} else if (currentEditType === 'trial') {
+				const expiresAt = document.getElementById('editExpiresAt').value;
+				if (!expiresAt) {
+					showMessage('Please select an expiration date', 'error');
+					return;
+				}
+
+				fetch('/api/admin/trial/update', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${adminToken}`
+					},
+					body: JSON.stringify({
+						email: currentEditId,
+						expiresAt: new Date(expiresAt).toISOString()
+					})
+				})
+				.then(r => r.json())
+				.then(data => {
+					if (data.ok) {
+						showMessage('Trial updated successfully', 'success');
+						closeModal();
+						loadTrials();
+					} else {
+						showMessage(data.error || 'Failed to update trial', 'error');
+					}
+				})
+				.catch(err => {
+					showMessage('Error: ' + err.message, 'error');
+				});
+			}
+		}
+
+		function closeModal() {
+			document.getElementById('editModal').classList.remove('active');
+			currentEditType = null;
+			currentEditId = null;
+		}
+
+		function showMessage(text, type) {
+			const msg = document.getElementById('message');
+			msg.textContent = text;
+			msg.className = `message ${type}`;
+			msg.style.display = 'block';
+			setTimeout(() => {
+				msg.style.display = 'none';
+			}, 5000);
+		}
+
+		function escapeHtml(text) {
+			const div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		}
+
+		// Allow Enter key to authenticate
+		document.getElementById('adminPassword').addEventListener('keypress', (e) => {
+			if (e.key === 'Enter') {
+				authenticate();
+			}
+		});
+	</script>
+</body>
+</html>

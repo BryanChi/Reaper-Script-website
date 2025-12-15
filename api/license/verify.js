@@ -7,9 +7,9 @@ module.exports = async function handler(req, res) {
 	}
 
 	const body = req.body || {};
-	const email = body.email || (req.query && req.query.email);
 	const licenseKey = body.licenseKey || (req.query && req.query.licenseKey);
-	const result = await verifyLicense(email, licenseKey);
+	const deviceId = body.deviceId || (req.query && req.query.deviceId);
+	const result = await verifyLicense(licenseKey, deviceId);
 
 	const statusCode = result.ok === false ? 400 : 200;
 	return res.status(statusCode).json({

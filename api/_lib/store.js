@@ -79,42 +79,26 @@ async function memActivateLicense(email, providedKey) {
 	return { ok: true, licenseKey, status: 'active', expiresAt: null };
 }
 
-async function memVerifyLicense(email, licenseKey) {
+async function memVerifyLicense(licenseKey, deviceId) {
 	const store = getMemoryStore();
-	const normalized = normalizeEmail(email);
 	const now = Date.now();
 
-	if (!normalized) {
-		return { ok: false, status: 'invalid', reason: 'Email required' };
+	if (!licenseKey) {
+		return { ok: false, status: 'invalid', reason: 'License key required' };
 	}
 
-	// Find any active license linked to this email (license key optional)
-	let matchedKey = null;
-	const licenseEntry = Object.entries(store.licenses).find(([key, lic]) => {
-		const isOwner = lic.email === normalized;
-		const isActive = lic.status === 'active';
-		const notExpired = !lic.expiresAt || now < lic.expiresAt;
-		if (isOwner && isActive && notExpired) {
-			matchedKey = key;
-			return true;
+	// Find license by license key
+	const license = store.licenses[licenseKey];
+	if (license) {
+		const isActive = license.status === 'active';
+		const notExpired = !license.expiresAt || now < license.expiresAt;
+		if (isActive && notExpired) {
+			return { ok: true, status: 'active', expiresAt: license.expiresAt || null, licenseKey: licenseKey };
 		}
-		return false;
-	});
-
-	if (licenseEntry) {
-		const [, lic] = licenseEntry;
-		return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, licenseKey: matchedKey };
+		return { ok: false, status: 'expired', reason: 'License expired or inactive' };
 	}
 
-	const trial = store.trials[normalized];
-	if (trial) {
-		if (now < trial.expiresAt) {
-			return { ok: true, status: 'trial', expiresAt: trial.expiresAt };
-		}
-		return { ok: true, status: 'expired', expiresAt: trial.expiresAt };
-	}
-
-	return { ok: true, status: 'inactive', reason: 'No trial or license' };
+	return { ok: false, status: 'invalid', reason: 'License not found' };
 }
 
 async function startTrial(email) {
@@ -191,51 +175,38 @@ async function activateLicense(email, providedKey) {
 	return { ok: true, licenseKey, status: 'active', expiresAt: null };
 }
 
-async function verifyLicense(email, licenseKey) {
-	const normalized = normalizeEmail(email);
+async function verifyLicense(licenseKey, deviceId) {
 	const now = Date.now();
 
-	if (!normalized) {
-		return { ok: false, status: 'invalid', reason: 'Email required' };
+	if (!licenseKey) {
+		return { ok: false, status: 'invalid', reason: 'License key required' };
 	}
 
 	if (!supabase) {
-		return memVerifyLicense(email, licenseKey);
+		return memVerifyLicense(licenseKey, deviceId);
 	}
 
-	// Look up any active license for this email; license key is optional now
+	// Look up license by license key
 	const { data: licRows, error: licErr } = await supabase
 		.from('licenses')
 		.select('*')
-		.eq('email', normalized)
+		.eq('license_key', licenseKey)
 		.eq('status', 'active')
-		.order('created_at', { ascending: false })
-		.limit(1);
-
-	if (!licErr && Array.isArray(licRows) && licRows.length > 0) {
-		const lic = licRows[0];
-		const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
-		if (!exp || now < exp) {
-			return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key || licenseKey || null };
-		}
-	}
-
-	// Fallback to trial
-	const { data: trial, error: trialErr } = await supabase
-		.from('trials')
-		.select('*')
-		.eq('email', normalized)
 		.single();
 
-	if (!trialErr && trial) {
-		const exp = new Date(trial.expires_at).getTime();
-		if (now < exp) {
-			return { ok: true, status: 'trial', expiresAt: exp };
-		}
-		return { ok: true, status: 'expired', expiresAt: exp };
+	if (licErr || !licRows) {
+		return { ok: false, status: 'invalid', reason: 'License not found or inactive' };
 	}
 
-	return { ok: true, status: 'inactive', reason: 'No trial or license' };
+	const lic = licRows;
+	const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
+	
+	// Check if license is expired
+	if (exp && now >= exp) {
+		return { ok: false, status: 'expired', reason: 'License expired', expiresAt: exp };
+	}
+
+	return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key };
 }
 
 async function getLicenseInfo(email) {

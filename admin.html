@@ -338,12 +338,32 @@
 				return;
 			}
 
-			fetch('/api/admin?action=auth', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password, action: 'auth' })
+			// Create a timeout promise
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Request timeout - please try again')), 30000)
+			);
+
+			Promise.race([
+				fetch('/api/admin?action=auth', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ password, action: 'auth' })
+				}),
+				timeoutPromise
+			])
+			.then(async r => {
+				if (!r.ok) {
+					const errorText = await r.text();
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+					} catch {
+						errorData = { error: errorText || `HTTP ${r.status}: ${r.statusText}` };
+					}
+					throw new Error(errorData.error || `Authentication failed (${r.status})`);
+				}
+				return r.json();
 			})
-			.then(r => r.json())
 			.then(data => {
 				if (data.ok) {
 					adminToken = data.token;
@@ -382,36 +402,116 @@
 		}
 
 		function loadLicenses() {
-			fetch('/api/admin?action=licenses', {
-				headers: { 'Authorization': `Bearer ${adminToken}` }
+			if (!adminToken) {
+				showMessage('Not authenticated. Please log in.', 'error');
+				return;
+			}
+			
+			const tbody = document.getElementById('licensesBody');
+			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			
+			// Create a timeout promise (30 seconds)
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Request timeout - the server is taking too long to respond')), 30000)
+			);
+
+			Promise.race([
+				fetch('/api/admin?action=licenses', {
+					headers: { 'Authorization': `Bearer ${adminToken}` }
+				}),
+				timeoutPromise
+			])
+			.then(async r => {
+				if (r.status === 401) {
+					// Token expired or invalid - prompt for re-authentication
+					adminToken = null;
+					document.getElementById('adminPanel').style.display = 'none';
+					document.getElementById('authSection').style.display = 'block';
+					document.getElementById('adminPassword').value = '';
+					showMessage('Session expired. Please log in again.', 'error');
+					return null;
+				}
+				if (!r.ok) {
+					const errorText = await r.text();
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+					} catch {
+						errorData = { error: errorText || `HTTP ${r.status}: ${r.statusText}` };
+					}
+					throw new Error(errorData.error || `Failed to load licenses (${r.status})`);
+				}
+				return r.json();
 			})
-			.then(r => r.json())
 			.then(data => {
+				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load licenses', 'error');
+					tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error loading licenses</td></tr>';
 					return;
 				}
 				renderLicenses(data.licenses || []);
 			})
 			.catch(err => {
 				showMessage('Error loading licenses: ' + err.message, 'error');
+				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
 			});
 		}
 
 		function loadTrials() {
-			fetch('/api/admin?action=trials', {
-				headers: { 'Authorization': `Bearer ${adminToken}` }
+			if (!adminToken) {
+				showMessage('Not authenticated. Please log in.', 'error');
+				return;
+			}
+			
+			const tbody = document.getElementById('trialsBody');
+			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			
+			// Create a timeout promise (30 seconds)
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Request timeout - the server is taking too long to respond')), 30000)
+			);
+
+			Promise.race([
+				fetch('/api/admin?action=trials', {
+					headers: { 'Authorization': `Bearer ${adminToken}` }
+				}),
+				timeoutPromise
+			])
+			.then(async r => {
+				if (r.status === 401) {
+					// Token expired or invalid - prompt for re-authentication
+					adminToken = null;
+					document.getElementById('adminPanel').style.display = 'none';
+					document.getElementById('authSection').style.display = 'block';
+					document.getElementById('adminPassword').value = '';
+					showMessage('Session expired. Please log in again.', 'error');
+					return null;
+				}
+				if (!r.ok) {
+					const errorText = await r.text();
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+					} catch {
+						errorData = { error: errorText || `HTTP ${r.status}: ${r.statusText}` };
+					}
+					throw new Error(errorData.error || `Failed to load trials (${r.status})`);
+				}
+				return r.json();
 			})
-			.then(r => r.json())
 			.then(data => {
+				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load trials', 'error');
+					tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error loading trials</td></tr>';
 					return;
 				}
 				renderTrials(data.trials || []);
 			})
 			.catch(err => {
 				showMessage('Error loading trials: ' + err.message, 'error');
+				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
 			});
 		}
 
@@ -426,17 +526,21 @@
 				const created = lic.created_at ? new Date(lic.created_at).toLocaleString() : 'N/A';
 				const expires = lic.expires_at ? new Date(lic.expires_at).toLocaleString() : 'Lifetime';
 				const status = lic.status || 'inactive';
+				// Escape license key and email for use in JavaScript strings
+				const licenseKeyEscaped = escapeJsString(lic.license_key || '');
+				const emailEscaped = escapeHtml(lic.email || 'N/A');
+				const emailJsEscaped = escapeJsString(lic.email || 'N/A');
 				return `
 					<tr>
-						<td>${escapeHtml(lic.email || 'N/A')}</td>
+						<td>${emailEscaped}</td>
 						<td><code class="license-key">${escapeHtml(lic.license_key || 'N/A')}</code></td>
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${created}</td>
 						<td>${expires}</td>
 					<td class="actions">
-						<button class="btn btn-secondary" onclick="editLicense('${lic.license_key}', '${escapeHtml(lic.email)}', '${status}')">Edit</button>
-						<button class="btn btn-primary" onclick="regenerateLicenseKey('${lic.license_key}')">Regenerate Key</button>
-						<button class="btn btn-danger" onclick="deleteLicense('${lic.license_key}', '${escapeHtml(lic.email)}')">Delete</button>
+						<button class="btn btn-secondary" onclick="editLicense('${licenseKeyEscaped}', '${emailJsEscaped}', '${status}')">Edit</button>
+						<button class="btn btn-primary" onclick="regenerateLicenseKey('${licenseKeyEscaped}')">Regenerate Key</button>
+						<button class="btn btn-danger" onclick="deleteLicense('${licenseKeyEscaped}', '${emailJsEscaped}')">Delete</button>
 					</td>
 					</tr>
 				`;
@@ -585,20 +689,55 @@
 		}
 
 		function deleteLicense(licenseKey, email) {
+			if (!adminToken) {
+				showMessage('Not authenticated. Please log in.', 'error');
+				return;
+			}
+			
 			if (!confirm(`Are you sure you want to delete the license for ${email}? This will completely remove the license entry. This action cannot be undone.`)) {
 				return;
 			}
 
-			fetch('/api/admin?action=license-delete', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${adminToken}`
-				},
-				body: JSON.stringify({ licenseKey, action: 'license-delete' })
+			// Create a timeout promise (30 seconds)
+			const timeoutPromise = new Promise((_, reject) => 
+				setTimeout(() => reject(new Error('Request timeout - the server is taking too long to respond')), 30000)
+			);
+
+			Promise.race([
+				fetch('/api/admin?action=license-delete', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${adminToken}`
+					},
+					body: JSON.stringify({ licenseKey, action: 'license-delete' })
+				}),
+				timeoutPromise
+			])
+			.then(async r => {
+				if (r.status === 401) {
+					// Token expired or invalid - prompt for re-authentication
+					adminToken = null;
+					document.getElementById('adminPanel').style.display = 'none';
+					document.getElementById('authSection').style.display = 'block';
+					document.getElementById('adminPassword').value = '';
+					showMessage('Session expired. Please log in again.', 'error');
+					return null;
+				}
+				if (!r.ok) {
+					const errorText = await r.text();
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+					} catch {
+						errorData = { error: errorText || `HTTP ${r.status}: ${r.statusText}` };
+					}
+					throw new Error(errorData.error || `Failed to delete license (${r.status})`);
+				}
+				return r.json();
 			})
-			.then(r => r.json())
 			.then(data => {
+				if (!data) return; // Handled by 401 case above
 				if (data.ok) {
 					showMessage('License deleted successfully', 'success');
 					loadLicenses();
@@ -607,7 +746,7 @@
 				}
 			})
 			.catch(err => {
-				showMessage('Error: ' + err.message, 'error');
+				showMessage('Error deleting license: ' + err.message, 'error');
 			});
 		}
 
@@ -697,6 +836,17 @@
 			const div = document.createElement('div');
 			div.textContent = text;
 			return div.innerHTML;
+		}
+
+		function escapeJsString(str) {
+			if (!str) return '';
+			return String(str)
+				.replace(/\\/g, '\\\\')
+				.replace(/'/g, "\\'")
+				.replace(/"/g, '\\"')
+				.replace(/\n/g, '\\n')
+				.replace(/\r/g, '\\r')
+				.replace(/\t/g, '\\t');
 		}
 
 		// Allow Enter key to authenticate

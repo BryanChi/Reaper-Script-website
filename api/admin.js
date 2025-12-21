@@ -104,7 +104,8 @@ module.exports = async function handler(req, res) {
 		const { data: licenses, error } = await supabase
 			.from('licenses')
 			.select('*')
-			.order('created_at', { ascending: false });
+			.order('created_at', { ascending: false })
+			.limit(1000); // Limit to prevent slow queries
 
 		if (error) {
 			return res.status(500).json({ ok: false, error: error.message });
@@ -138,7 +139,8 @@ module.exports = async function handler(req, res) {
 		const { data: trials, error } = await supabase
 			.from('trials')
 			.select('*')
-			.order('started_at', { ascending: false });
+			.order('started_at', { ascending: false })
+			.limit(1000); // Limit to prevent slow queries
 
 		if (error) {
 			return res.status(500).json({ ok: false, error: error.message });
@@ -399,13 +401,19 @@ module.exports = async function handler(req, res) {
 		}
 
 		// Delete the license entry
-		const { error: deleteError } = await supabase
+		const { data: deletedData, error: deleteError } = await supabase
 			.from('licenses')
 			.delete()
-			.eq('license_key', licenseKey);
+			.eq('license_key', licenseKey)
+			.select();
 
 		if (deleteError) {
 			return res.status(500).json({ ok: false, error: deleteError.message });
+		}
+
+		// Check if any rows were actually deleted
+		if (!deletedData || deletedData.length === 0) {
+			return res.status(404).json({ ok: false, error: 'License not found' });
 		}
 
 		return res.status(200).json({ ok: true, message: 'License deleted successfully' });

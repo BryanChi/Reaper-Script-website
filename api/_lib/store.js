@@ -427,12 +427,17 @@ async function getLicenseInfo(email) {
 			.eq('active', true)
 			.order('activated_at', { ascending: false });
 
+		// Log errors but don't fail - return empty array if query fails
+		if (actErr) {
+			console.error('Error fetching device activations for license:', actErr, 'licenseKey:', licenseKey);
+		}
+
 		return {
 			ok: true,
 			licenseKey,
 			status: 'active',
 			expiresAt: license.expires_at ? new Date(license.expires_at).getTime() : null,
-			activations: activations || []
+			activations: (activations && Array.isArray(activations)) ? activations : []
 		};
 	}
 
@@ -449,12 +454,33 @@ async function getLicenseInfo(email) {
 		const active = now < expiresAt;
 		// Return existing license key (should always exist for trials created after the update)
 		const licenseKey = trialRow.license_key || null;
+		
+		// Get device activations for this trial license key
+		let activations = [];
+		if (licenseKey) {
+			const { data: activationsData, error: actErr } = await supabase
+				.from('device_activations')
+				.select('*')
+				.eq('license_key', licenseKey)
+				.eq('active', true)
+				.order('activated_at', { ascending: false });
+			
+			// Log errors but don't fail - return empty array if query fails
+			if (actErr) {
+				console.error('Error fetching device activations for trial:', actErr, 'licenseKey:', licenseKey);
+			}
+			
+			if (!actErr && activationsData && Array.isArray(activationsData)) {
+				activations = activationsData;
+			}
+		}
+		
 		return {
 			ok: true,
 			licenseKey: licenseKey,
 			status: active ? 'trial' : 'expired',
 			expiresAt: expiresAt,
-			activations: []
+			activations: activations
 		};
 	}
 

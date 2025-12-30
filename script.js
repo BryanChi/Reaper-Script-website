@@ -574,8 +574,23 @@
 					// Provide user-friendly messages for common error types
 					if (err.message) {
 						const lowerMessage = err.message.toLowerCase();
+						// Check for email not confirmed errors
+						if (lowerMessage.includes('email not confirmed') || 
+						    lowerMessage.includes('email_not_confirmed') ||
+						    lowerMessage.includes('not confirmed') ||
+						    lowerMessage.includes('confirm your email') ||
+						    err.status === 400 && lowerMessage.includes('email')) {
+							errorMessage = 'Please verify your email address before signing in. Check your inbox for the confirmation email.';
+						}
+						// Check for invalid credentials
+						else if (lowerMessage.includes('invalid login') || 
+						         lowerMessage.includes('invalid credentials') ||
+						         lowerMessage.includes('wrong password') ||
+						         lowerMessage.includes('incorrect password')) {
+							errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+						}
 						// Check for leaked password errors (various possible messages)
-						if (lowerMessage.includes('breach') || 
+						else if (lowerMessage.includes('breach') || 
 						    lowerMessage.includes('pwned') || 
 						    lowerMessage.includes('compromised') ||
 						    lowerMessage.includes('leaked') ||

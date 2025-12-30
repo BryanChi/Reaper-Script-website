@@ -14,14 +14,35 @@ module.exports = async function handler(req, res) {
 			<html>
 			<head>
 				<title>Invalid Link</title>
+				<meta charset="utf-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<style>
-					body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-					.error { color: #dc2626; }
+					* { box-sizing: border-box; margin: 0; padding: 0; }
+					body { 
+						font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+						max-width: 600px; 
+						margin: 50px auto; 
+						padding: 20px; 
+						text-align: center; 
+						background: #030806;
+						color: #f3f4f6;
+					}
+					.container {
+						background: rgba(11, 25, 18, 0.4);
+						border: 1px solid rgba(34, 243, 107, 0.15);
+						border-radius: 24px;
+						padding: 40px;
+					}
+					.error { color: #f87171; font-size: 32px; margin-bottom: 16px; }
+					h1 { color: #f87171; margin-bottom: 16px; }
+					p { color: #9ca3af; }
 				</style>
 			</head>
 			<body>
-				<h1 class="error">Invalid Link</h1>
-				<p>This link is invalid or has expired. Please request a new verification email.</p>
+				<div class="container">
+					<h1 class="error">Invalid Link</h1>
+					<p>This link is invalid or has expired. Please request a new verification email.</p>
+				</div>
 			</body>
 			</html>
 		`);
@@ -44,14 +65,35 @@ module.exports = async function handler(req, res) {
 				<html>
 				<head>
 					<title>Link Expired</title>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1">
 					<style>
-						body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-						.error { color: #dc2626; }
+						* { box-sizing: border-box; margin: 0; padding: 0; }
+						body { 
+							font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+							max-width: 600px; 
+							margin: 50px auto; 
+							padding: 20px; 
+							text-align: center; 
+							background: #030806;
+							color: #f3f4f6;
+						}
+						.container {
+							background: rgba(11, 25, 18, 0.4);
+							border: 1px solid rgba(34, 243, 107, 0.15);
+							border-radius: 24px;
+							padding: 40px;
+						}
+						.error { color: #f87171; font-size: 32px; margin-bottom: 16px; }
+						h1 { color: #f87171; margin-bottom: 16px; }
+						p { color: #9ca3af; }
 					</style>
 				</head>
 				<body>
-					<h1 class="error">Link Expired</h1>
-					<p>This link has expired. Please request a new verification email.</p>
+					<div class="container">
+						<h1 class="error">Link Expired</h1>
+						<p>This link has expired. Please request a new verification email.</p>
+					</div>
 				</body>
 				</html>
 			`);
@@ -66,21 +108,42 @@ module.exports = async function handler(req, res) {
 				<html>
 				<head>
 					<title>Unable to Start Trial</title>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1">
 					<style>
-						body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-						.error { color: #dc2626; }
+						* { box-sizing: border-box; margin: 0; padding: 0; }
+						body { 
+							font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+							max-width: 600px; 
+							margin: 50px auto; 
+							padding: 20px; 
+							text-align: center; 
+							background: #030806;
+							color: #f3f4f6;
+						}
+						.container {
+							background: rgba(11, 25, 18, 0.4);
+							border: 1px solid rgba(34, 243, 107, 0.15);
+							border-radius: 24px;
+							padding: 40px;
+						}
+						.error { color: #f87171; font-size: 32px; margin-bottom: 16px; }
+						h1 { color: #f87171; margin-bottom: 16px; }
+						p { color: #9ca3af; }
 					</style>
 				</head>
 				<body>
-					<h1 class="error">Unable to Start Trial</h1>
-					<p>${result.error || 'An error occurred while starting your trial.'}</p>
+					<div class="container">
+						<h1 class="error">Unable to Start Trial</h1>
+						<p>${result.error || 'An error occurred while starting your trial.'}</p>
+					</div>
 				</body>
 				</html>
 			`);
 		}
 
 		// Success page
-		const siteUrl = process.env.SITE_URL || req.headers.origin || 'https://example.com';
+		const siteUrl = process.env.SITE_URL || 'https://www.coolreaperscripts.com';
 		const expiresDate = result.expiresAt ? new Date(result.expiresAt).toLocaleDateString() : 'N/A';
 
 		return res.status(200).send(`
@@ -88,15 +151,74 @@ module.exports = async function handler(req, res) {
 			<html>
 			<head>
 				<title>Trial Started Successfully</title>
+				<meta charset="utf-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<style>
-					body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; background-color: #f9fafb; }
-					.container { background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-					.success { color: #10b981; font-size: 48px; margin-bottom: 20px; }
-					h1 { color: #111827; margin-top: 0; }
-					p { color: #374151; line-height: 1.6; }
-					.license-key { background-color: #f3f4f6; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px; margin: 20px 0; word-break: break-all; }
-					.button { display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; margin-top: 20px; }
-					.button:hover { background-color: #2563eb; }
+					* { box-sizing: border-box; margin: 0; padding: 0; }
+					body { 
+						font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+						max-width: 600px; 
+						margin: 50px auto; 
+						padding: 20px; 
+						text-align: center; 
+						background: #030806;
+						color: #f3f4f6;
+						line-height: 1.6;
+					}
+					.container { 
+						background: rgba(11, 25, 18, 0.4);
+						border: 1px solid rgba(34, 243, 107, 0.15);
+						border-radius: 24px; 
+						padding: 40px; 
+						box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+					}
+					.success { 
+						color: #22f36b; 
+						font-size: 48px; 
+						margin-bottom: 20px; 
+						filter: drop-shadow(0 0 10px rgba(34, 243, 107, 0.5));
+					}
+					h1 { 
+						color: #f3f4f6; 
+						margin-top: 0; 
+						font-size: 32px;
+						font-weight: 700;
+						margin-bottom: 16px;
+					}
+					p { 
+						color: #9ca3af; 
+						line-height: 1.6; 
+						margin-bottom: 12px;
+					}
+					p strong {
+						color: #f3f4f6;
+					}
+					.license-key { 
+						background: rgba(255, 255, 255, 0.05);
+						border: 1px solid rgba(255, 255, 255, 0.08);
+						padding: 12px; 
+						border-radius: 8px; 
+						font-family: monospace; 
+						font-size: 14px; 
+						margin: 20px 0; 
+						word-break: break-all;
+						color: #22f36b;
+					}
+					.button { 
+						display: inline-block; 
+						background: #22f36b; 
+						color: #111827; 
+						text-decoration: none; 
+						padding: 12px 24px; 
+						border-radius: 12px; 
+						font-weight: 600; 
+						margin-top: 20px;
+						transition: background 0.2s, transform 0.2s;
+					}
+					.button:hover { 
+						background: #36f578;
+						transform: translateY(-1px);
+					}
 				</style>
 			</head>
 			<body>
@@ -122,14 +244,35 @@ module.exports = async function handler(req, res) {
 			<html>
 			<head>
 				<title>Error</title>
+				<meta charset="utf-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1">
 				<style>
-					body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-					.error { color: #dc2626; }
+					* { box-sizing: border-box; margin: 0; padding: 0; }
+					body { 
+						font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+						max-width: 600px; 
+						margin: 50px auto; 
+						padding: 20px; 
+						text-align: center; 
+						background: #030806;
+						color: #f3f4f6;
+					}
+					.container {
+						background: rgba(11, 25, 18, 0.4);
+						border: 1px solid rgba(34, 243, 107, 0.15);
+						border-radius: 24px;
+						padding: 40px;
+					}
+					.error { color: #f87171; font-size: 32px; margin-bottom: 16px; }
+					h1 { color: #f87171; margin-bottom: 16px; }
+					p { color: #9ca3af; }
 				</style>
 			</head>
 			<body>
-				<h1 class="error">Error</h1>
-				<p>An error occurred while processing your request. Please try again later.</p>
+				<div class="container">
+					<h1 class="error">Error</h1>
+					<p>An error occurred while processing your request. Please try again later.</p>
+				</div>
 			</body>
 			</html>
 		`);

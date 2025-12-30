@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
 	const encodedToken = Buffer.from(JSON.stringify(tokenData)).toString('base64url');
 	
 	// Get site URL from environment or use default
-	const siteUrl = process.env.SITE_URL || req.headers.origin || 'https://example.com';
+	const siteUrl = process.env.SITE_URL || 'https://www.coolreaperscripts.com';
 	const startTrialUrl = `${siteUrl}/api/auth/start-trial-from-email?token=${encodedToken}`;
 
 	// Attempt to send email via Resend if configured

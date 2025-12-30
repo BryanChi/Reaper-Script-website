@@ -527,6 +527,8 @@ async function getLicenseInfo(email) {
 	return { ok: true, licenseKey: null, status: 'inactive', activations: [] };
 }
 
+const MAX_ACTIVE_DEVICES = 3;
+
 async function activateDevice(email, licenseKey, deviceId) {
 	const normalized = normalizeEmail(email);
 	if (!normalized || !deviceId) {
@@ -570,6 +572,25 @@ async function activateDevice(email, licenseKey, deviceId) {
 	if (existing) {
 		// Reactivate if inactive
 		if (!existing.active) {
+			// Enforce max active devices before reactivating
+			const { data: activeDevices, error: countErr } = await supabase
+				.from('device_activations')
+				.select('id')
+				.eq('license_key', licenseKey)
+				.eq('active', true)
+				.limit(MAX_ACTIVE_DEVICES + 1);
+
+			if (countErr) {
+				if (isMissingActivationsTable(countErr)) {
+					return { ok: false, error: "Device activations table missing. Create table 'public.device_activations' or disable device tracking." };
+				}
+				return { ok: false, error: countErr.message || 'Failed to check active device count' };
+			}
+
+			if (activeDevices && activeDevices.length >= MAX_ACTIVE_DEVICES) {
+				return { ok: false, error: `License key has reached the maximum of ${MAX_ACTIVE_DEVICES} active devices. Please deactivate a device first.` };
+			}
+
 			const { error: updateErr } = await supabase
 				.from('device_activations')
 				.update({ active: true, activated_at: iso(now) })
@@ -579,6 +600,26 @@ async function activateDevice(email, licenseKey, deviceId) {
 			}
 		}
 		return { ok: true, message: 'Device already activated' };
+	}
+
+	// Check how many active devices this license key already has
+	const { data: activeDevices, error: countErr } = await supabase
+		.from('device_activations')
+		.select('id')
+		.eq('license_key', licenseKey)
+		.eq('active', true)
+		.limit(MAX_ACTIVE_DEVICES + 1);
+
+	if (countErr) {
+		if (isMissingActivationsTable(countErr)) {
+			return { ok: false, error: "Device activations table missing. Create table 'public.device_activations' or disable device tracking." };
+		}
+		return { ok: false, error: countErr.message || 'Failed to check active device count' };
+	}
+
+	// Enforce max active devices
+	if (activeDevices && activeDevices.length >= MAX_ACTIVE_DEVICES) {
+		return { ok: false, error: `License key has reached the maximum of ${MAX_ACTIVE_DEVICES} active devices. Please deactivate a device first.` };
 	}
 
 	// Create new activation

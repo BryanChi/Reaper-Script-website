@@ -560,7 +560,7 @@ async function activateDevice(email, licenseKey, deviceId) {
 		.select('*')
 		.eq('license_key', licenseKey)
 		.eq('device_id', deviceId)
-		.single();
+		.maybeSingle();
 
 	if (existErr) {
 		if (isMissingActivationsTable(existErr)) {

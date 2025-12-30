@@ -1,5 +1,60 @@
 const { startTrial, normalizeEmail } = require('../_lib/store');
 
+// Helper function to confirm email in Supabase using service role
+async function confirmEmailInSupabase(email) {
+	try {
+		const { createClient } = require('@supabase/supabase-js');
+		if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+			console.warn('Supabase not configured, skipping email confirmation');
+			return { ok: true, message: 'Supabase not configured' };
+		}
+
+		const supabaseAdmin = createClient(
+			process.env.SUPABASE_URL,
+			process.env.SUPABASE_SERVICE_ROLE_KEY,
+			{
+				auth: { autoRefreshToken: false, persistSession: false }
+			}
+		);
+
+		// Get the user by email
+		const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+		
+		if (listError) {
+			console.error('Error listing users:', listError);
+			return { ok: false, error: listError.message };
+		}
+
+		const user = users?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+		
+		if (!user) {
+			console.warn(`User not found for email: ${email}`);
+			return { ok: false, error: 'User not found' };
+		}
+
+		// If already confirmed, return success
+		if (user.email_confirmed_at) {
+			return { ok: true, message: 'Email already confirmed' };
+		}
+
+		// Confirm the email
+		const { data, error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
+			user.id,
+			{ email_confirm: true }
+		);
+
+		if (confirmError) {
+			console.error('Error confirming email:', confirmError);
+			return { ok: false, error: confirmError.message };
+		}
+
+		return { ok: true, message: 'Email confirmed successfully' };
+	} catch (err) {
+		console.error('Error in confirmEmailInSupabase:', err);
+		return { ok: false, error: err.message || 'Failed to confirm email' };
+	}
+}
+
 module.exports = async function handler(req, res) {
 	if (req.method !== 'GET') {
 		res.setHeader('Allow', ['GET']);
@@ -97,6 +152,13 @@ module.exports = async function handler(req, res) {
 				</body>
 				</html>
 			`);
+		}
+
+		// Confirm email in Supabase first (so user can log in)
+		const confirmResult = await confirmEmailInSupabase(email);
+		if (!confirmResult.ok && confirmResult.error !== 'User not found') {
+			console.warn('Failed to confirm email in Supabase:', confirmResult.error);
+			// Continue anyway - trial can still be started
 		}
 
 		// Start trial for this email
@@ -225,7 +287,8 @@ module.exports = async function handler(req, res) {
 				<div class="container">
 					<div class="success">✓</div>
 					<h1>Trial Started Successfully!</h1>
-					<p>Your 14-day free trial has been activated for <strong>${email}</strong>.</p>
+					<p>Your email has been confirmed and your 14-day free trial has been activated for <strong>${email}</strong>.</p>
+					<p style="color: #22f36b; margin-top: 16px;">✓ You can now log in with your email and password!</p>
 					${result.licenseKey ? `
 						<p>Your trial license key:</p>
 						<div class="license-key">${result.licenseKey}</div>

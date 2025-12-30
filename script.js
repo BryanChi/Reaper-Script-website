@@ -43,6 +43,7 @@
 	const emailSubmit = document.getElementById('emailSubmit');
 	const authEmailInput = document.getElementById('authEmail');
 	const authPasswordInput = document.getElementById('authPassword');
+	const authPasswordConfirmInput = document.getElementById('authPasswordConfirm');
 	const googleSignIn = document.getElementById('googleSignIn');
 	const userMenu = document.getElementById('userMenu');
 	const userMenuButton = document.getElementById('userMenuButton');
@@ -108,8 +109,24 @@
 		if (emailSubmit) {
 			emailSubmit.textContent = mode === 'signup' ? 'Create account' : 'Log in';
 		}
-		if (authPasswordInput && mode === 'signup') {
-			authPasswordInput.placeholder = 'Password (min 6 chars)';
+		if (authPasswordInput) {
+			if (mode === 'signup') {
+				authPasswordInput.placeholder = 'Password (min 6 chars)';
+				authPasswordInput.autocomplete = 'new-password';
+			} else {
+				authPasswordInput.autocomplete = 'current-password';
+			}
+		}
+		// Show/hide password confirmation field
+		if (authPasswordConfirmInput) {
+			authPasswordConfirmInput.style.display = mode === 'signup' ? 'block' : 'none';
+			authPasswordConfirmInput.required = mode === 'signup';
+			if (mode === 'signup') {
+				authPasswordConfirmInput.placeholder = 'Confirm password';
+			} else {
+				// Clear the field when switching to signin mode
+				authPasswordConfirmInput.value = '';
+			}
 		}
 		if (authMessage) authMessage.textContent = '';
 	}
@@ -495,6 +512,7 @@
 				if (!ensureSupabase()) return;
 				const email = (authEmailInput?.value || '').trim();
 				const password = authPasswordInput?.value || '';
+				const passwordConfirm = authPasswordConfirmInput?.value || '';
 				if (!email || !password) {
 					if (authMessage) authMessage.textContent = 'Email and password are required.';
 					return;
@@ -502,6 +520,17 @@
 				if (password.length < 6) {
 					if (authMessage) authMessage.textContent = 'Password must be at least 6 characters.';
 					return;
+				}
+				// Validate password confirmation for signup
+				if (authMode === 'signup') {
+					if (!passwordConfirm) {
+						if (authMessage) authMessage.textContent = 'Please confirm your password.';
+						return;
+					}
+					if (password !== passwordConfirm) {
+						if (authMessage) authMessage.textContent = 'Passwords do not match.';
+						return;
+					}
 				}
 				if (emailSubmit) {
 					emailSubmit.disabled = true;
@@ -517,7 +546,21 @@
 						});
 						if (error) throw error;
 						updateUserUI(data?.user || null);
-						if (authMessage) authMessage.textContent = 'Check your email to confirm, then you will be signed in.';
+						
+						// Send custom verification email with "Start Trial" button
+						try {
+							const apiBase = (document.body && document.body.dataset.apiBase) || '';
+							await fetch((apiBase || '') + '/api/auth/send-verification-email', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ email })
+							});
+						} catch (emailErr) {
+							console.error('Failed to send custom verification email:', emailErr);
+							// Don't fail the signup if custom email fails
+						}
+						
+						if (authMessage) authMessage.textContent = 'Check your email to confirm your account and start your trial.';
 					} else {
 						const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 						if (error) throw error;

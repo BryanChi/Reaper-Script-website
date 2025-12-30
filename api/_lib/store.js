@@ -252,6 +252,28 @@ async function verifyLicense(licenseKey, deviceId) {
 			return { ok: false, status: 'expired', reason: 'License expired', expiresAt: exp };
 		}
 
+		// If deviceId is provided, verify device is activated
+		if (deviceId) {
+			const { data: deviceActivation, error: devErr } = await supabase
+				.from('device_activations')
+				.select('*')
+				.eq('license_key', licenseKey)
+				.eq('device_id', deviceId)
+				.eq('active', true)
+				.maybeSingle();
+
+			// If device_activations table doesn't exist, skip device check (backward compatibility)
+			if (devErr && !isMissingActivationsTable(devErr)) {
+				// Some other error occurred
+				console.error('Error checking device activation:', devErr);
+			}
+
+			// If device activation check succeeded but device is not activated
+			if (!devErr && !deviceActivation) {
+				return { ok: false, status: 'invalid', reason: 'Device not activated for this license. Please activate your device first.' };
+			}
+		}
+
 		return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key };
 	}
 
@@ -278,6 +300,27 @@ async function verifyLicense(licenseKey, deviceId) {
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
 		const active = now < expiresAt;
 		if (active) {
+			// If deviceId is provided, verify device is activated for trial
+			if (deviceId) {
+				const { data: deviceActivation, error: devErr } = await supabase
+					.from('device_activations')
+					.select('*')
+					.eq('license_key', licenseKey)
+					.eq('device_id', deviceId)
+					.eq('active', true)
+					.maybeSingle();
+
+				// If device_activations table doesn't exist, skip device check (backward compatibility)
+				if (devErr && !isMissingActivationsTable(devErr)) {
+					// Some other error occurred
+					console.error('Error checking device activation:', devErr);
+				}
+
+				// If device activation check succeeded but device is not activated
+				if (!devErr && !deviceActivation) {
+					return { ok: false, status: 'invalid', reason: 'Device not activated for this trial license. Please activate your device first.' };
+				}
+			}
 			return { ok: true, status: 'trial', expiresAt: expiresAt, licenseKey: licenseKey };
 		}
 		return { ok: false, status: 'expired', reason: 'Trial expired', expiresAt: expiresAt };

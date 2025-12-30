@@ -560,7 +560,35 @@
 							// Don't fail the signup if custom email fails
 						}
 						
-						if (authMessage) authMessage.textContent = 'Check your email to confirm your account and start your trial.';
+						if (authMessage) {
+							authMessage.innerHTML = 'Check your email to confirm your account and start your trial. <br><button type="button" id="resendConfirmationBtn" style="margin-top: 8px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--primary); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">Resend confirmation email</button>';
+							const resendBtn = document.getElementById('resendConfirmationBtn');
+							if (resendBtn) {
+								resendBtn.addEventListener('click', async function() {
+									resendBtn.disabled = true;
+									resendBtn.textContent = 'Sending...';
+									try {
+										const { error: resendError } = await supabaseClient.auth.resend({
+											type: 'signup',
+											email: email
+										});
+										if (resendError) throw resendError;
+										resendBtn.textContent = 'Email sent!';
+										setTimeout(() => {
+											resendBtn.textContent = 'Resend confirmation email';
+											resendBtn.disabled = false;
+										}, 3000);
+									} catch (resendErr) {
+										console.error('Failed to resend confirmation:', resendErr);
+										resendBtn.textContent = 'Failed to send';
+										setTimeout(() => {
+											resendBtn.textContent = 'Resend confirmation email';
+											resendBtn.disabled = false;
+										}, 3000);
+									}
+								});
+							}
+						}
 					} else {
 						const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 						if (error) throw error;
@@ -569,25 +597,37 @@
 					}
 				} catch (err) {
 					console.error('Email auth error:', err);
+					console.error('Error details:', JSON.stringify(err, null, 2));
 					let errorMessage = err.message || 'Unable to authenticate.';
 					
 					// Provide user-friendly messages for common error types
 					if (err.message) {
 						const lowerMessage = err.message.toLowerCase();
-						// Check for email not confirmed errors
+						const errorCode = err.status || err.code || '';
+						
+						// Supabase returns "Invalid login credentials" for unconfirmed emails
+						// Check for email not confirmed errors - Supabase error code 400 with specific messages
 						if (lowerMessage.includes('email not confirmed') || 
 						    lowerMessage.includes('email_not_confirmed') ||
 						    lowerMessage.includes('not confirmed') ||
 						    lowerMessage.includes('confirm your email') ||
-						    err.status === 400 && lowerMessage.includes('email')) {
-							errorMessage = 'Please verify your email address before signing in. Check your inbox for the confirmation email.';
+						    lowerMessage.includes('email address is not confirmed') ||
+						    (err.status === 400 && (lowerMessage.includes('email') || lowerMessage.includes('invalid'))) ||
+						    errorCode === 'email_not_confirmed') {
+							errorMessage = 'Please verify your email address before signing in. Check your inbox (and spam folder) for the confirmation email from Supabase.';
 						}
-						// Check for invalid credentials
+						// Check for invalid credentials - but only if it's NOT an email confirmation issue
 						else if (lowerMessage.includes('invalid login') || 
 						         lowerMessage.includes('invalid credentials') ||
 						         lowerMessage.includes('wrong password') ||
-						         lowerMessage.includes('incorrect password')) {
-							errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+						         lowerMessage.includes('incorrect password') ||
+						         lowerMessage.includes('invalid login credentials')) {
+							// For signin attempts, "invalid credentials" might mean unconfirmed email
+							if (authMode === 'signin') {
+								errorMessage = 'Invalid email or password. If you just created an account, please verify your email first. Check your inbox (and spam folder) for the confirmation email from Supabase.';
+							} else {
+								errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+							}
 						}
 						// Check for leaked password errors (various possible messages)
 						else if (lowerMessage.includes('breach') || 
@@ -607,7 +647,13 @@
 						}
 					}
 					
-					if (authMessage) authMessage.textContent = errorMessage;
+					if (authMessage) {
+						authMessage.textContent = errorMessage;
+						// If it's a signin error, add a helpful note about email confirmation
+						if (authMode === 'signin' && (errorMessage.includes('verify') || errorMessage.includes('confirm'))) {
+							authMessage.innerHTML = errorMessage + '<br><small style="color: var(--text-muted); margin-top: 8px; display: block;">Tip: Look for an email from Supabase (not from us) with the subject "Confirm your signup"</small>';
+						}
+					}
 				} finally {
 					if (emailSubmit) {
 						emailSubmit.disabled = false;

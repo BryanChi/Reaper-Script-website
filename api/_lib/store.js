@@ -34,6 +34,11 @@ function iso(date) {
 	return new Date(date).toISOString();
 }
 
+function isMissingActivationsTable(err) {
+	const msg = err?.message || '';
+	return err?.code === 'PGRST205' || msg.includes('device_activations');
+}
+
 function generateLicenseKey() {
 	return `${crypto.randomBytes(8).toString('hex')}-${crypto.randomBytes(4).toString('hex')}`;
 }
@@ -420,22 +425,27 @@ async function getLicenseInfo(email) {
 		const licenseKey = license.license_key;
 
 		// Get device activations for this license
-		const { data: activations, error: actErr } = await supabase
+		let activations = [];
+		const { data: activationsData, error: actErr } = await supabase
 			.from('device_activations')
 			.select('*')
 			.eq('license_key', licenseKey)
 			.eq('active', true)
 			.order('activated_at', { ascending: false });
 
-		// Log errors but don't fail - return empty array if query fails
+		// Log errors but don't fail - return empty array if table is missing
 		if (actErr) {
-			console.error('Error fetching device activations for license:', actErr, 'licenseKey:', licenseKey);
-		} else {
+			const msg = actErr.message || '';
+			const isMissingTable = actErr.code === 'PGRST205' || msg.includes('device_activations');
+			if (!isMissingTable) {
+				console.error('Error fetching device activations for license:', actErr, 'licenseKey:', licenseKey);
+			}
+		} else if (activationsData && Array.isArray(activationsData)) {
+			activations = activationsData;
 			// Debug logging to see what we got
 			console.log('Device activations query result:', {
 				licenseKey,
-				activationsCount: activations ? activations.length : 0,
-				activations: activations,
+				activationsCount: activations.length,
 				activationsType: typeof activations,
 				isArray: Array.isArray(activations)
 			});
@@ -491,9 +501,13 @@ async function getLicenseInfo(email) {
 				.eq('active', true)
 				.order('activated_at', { ascending: false });
 			
-			// Log errors but don't fail - return empty array if query fails
+			// Log errors but don't fail - return empty array if table is missing
 			if (actErr) {
-				console.error('Error fetching device activations for trial:', actErr, 'licenseKey:', licenseKey);
+				const msg = actErr.message || '';
+				const isMissingTable = actErr.code === 'PGRST205' || msg.includes('device_activations');
+				if (!isMissingTable) {
+					console.error('Error fetching device activations for trial:', actErr, 'licenseKey:', licenseKey);
+				}
 			}
 			
 			if (!actErr && activationsData && Array.isArray(activationsData)) {
@@ -546,7 +560,14 @@ async function activateDevice(email, licenseKey, deviceId) {
 		.eq('device_id', deviceId)
 		.single();
 
-	if (!existErr && existing) {
+	if (existErr) {
+		if (isMissingActivationsTable(existErr)) {
+			return { ok: false, error: "Device activations table missing. Create table 'public.device_activations' or disable device tracking." };
+		}
+		return { ok: false, error: existErr.message || 'Failed to check device activation' };
+	}
+
+	if (existing) {
 		// Reactivate if inactive
 		if (!existing.active) {
 			const { error: updateErr } = await supabase
@@ -571,6 +592,9 @@ async function activateDevice(email, licenseKey, deviceId) {
 		});
 
 	if (insertErr) {
+		if (isMissingActivationsTable(insertErr)) {
+			return { ok: false, error: "Device activations table missing. Create table 'public.device_activations' or disable device tracking." };
+		}
 		return { ok: false, error: insertErr.message || 'Failed to activate device' };
 	}
 
@@ -609,6 +633,9 @@ async function deactivateDevice(email, licenseKey, deviceId) {
 		.eq('active', true);
 
 	if (updateErr) {
+		if (isMissingActivationsTable(updateErr)) {
+			return { ok: false, error: "Device activations table missing. Create table 'public.device_activations' or disable device tracking." };
+		}
 		return { ok: false, error: updateErr.message || 'Failed to deactivate device' };
 	}
 

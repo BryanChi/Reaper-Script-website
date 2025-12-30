@@ -1720,16 +1720,9 @@
 				label: 'paypal'
 			},
 			createOrder: function(data, actions) {
-				const email = getSignedInEmail();
-				if (!email) {
-					showError('Please sign in before purchasing so we can link your license.');
-					openAuthModal();
-					return Promise.reject(new Error('Sign-in required'));
-				}
 				return actions.order.create({
 					purchase_units: [{
 						amount: { value: '19.00', currency_code: 'USD' },
-						custom_id: email,
 						description: 'Vertical FX List for REAPER - Lifetime License'
 					}]
 				});

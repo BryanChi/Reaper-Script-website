@@ -4,40 +4,89 @@ const { startTrial, normalizeEmail } = require('../_lib/store');
 async function confirmEmailInSupabase(email) {
 	try {
 		const { createClient } = require('@supabase/supabase-js');
-		if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-			console.warn('Supabase not configured, skipping email confirmation');
-			return { ok: true, message: 'Supabase not configured' };
+		
+		// Check environment variables
+		if (!process.env.SUPABASE_URL) {
+			console.error('SUPABASE_URL not set');
+			return { ok: false, error: 'SUPABASE_URL not configured' };
 		}
+		
+		if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+			console.error('SUPABASE_SERVICE_ROLE_KEY not set');
+			return { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY not configured' };
+		}
+
+		console.log('Attempting to confirm email for:', email);
+		console.log('Supabase URL:', process.env.SUPABASE_URL);
+		console.log('Service role key present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 		const supabaseAdmin = createClient(
 			process.env.SUPABASE_URL,
 			process.env.SUPABASE_SERVICE_ROLE_KEY,
 			{
-				auth: { autoRefreshToken: false, persistSession: false }
+				auth: { 
+					autoRefreshToken: false, 
+					persistSession: false 
+				}
 			}
 		);
 
-		// Get the user by email
-		const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-		
-		if (listError) {
-			console.error('Error listing users:', listError);
-			return { ok: false, error: listError.message };
+		// Get the user by email - handle pagination
+		const normalizedEmail = email.toLowerCase().trim();
+		let allUsers = [];
+		let page = 1;
+		let hasMore = true;
+
+		while (hasMore) {
+			const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+				page: page,
+				perPage: 1000
+			});
+			
+			if (listError) {
+				console.error('Error listing users:', listError);
+				return { ok: false, error: `Failed to list users: ${listError.message}` };
+			}
+
+			if (usersData?.users && usersData.users.length > 0) {
+				allUsers = allUsers.concat(usersData.users);
+				hasMore = usersData.users.length === 1000; // If we got a full page, there might be more
+				page++;
+			} else {
+				hasMore = false;
+			}
 		}
 
-		const user = users?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+		console.log(`Found ${allUsers.length} total users in Supabase`);
+
+		const user = allUsers.find(u => {
+			const userEmail = u.email?.toLowerCase().trim();
+			return userEmail === normalizedEmail;
+		});
 		
 		if (!user) {
-			console.warn(`User not found for email: ${email}`);
-			return { ok: false, error: 'User not found' };
+			console.warn(`User not found for email: ${email} (searched ${allUsers.length} users)`);
+			// Log first few user emails for debugging (without exposing full emails)
+			if (allUsers.length > 0) {
+				const sampleEmails = allUsers.slice(0, 3).map(u => {
+					const e = u.email || 'no-email';
+					return e.substring(0, 3) + '...' + e.substring(e.length - 3);
+				});
+				console.log('Sample user emails:', sampleEmails);
+			}
+			return { ok: false, error: `User not found for email: ${email}` };
 		}
+
+		console.log(`Found user: ${user.id}, email confirmed: ${!!user.email_confirmed_at}`);
 
 		// If already confirmed, return success
 		if (user.email_confirmed_at) {
+			console.log('Email already confirmed');
 			return { ok: true, message: 'Email already confirmed' };
 		}
 
 		// Confirm the email
+		console.log('Confirming email for user:', user.id);
 		const { data, error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
 			user.id,
 			{ email_confirm: true }
@@ -45,12 +94,14 @@ async function confirmEmailInSupabase(email) {
 
 		if (confirmError) {
 			console.error('Error confirming email:', confirmError);
-			return { ok: false, error: confirmError.message };
+			return { ok: false, error: `Failed to confirm email: ${confirmError.message}` };
 		}
 
+		console.log('Email confirmed successfully');
 		return { ok: true, message: 'Email confirmed successfully' };
 	} catch (err) {
 		console.error('Error in confirmEmailInSupabase:', err);
+		console.error('Error stack:', err.stack);
 		return { ok: false, error: err.message || 'Failed to confirm email' };
 	}
 }
@@ -156,9 +207,12 @@ module.exports = async function handler(req, res) {
 
 		// Confirm email in Supabase first (so user can log in)
 		const confirmResult = await confirmEmailInSupabase(email);
-		if (!confirmResult.ok && confirmResult.error !== 'User not found') {
-			console.warn('Failed to confirm email in Supabase:', confirmResult.error);
-			// Continue anyway - trial can still be started
+		if (!confirmResult.ok) {
+			console.error('Failed to confirm email in Supabase:', confirmResult.error);
+			// Log the error but continue - trial can still be started
+			// The user will need to verify their email manually or we can retry later
+		} else {
+			console.log('Email confirmation result:', confirmResult.message);
 		}
 
 		// Start trial for this email

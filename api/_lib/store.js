@@ -430,6 +430,32 @@ async function getLicenseInfo(email) {
 		// Log errors but don't fail - return empty array if query fails
 		if (actErr) {
 			console.error('Error fetching device activations for license:', actErr, 'licenseKey:', licenseKey);
+		} else {
+			// Debug logging to see what we got
+			console.log('Device activations query result:', {
+				licenseKey,
+				activationsCount: activations ? activations.length : 0,
+				activations: activations,
+				activationsType: typeof activations,
+				isArray: Array.isArray(activations)
+			});
+		}
+
+		// Also check for any activations (including inactive) for debugging
+		const { data: allActivations, error: allActErr } = await supabase
+			.from('device_activations')
+			.select('*')
+			.eq('license_key', licenseKey)
+			.order('activated_at', { ascending: false });
+		
+		if (!allActErr && allActivations) {
+			console.log('All device activations (including inactive) for license:', {
+				licenseKey,
+				totalCount: allActivations.length,
+				activeCount: allActivations.filter(a => a.active).length,
+				inactiveCount: allActivations.filter(a => !a.active).length,
+				activations: allActivations
+			});
 		}
 
 		return {

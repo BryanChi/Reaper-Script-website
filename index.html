@@ -112,79 +112,199 @@
 			</div>
 			<div class="container hero-inner">
 				<div class="hero-copy">
-					<h1>Vertical FX List for REAPER</h1>
-					<p class="lead">A fast, container‑aware FX manager with marquee multi‑select, parallel grouping, and in‑place sends/pan controls.</p>
-					<div class="hero-ctas">
-						<button class="btn btn-primary" id="buyButton" data-payment-link="">Buy Now</button>
-						<a class="btn btn-secondary" href="#demo">Watch Demo</a>
-					</div>
+					<h1>Vertical FX list</h1>
 				</div>
 			</div>
 		</section>
 
 		<section id="features" class="section">
 			<div class="container">
-				<div class="section-header">
-					<h2 class="fx-list-title">FX list</h2>
-					<p class="lead-text">A completely new way to manage FX in REAPER.</p>
-				</div>
-
 				<div class="features-list">
-					<!-- Feature 1: Control FX - Full Width Video -->
-					<div class="feature-block feature-1" data-reveal="">
-						<div class="feature-inner">
-							<div class="feature-content">
-								<h3>The basics</h3>
-								<p>Open, bypass, reorder, and group FX directly in the vertical list—no window juggling required.</p>
-							</div>
-							<div class="feature-media">
-								<div class="video-controls-wrapper">
-									<video src="./assets/Videos/feature-fx-control.mov" muted="" loop="" preload="auto" playsinline=""></video>
-									<div class="video-controls">
-										<div class="video-progress-bar">
-											<div class="video-progress-filled"></div>
-											<div class="video-progress-handle"></div>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="feature-shortcuts">
-								<div class="shortcut-bubble">
-									<span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Open/Close FX
-								</div>
-								<div class="shortcut-bubble">
-									<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete FX
-								</div>
-								<div class="shortcut-bubble">
-									<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass FX
-								</div>
-								<div class="shortcut-bubble">
-									<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle FX Online/Offline
-								</div>
-								<div class="shortcut-bubble">
-									<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Rename FX
-								</div>
-							</div>
+					<!-- FX List Section (New Carousel) -->
+					<div class="fx-list-section">
+						<div class="section-header">
+							<h2 class="fx-list-title">FX list</h2>
+							<p class="lead-text">A completely new way to manage FX in REAPER.</p>
 						</div>
-					</div>
 
-					<!-- Feature 7: FX Linking - Moved to pos 2 -->
-					<div class="feature-block feature-7" data-reveal="">
-						<div class="feature-inner reverse">
-							<div class="feature-content">
-								<h3>FX Linking</h3>
-								<p>Link FX parameters between different instances of the same plugin. Good for dubbing and harmonies etc.<br><br>
-								<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left Click" style="width: 18px; vertical-align: text-bottom;"></span> <strong>Drag</strong> to initiate.</p>
-							</div>
-							<div class="feature-media">
-								<div class="video-controls-wrapper">
-									<video src="./assets/Videos/Fx Linking.mov" muted="" loop="" preload="auto" playsinline=""></video>
-									<div class="video-controls">
-										<div class="video-progress-bar">
-											<div class="video-progress-filled"></div>
-											<div class="video-progress-handle"></div>
+						<div class="carousel-wrapper fx-list-carousel">
+							<div class="carousel-container">
+								<button class="carousel-arrow carousel-prev" aria-label="Scroll left" type="button">‹</button>
+								<div class="carousel-track">
+									<!-- Feature 1: Control FX (Slide 1) -->
+									<div class="feature-block feature-1 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>The basics</h3>
+												<p>Open, bypass, reorder, and group FX directly in the vertical list—no window juggling required.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/feature-fx-control.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Open/Close FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle FX Online/Offline
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Rename FX
+												</div>
+											</div>
 										</div>
 									</div>
+
+									<!-- Feature 7: FX Linking (Slide 2) -->
+									<div class="feature-block feature-7 carousel-slide" data-reveal="">
+										<div class="feature-inner reverse">
+											<div class="feature-content">
+												<h3>FX Linking</h3>
+												<p>Link FX parameters between different instances of the same plugin. Good for dubbing and harmonies etc.<br><br>
+												<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left Click" style="width: 18px; vertical-align: text-bottom;"></span> <strong>Drag</strong> to initiate.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Fx Linking.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: FX Marquee Selection (Slide 3) -->
+									<div class="feature-block feature-marquee carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>FX marquee selection</h3>
+												<p>Select multiple FX at once using marquee selection. When FXs are marquee selected, you can perform actions like tweaking wet/dry, bypass, move, and copy on multiple FXs simultaneously.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/FX marquee selection.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Marquee select
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Add to marquee selection
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Automation Icon (Slide 4) -->
+									<div class="feature-block feature-automation carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Automation icon</h3>
+												<p>An automation icon appears in the FX button when there's automation for the FX's parameters, making it easy to see which FXs have automation at a glance.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/automation icon in fx btn.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle show/hide envelope
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass envelope
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Remove envelope
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Containers and Parallel (Slide 5) -->
+									<div class="feature-block feature-containers-parallel carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Containers and Parallel</h3>
+												<p>REAPER's native containers and parallel processing made intuitive. The GUI clearly visualizes your signal flow with automatically color-coded containers, making it easy to see parallel paths and nested FX chains at a glance.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/containers and parallel.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Loudness Matching (Slide 6) -->
+									<div class="feature-block feature-loudness-match carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Loudness matching</h3>
+												<p>Automatically match the perceived loudness of your signal before and after FX processing. FX within the orange rectangle are analyzed for loudness changes. Drag the orange boundary lines to adjust which FX are included. After playback begins, loudness matching typically activates within a few seconds. Click the gain readout to lock the current gain adjustment, or drag it to manually set the level change.</p>
+												<p class="feature-note" style="margin-top: 16px; padding: 12px; background: rgba(255, 165, 0, 0.1); border-left: 3px solid rgba(255, 165, 0, 0.5); border-radius: 4px; font-size: 0.9em; color: rgba(255, 255, 255, 0.8);">
+													<strong>Note:</strong> This feature requires the free <strong>ABLevelMatchingJSFX</strong> plugin by TB Pro Audio. <a href="https://www.tbproaudio.de/download#sub" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">Download it here</a>.
+												</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Loudness match.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<button class="carousel-arrow carousel-next" aria-label="Scroll right" type="button">›</button>
+								<div class="carousel-dots">
+									<button class="carousel-dot active" data-slide="0" type="button"></button>
+									<button class="carousel-dot" data-slide="1" type="button"></button>
+									<button class="carousel-dot" data-slide="2" type="button"></button>
+									<button class="carousel-dot" data-slide="3" type="button"></button>
+									<button class="carousel-dot" data-slide="4" type="button"></button>
+									<button class="carousel-dot" data-slide="5" type="button"></button>
 								</div>
 							</div>
 						</div>
@@ -197,102 +317,198 @@
 							<p class="lead-text">Master your signal flow with a complete suite of send tools.</p>
 						</div>
 
-						<!-- Feature 2: Sends - Video Left, Text Right -->
-						<div class="feature-block feature-2" data-reveal="">
-							<div class="feature-inner reverse">
-								<div class="feature-content">
-									<h3>Manage sends with ease</h3>
-									<p>Create sends by dragging between tracks, then adjust volume and routing directly in the FX list.</p>
-								</div>
-								<div class="feature-media">
-									<div class="video-controls-wrapper">
-										<video src="./assets/Videos/Sends Basic.mov" muted="" loop="" preload="auto" playsinline=""></video>
-										<div class="video-controls">
-											<div class="video-progress-bar">
-												<div class="video-progress-filled"></div>
-												<div class="video-progress-handle"></div>
+						<div class="sends-carousel carousel-wrapper">
+							<div class="carousel-container">
+								<button class="carousel-arrow carousel-prev" aria-label="Scroll left" type="button">‹</button>
+								<div class="carousel-track">
+									<!-- Feature 2: Sends - Text Top, Video Bottom -->
+									<div class="feature-block feature-2 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Basics</h3>
+												<p>Create sends by dragging between tracks, then adjust volume and routing directly in the FX list.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Sends Basic.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete send
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Mute send
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Create Send Volume Envelope
+													</div>
+												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="feature-shortcuts">
-									<div class="shortcut-bubble">
-										<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete send
-									</div>
-									<div class="shortcut-bubble">
-										<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Mute send
-									</div>
-									<div class="shortcut-bubble">
-										<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Create Send Volume Envelope
-									</div>
-								</div>
-							</div>
-						</div>
 
-						<!-- Feature 3: Send Favorites - Centered Text, Video Below -->
-						<div class="feature-block feature-3" data-reveal="">
-							<div class="feature-inner centered">
-								<div class="feature-content">
-									<h3>Send favorites</h3>
-									<p>Save and quickly access your most-used sends and FX chains.</p>
-								</div>
-								<div class="feature-media">
-									<div class="video-controls-wrapper">
-										<video src="./assets/Videos/Send Favorites.mov" muted="" loop="" preload="auto" playsinline=""></video>
-										<div class="video-controls">
-											<div class="video-progress-bar">
-												<div class="video-progress-filled"></div>
-												<div class="video-progress-handle"></div>
+									<!-- Feature 3: Send Favorites - Centered Text, Video Below -->
+									<div class="feature-block feature-3 carousel-slide" data-reveal="">
+										<div class="feature-inner centered">
+											<div class="feature-content">
+												<h3>Favorites</h3>
+												<p>Save and quickly access your most-used sends and FX chains.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Send Favorites.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-							</div>
-						</div>
 
-						<!-- Feature 4: Hide Popup - Full Width Video Above Text -->
-						<div class="feature-block feature-4" data-reveal="">
-							<div class="feature-inner video-top">
-								<div class="feature-media">
-									<div class="video-controls-wrapper">
-										<video src="./assets/Videos/Send Hide Popup.mov" muted="" loop="" preload="auto" playsinline=""></video>
-										<div class="video-controls">
-											<div class="video-progress-bar">
-												<div class="video-progress-filled"></div>
-												<div class="video-progress-handle"></div>
+									<!-- Feature 4: Hide Popup - Text Top, Video Bottom -->
+									<div class="feature-block feature-4 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Hide Buses</h3>
+												<p>Keep your TCP clean by hiding sends, but access them instantly via the popup controls.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Send Hide Popup.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-								<div class="feature-content">
-									<h3>Hidden, but accessible</h3>
-									<p>Keep your TCP clean by hiding sends, but access them instantly via the popup controls.</p>
-									<ul class="feature-tags">
-										<li>Toggle Visibility</li>
-										<li>Popup Controls</li>
-										<li>Clean TCP</li>
-									</ul>
-								</div>
-							</div>
-						</div>
 
-						<!-- Feature 5: Channels - Video Below Text (Wide) -->
-						<div class="feature-block feature-5" data-reveal="">
-							<div class="feature-inner">
-								<div class="feature-content">
-									<h3>Channel shortcuts</h3>
-									<p>Press 1-8 while dragging to route to specific channels instantly.</p>
-								</div>
-								<div class="feature-media">
-									<div class="video-controls-wrapper">
-										<video src="./assets/Videos/Send Channels.mov" muted="" loop="" preload="auto" playsinline=""></video>
-										<div class="video-controls">
-											<div class="video-progress-bar">
-												<div class="video-progress-filled"></div>
-												<div class="video-progress-handle"></div>
+									<!-- Feature 5: Channels - Video Below Text (Wide) -->
+									<div class="feature-block feature-5 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Channel shortcuts</h3>
+												<p>Press 1-8 while dragging to route to specific channels instantly.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Send Channels.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>1</kbd> - <kbd>8</kbd> : Set destination channels
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <kbd>1</kbd> - <kbd>8</kbd> : Set source channels
+													</div>
+												</div>
 											</div>
 										</div>
 									</div>
+
+									<!-- Feature 6: Per-track sends pane width -->
+									<div class="feature-block feature-sends-width carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Pane Width</h3>
+												<p>Set the sends pane width individually for each track to match your workflow. Hide the sends pane entirely for tracks that don't use sends, keeping your interface clean and organized.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Sends pane per track width.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Adjust send pane width for track
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 7: Send FX -->
+									<div class="feature-block feature-send-fx carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Send FX</h3>
+												<p>The Send FX feature creates a container that automatically routes to a new pair of unused channels. Add FXs into the container to process the signal going into the buses without affecting the direct out signal.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/SendFX.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 8: Marquee Sends -->
+									<div class="feature-block feature-marquee-sends carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Marquee sends</h3>
+												<p>Select multiple sends at once using marquee selection. When sends are marquee selected, you can perform actions on multiple sends simultaneously, making bulk adjustments quick and efficient.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Marquee sends.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Marquee select sends
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Add to marquee selection
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<button class="carousel-arrow carousel-next" aria-label="Scroll right" type="button">›</button>
+								<div class="carousel-dots">
+									<button class="carousel-dot active" data-slide="0" type="button"></button>
+									<button class="carousel-dot" data-slide="1" type="button"></button>
+									<button class="carousel-dot" data-slide="2" type="button"></button>
+									<button class="carousel-dot" data-slide="3" type="button"></button>
+									<button class="carousel-dot" data-slide="4" type="button"></button>
+									<button class="carousel-dot" data-slide="5" type="button"></button>
+									<button class="carousel-dot" data-slide="6" type="button"></button>
 								</div>
 							</div>
 						</div>
@@ -358,14 +574,6 @@
 						<div class="video-wrapper" data-youtube-id="">
 							<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Demo video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe>
 						</div>
-					</div>
-					<div class="audio">
-						<h3>Audio example</h3>
-						<audio controls="" preload="auto">
-							<source src="" type="audio/mpeg">
-							Your browser does not support the audio element.
-						</audio>
-						<p class="muted">Link your before/after sample or leave this out.</p>
 					</div>
 				</div>
 			</div>
@@ -459,7 +667,6 @@
 							<li>Lifetime updates</li>
 							<li>Email support</li>
 						</ul>
-						<button class="btn btn-primary btn-lg" id="buyButtonPricing" data-payment-link="">Buy Now</button>
 						<div id="paypal-button-container" style="margin-top: 16px;"></div>
 						<p class="muted tiny">30-day money-back guarantee.</p>
 					</div>

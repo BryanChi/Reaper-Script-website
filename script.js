@@ -198,6 +198,12 @@
 		try {
 			const res = await postJson('/api/license/info', { email });
 			
+			// Debug logging
+			console.log('License info response:', res);
+			if (res._debug) {
+				console.log('Debug info:', res._debug);
+			}
+			
 			if (!res.ok) {
 				licenseStatusDisplay.innerHTML = `<div class="license-error">Unable to load license information.</div>`;
 				return;
@@ -249,9 +255,18 @@
 				
 				html += `</div></div>`;
 			} else if (res.licenseKey) {
+				// Check if activations is actually an array or if it's null/undefined
+				const activationsInfo = res.activations === null ? 'null' : 
+				                      res.activations === undefined ? 'undefined' : 
+				                      Array.isArray(res.activations) ? `array with ${res.activations.length} items` : 
+				                      typeof res.activations;
+				
 				html += `<div class="device-activations-section">
 					<div class="device-activations-header">Device Activations</div>
-					<div class="device-activations-empty">No active device activations.</div>
+					<div class="device-activations-empty">No active device activations.
+					${res._debug ? `<br><small style="color: #9ca3af; font-size: 10px;">Debug: activations=${activationsInfo}, licenseKey=${res.licenseKey}</small>` : ''}
+					<br><small style="color: #9ca3af; font-size: 10px;">Note: Device activations are created when you run the Reaper script with this license key.</small>
+					</div>
 				</div>`;
 			}
 
@@ -511,7 +526,30 @@
 					}
 				} catch (err) {
 					console.error('Email auth error:', err);
-					if (authMessage) authMessage.textContent = err.message || 'Unable to authenticate.';
+					let errorMessage = err.message || 'Unable to authenticate.';
+					
+					// Provide user-friendly messages for common error types
+					if (err.message) {
+						const lowerMessage = err.message.toLowerCase();
+						// Check for leaked password errors (various possible messages)
+						if (lowerMessage.includes('breach') || 
+						    lowerMessage.includes('pwned') || 
+						    lowerMessage.includes('compromised') ||
+						    lowerMessage.includes('leaked') ||
+						    lowerMessage.includes('data breach')) {
+							errorMessage = 'This password has appeared in a data breach. Please choose a different, stronger password.';
+						}
+						// Check for weak password errors
+						else if (lowerMessage.includes('weak') || lowerMessage.includes('too common')) {
+							errorMessage = 'This password is too weak or commonly used. Please choose a stronger password.';
+						}
+						// Check for password policy violations
+						else if (lowerMessage.includes('password') && (lowerMessage.includes('invalid') || lowerMessage.includes('not allowed'))) {
+							errorMessage = 'This password does not meet security requirements. Please choose a different password.';
+						}
+					}
+					
+					if (authMessage) authMessage.textContent = errorMessage;
 				} finally {
 					if (emailSubmit) {
 						emailSubmit.disabled = false;
@@ -535,7 +573,6 @@
 	function wireBuyButtons() {
 		const buttons = [
 			document.getElementById('buyButton'),
-			document.getElementById('buyButtonPricing'),
 			document.getElementById('buyNowTop')
 		].filter(Boolean);
 
@@ -563,8 +600,26 @@
 	// Scroll reveal for elements with [data-reveal] - Enhanced with stagger
 	function setupReveal() {
 		const els = Array.from(document.querySelectorAll('[data-reveal]'));
+		
+		// Preload all carousel slides immediately (no lazy loading)
+		const carouselSlides = Array.from(document.querySelectorAll('.carousel-slide[data-reveal]'));
+		carouselSlides.forEach(function(slide) {
+			slide.classList.add('visible');
+			// Preload videos in carousel slides
+			const videos = slide.querySelectorAll('video');
+			videos.forEach(function(video) {
+				video.load(); // Force video to load metadata
+				video.preload = 'auto'; // Ensure preloading
+			});
+		});
+		
+		// Filter out carousel slides from the regular reveal observer
+		const nonCarouselEls = els.filter(function(el) {
+			return !el.closest('.carousel-slide');
+		});
+		
 		if (!('IntersectionObserver' in window)) {
-			els.forEach(function(el) { el.classList.add('visible'); });
+			nonCarouselEls.forEach(function(el) { el.classList.add('visible'); });
 			return;
 		}
 		
@@ -582,7 +637,7 @@
 			rootMargin: '0px 0px -50px 0px' // Trigger slightly before bottom
 		});
 		
-		els.forEach(function(el) { io.observe(el); });
+		nonCarouselEls.forEach(function(el) { io.observe(el); });
 	}
 
 	setupReveal();
@@ -719,20 +774,11 @@
 			// Make hero play icon clickable
 			if (heroBackground) {
 				heroBackground.addEventListener('click', function(e) {
+					// If video is paused, clicking anywhere on hero background (including play icon) should play
 					if (heroBackground.classList.contains('hero-video-paused') && heroVideo.paused) {
-						const rect = heroBackground.getBoundingClientRect();
-						const centerX = rect.left + rect.width / 2;
-						const centerY = rect.top + rect.height / 2;
-						const clickX = e.clientX;
-						const clickY = e.clientY;
-						const distance = Math.sqrt(Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2));
-						
-						// If click is near center (within 60px radius), play video
-						if (distance < 60) {
-							e.preventDefault();
-							e.stopPropagation();
-							heroVideo.play();
-						}
+						e.preventDefault();
+						e.stopPropagation();
+						heroVideo.play();
 					}
 				});
 			}
@@ -757,7 +803,7 @@
 		}
 		
 		
-		// Feature videos - play on hover, continue playing when hover ends
+		// Feature videos - play on hover, but only if slide is active
 		const featureBlocks = document.querySelectorAll('.feature-block');
 		featureBlocks.forEach(function(featureBlock) {
 			const video = featureBlock.querySelector('video');
@@ -785,11 +831,35 @@
 			video.pause();
 			updatePlayIcon();
 			
-			// Play on hover
+			// Helper function to check if the slide is active
+			function isSlideActive() {
+				const slide = featureBlock.closest('.carousel-slide');
+				return slide && slide.classList.contains('active');
+			}
+			
+			// Play on hover, but only if the slide is active
 			featureBlock.addEventListener('mouseenter', function() {
-				video.play().catch(function() {
-					// Ignore autoplay restrictions
-				});
+				if (isSlideActive()) {
+					video.play().catch(function() {
+						// Ignore autoplay restrictions
+					});
+					// Mark that video was playing
+					const slide = featureBlock.closest('.carousel-slide');
+					if (slide) {
+						slide.dataset.videoWasPlaying = 'true';
+					}
+				}
+			});
+			
+			// Pause when mouse leaves (for inactive slides that might have been playing)
+			featureBlock.addEventListener('mouseleave', function() {
+				if (!isSlideActive() && !video.paused) {
+					video.pause();
+					const slide = featureBlock.closest('.carousel-slide');
+					if (slide) {
+						slide.dataset.videoWasPlaying = 'false';
+					}
+				}
 			});
 		});
 
@@ -852,25 +922,28 @@
 				progressHandle.style.left = progress + '%';
 			}
 			
+			// Click on wrapper to handle play icon clicks (when video is paused)
+			wrapper.addEventListener('click', function(e) {
+				// Don't handle if clicking on controls
+				if (e.target.closest('.video-controls')) return;
+				
+				// If video is paused, clicking anywhere on wrapper (including play icon) should play
+				if (wrapper.classList.contains('video-paused') && video.paused) {
+					e.preventDefault();
+					e.stopPropagation();
+					video.play();
+					return;
+				}
+			});
+			
 			// Click on video to pause/play (but not on controls)
 			video.addEventListener('click', function(e) {
 				// Don't toggle if clicking on controls
 				if (e.target.closest('.video-controls')) return;
 				
-				// Don't toggle if clicking on play icon overlay (handled separately)
+				// Don't toggle if clicking on play icon overlay (handled by wrapper)
 				if (wrapper && wrapper.classList.contains('video-paused')) {
-					const rect = wrapper.getBoundingClientRect();
-					const centerX = rect.left + rect.width / 2;
-					const centerY = rect.top + rect.height / 2;
-					const clickX = e.clientX;
-					const clickY = e.clientY;
-					const distance = Math.sqrt(Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2));
-					
-					// If click is near center (within 50px radius), play video
-					if (distance < 50) {
-						video.play();
-						return;
-					}
+					return; // Let wrapper handler take care of it
 				}
 				
 				if (video.paused) {
@@ -1623,4 +1696,175 @@
 	}
 })();
 
+// Generic Carousel Functionality
+(function() {
+	function initCarousels() {
+		const carousels = document.querySelectorAll('.carousel-wrapper');
+		
+		carousels.forEach(carousel => {
+			const track = carousel.querySelector('.carousel-track');
+			const slides = carousel.querySelectorAll('.carousel-slide');
+			const prevBtn = carousel.querySelector('.carousel-prev');
+			const nextBtn = carousel.querySelector('.carousel-next');
+			const dots = carousel.querySelectorAll('.carousel-dot');
+
+			if (!track || !prevBtn || !nextBtn) return;
+			
+			// Preload all carousel content immediately
+			slides.forEach(function(slide) {
+				// Ensure slide is visible (bypass lazy loading)
+				slide.classList.add('visible');
+				
+				// Preload all videos
+				const videos = slide.querySelectorAll('video');
+				videos.forEach(function(video) {
+					video.load(); // Force load metadata
+					video.preload = 'auto'; // Ensure preloading
+					// Set initial play state
+					const slideEl = video.closest('.carousel-slide');
+					if (slideEl) {
+						slideEl.dataset.videoWasPlaying = 'false';
+					}
+				});
+			});
+			
+			let currentSlide = 0;
+
+			function updateActiveState() {
+				// Find center point of the view
+				const trackCenter = track.scrollLeft + track.clientWidth / 2;
+				
+				let minDistance = Infinity;
+				let newActiveIndex = 0;
+
+				slides.forEach((slide, index) => {
+					// Slide center relative to track start
+					const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+					const dist = Math.abs(trackCenter - slideCenter);
+					
+					if (dist < minDistance) {
+						minDistance = dist;
+						newActiveIndex = index;
+					}
+				});
+
+				currentSlide = newActiveIndex;
+
+				// Update dots
+				dots.forEach((dot, index) => {
+					dot.classList.toggle('active', index === currentSlide);
+				});
+
+				// Update active slide class for blur effect AND video control
+				slides.forEach((slide, index) => {
+					const isActive = index === currentSlide;
+					const video = slide.querySelector('video');
+					
+					if (isActive) {
+						slide.classList.add('active');
+						// Resume video if it was playing before (stored in data attribute)
+						if (video) {
+							const wasPlaying = slide.dataset.videoWasPlaying === 'true';
+							if (wasPlaying && video.paused) {
+								video.play().catch(() => {});
+							}
+						}
+					} else {
+						slide.classList.remove('active');
+						// Pause all videos in inactive slides for performance
+						// Store play state so we can resume later
+						if (video && !video.paused) {
+							slide.dataset.videoWasPlaying = 'true';
+							video.pause();
+						} else if (video) {
+							slide.dataset.videoWasPlaying = 'false';
+						}
+					}
+				});
+			}
+
+			function scrollToSlide(slideIndex) {
+				const slide = slides[slideIndex];
+				if (!slide) return;
+
+				// Center the target slide
+				// position = slide.offsetLeft - (viewport/2 - slide/2)
+				const targetScroll = slide.offsetLeft - (track.clientWidth - slide.offsetWidth) / 2;
+				
+				track.scrollTo({
+					left: targetScroll,
+					behavior: 'smooth'
+				});
+			}
+
+			function scrollLeft() {
+				// Move to previous slide
+				const targetIndex = Math.max(0, currentSlide - 1);
+				scrollToSlide(targetIndex);
+			}
+
+			function scrollRight() {
+				// Move to next slide
+				const targetIndex = Math.min(slides.length - 1, currentSlide + 1);
+				scrollToSlide(targetIndex);
+			}
+
+			// Update arrow states based on scroll position
+			function updateArrowStates() {
+				// Allow small tolerance
+				const tolerance = 10;
+				
+				// Check start
+				prevBtn.disabled = currentSlide === 0;
+				
+				// Check end
+				nextBtn.disabled = currentSlide === slides.length - 1;
+			}
+
+			// Event listeners
+			nextBtn.addEventListener('click', scrollRight);
+			prevBtn.addEventListener('click', scrollLeft);
+
+			dots.forEach((dot, index) => {
+				dot.addEventListener('click', () => scrollToSlide(index));
+			});
+
+			// Scroll event listener
+			// Use debounce/throttle or requestAnimationFrame for performance if needed,
+			// but for simple active state updates, standard scroll listener is usually fine
+			let isScrolling = false;
+			track.addEventListener('scroll', () => {
+				if (!isScrolling) {
+					window.requestAnimationFrame(() => {
+						updateActiveState();
+						updateArrowStates();
+						isScrolling = false;
+					});
+					isScrolling = true;
+				}
+			});
+			
+			// Resize observer
+			if (window.ResizeObserver) {
+				new ResizeObserver(() => {
+					updateActiveState();
+					updateArrowStates();
+				}).observe(track);
+			}
+
+			// Initialize states
+			setTimeout(() => {
+				updateActiveState();
+				updateArrowStates();
+			}, 100);
+		});
+	}
+
+	// Initialize when DOM is ready
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initCarousels);
+	} else {
+		initCarousels();
+	}
+})();
 

@@ -352,31 +352,43 @@
 				timeoutPromise
 			])
 			.then(async r => {
-				if (!r.ok) {
-					const errorText = await r.text();
-					let errorData;
-					try {
-						errorData = JSON.parse(errorText);
-					} catch {
-						errorData = { error: errorText || `HTTP ${r.status}: ${r.statusText}` };
-					}
-					throw new Error(errorData.error || `Authentication failed (${r.status})`);
+				// Try to parse JSON response regardless of status
+				let data;
+				try {
+					const text = await r.text();
+					data = text ? JSON.parse(text) : null;
+				} catch (e) {
+					// If parsing fails, create error object
+					data = { ok: false, error: `Server error: ${r.status} ${r.statusText}` };
 				}
-				return r.json();
+				
+				// If status is not ok, throw error with message from data
+				if (!r.ok) {
+					throw new Error(data?.error || `Authentication failed (${r.status})`);
+				}
+				
+				// Return the parsed data
+				return data;
 			})
 			.then(data => {
-				if (data.ok) {
+				if (data && data.ok && data.token) {
 					adminToken = data.token;
 					document.getElementById('authSection').style.display = 'none';
 					document.getElementById('adminPanel').style.display = 'block';
-					loadLicenses();
-					loadTrials();
+					// Load data after a small delay to ensure token is set
+					setTimeout(() => {
+						loadLicenses();
+						loadTrials();
+					}, 100);
 				} else {
-					showMessage(data.error || 'Invalid password', 'error');
+					showMessage(data?.error || 'Invalid password', 'error');
 				}
 			})
 			.catch(err => {
 				showMessage('Authentication failed: ' + err.message, 'error');
+				// Make sure login form stays visible on error
+				document.getElementById('authSection').style.display = 'block';
+				document.getElementById('adminPanel').style.display = 'none';
 			});
 		}
 
@@ -408,6 +420,7 @@
 			}
 			
 			const tbody = document.getElementById('licensesBody');
+			if (!tbody) return; // Panel might not be visible yet
 			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
@@ -425,10 +438,14 @@
 				if (r.status === 401) {
 					// Token expired or invalid - prompt for re-authentication
 					adminToken = null;
-					document.getElementById('adminPanel').style.display = 'none';
-					document.getElementById('authSection').style.display = 'block';
-					document.getElementById('adminPassword').value = '';
-					showMessage('Session expired. Please log in again.', 'error');
+					// Only hide panel if it's currently visible (not during initial login)
+					const adminPanel = document.getElementById('adminPanel');
+					if (adminPanel && adminPanel.style.display !== 'none') {
+						adminPanel.style.display = 'none';
+						document.getElementById('authSection').style.display = 'block';
+						document.getElementById('adminPassword').value = '';
+						showMessage('Session expired. Please log in again.', 'error');
+					}
 					return null;
 				}
 				if (!r.ok) {
@@ -465,6 +482,7 @@
 			}
 			
 			const tbody = document.getElementById('trialsBody');
+			if (!tbody) return; // Panel might not be visible yet
 			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
@@ -482,10 +500,14 @@
 				if (r.status === 401) {
 					// Token expired or invalid - prompt for re-authentication
 					adminToken = null;
-					document.getElementById('adminPanel').style.display = 'none';
-					document.getElementById('authSection').style.display = 'block';
-					document.getElementById('adminPassword').value = '';
-					showMessage('Session expired. Please log in again.', 'error');
+					// Only hide panel if it's currently visible (not during initial login)
+					const adminPanel = document.getElementById('adminPanel');
+					if (adminPanel && adminPanel.style.display !== 'none') {
+						adminPanel.style.display = 'none';
+						document.getElementById('authSection').style.display = 'block';
+						document.getElementById('adminPassword').value = '';
+						showMessage('Session expired. Please log in again.', 'error');
+					}
 					return null;
 				}
 				if (!r.ok) {

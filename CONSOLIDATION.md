@@ -72,3 +72,6 @@ The new consolidated endpoints work the same way, just with query parameters:
 - `POST /api/device?action=deactivate` - Deactivate device
 
 The admin panel (`admin.html`) has been updated to use the new endpoints.
+
+
+

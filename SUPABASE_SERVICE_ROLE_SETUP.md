@@ -120,3 +120,6 @@ If you're still having issues:
 2. Verify the key is set correctly (no extra spaces, complete key)
 3. Make sure you're using the `service_role` key, not the `anon` key
 
+
+
+

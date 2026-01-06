@@ -1009,7 +1009,7 @@ ul, ol {
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	gap: 120px;
+	gap: 40px;
 	width: 100vw;
 	margin-left: calc(50% - 50vw);
 	left: 0;
@@ -1053,6 +1053,7 @@ ul, ol {
 	width: 100%;
 	position: relative;
 	z-index: 2;
+	margin-bottom: 0;
 }
 
 .fx-list-section > .carousel-wrapper {
@@ -1060,6 +1061,7 @@ ul, ol {
 	position: relative;
 	z-index: 2;
 	overflow: visible; /* Allow overflowing slides to be seen */
+	margin-top: 0;
 }
 
 .carousel-wrapper, .sends-carousel {
@@ -2117,37 +2119,34 @@ ul, ol {
 	object-fit: contain;
 }
 
-/* Feature 6: Split Screen Style */
-.feature-6 .feature-inner.split {
-	grid-template-columns: 1fr 1fr;
-	gap: 0;
-	background: rgba(8, 15, 12, 0.6);
-	border-radius: 30px;
-	overflow: hidden;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
+/* Feature 6: Full Width Video Style */
 .feature-6 .feature-content {
-	padding: 80px 60px;
-	background: rgba(34, 243, 107, 0.03);
-	border-right: 1px solid rgba(255, 255, 255, 0.05);
+	padding: 60px 40px 40px;
+	text-align: center;
+	max-width: 900px;
+	margin: 0 auto;
 }
 
-.feature-6 .feature-media {
-	padding: 20px;
+.feature-6 .feature-media.feature-6-full-width {
+	padding: 0;
 	background: rgba(0, 0, 0, 0.5);
-	border-radius: 0;
-	min-height: 600px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	border-radius: 24px;
+	overflow: hidden;
+	width: 100%;
+	max-width: 100%;
+	margin-top: 40px;
 }
 
-.feature-6 .feature-media video {
-	max-width: 100%;
-	max-height: 100%;
-	width: auto;
+.feature-6 .feature-media.feature-6-full-width .video-controls-wrapper {
+	width: 100%;
+	padding: 0;
+}
+
+.feature-6 .feature-media.feature-6-full-width video {
+	width: 100%;
 	height: auto;
+	max-width: 100%;
+	display: block;
 }
 
 /* Feature 7: FX Linking - Moved to Feature 2 position (Side by Side) */
@@ -2453,8 +2452,7 @@ ul, ol {
 	}
 	
 	.feature-1 .feature-inner,
-	.feature-5 .feature-inner,
-	.feature-6 .feature-inner.split {
+	.feature-5 .feature-inner {
 		grid-template-columns: 1fr;
 	}
 	
@@ -2482,13 +2480,12 @@ ul, ol {
 		padding: 40px;
 	}
 	
-	.feature-6 .feature-inner.split {
-		flex-direction: column;
+	.feature-6 .feature-content {
+		padding: 40px 20px 30px;
 	}
 	
-	.feature-6 .feature-content {
-		border-right: none;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+	.feature-6 .feature-media.feature-6-full-width {
+		margin-top: 30px;
 	}
 	
 	.feature-media {

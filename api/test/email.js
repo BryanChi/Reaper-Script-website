@@ -121,3 +121,6 @@ module.exports = async function handler(req, res) {
 				: 'License generated but email not configured'
 	});
 };
+
+
+

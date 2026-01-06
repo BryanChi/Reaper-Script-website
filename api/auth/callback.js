@@ -29,3 +29,7 @@ module.exports = async function handler(req, res) {
 		return res.redirect(`/auth/error?error=${encodeURIComponent(err.message || 'Unknown error')}`);
 	}
 };
+
+
+
+

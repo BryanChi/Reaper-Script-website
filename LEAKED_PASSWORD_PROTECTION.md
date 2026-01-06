@@ -88,3 +88,6 @@ These passwords are commonly found in breaches and should be rejected:
 - **Privacy**: The HIBP check uses k-anonymity, so full passwords are never sent to the service
 - **Performance**: Minimal impact on sign-up/password change flows
 
+
+
+

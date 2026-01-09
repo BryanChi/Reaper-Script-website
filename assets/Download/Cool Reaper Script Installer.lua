@@ -84,19 +84,11 @@ local FILES_TO_INSTALL = {
     
     -- Configuration files
     {
-        url_path = "fx_favorites.txt",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/fx_favorites.txt",
-    },
-    {
         url_path = "style_presets_FACTORY.lua",
         target_path = "Scripts/CoolReaperSctipts/Vertical FX List/style_presets_FACTORY.lua",
         script_type = "lua",
     },
-    {
-        url_path = "style_presets_USER.lua",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/style_presets_USER.lua",
-        script_type = "lua",
-    },
+
     
     -- Function files
     {
@@ -115,9 +107,10 @@ local FILES_TO_INSTALL = {
         script_type = "lua",
     },
     {
-        url_path = "Vertical FX List Resources/Functions/AndaleMonoVertical.ttf",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/Functions/AndaleMonoVertical.ttf",
+        url_path = "Vertical FX List Resources/Functions/FX Parser.lua",
+        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/FX Parser.lua,
     },
+
     
     -- Image assets (required)
     {
@@ -195,20 +188,6 @@ local FILES_TO_INSTALL = {
         target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/undo.png",
     },
     
-    -- Other resource files
-    {
-        url_path = "Vertical FX List Resources/custom_colors.txt",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/custom_colors.txt",
-    },
-    {
-        url_path = "Vertical FX List Resources/fx_category_cache.lua",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/fx_category_cache.lua",
-        script_type = "lua",
-    },
-    {
-        url_path = "Vertical FX List Resources/plugin_select_counts.txt",
-        target_path = "Scripts/CoolReaperSctipts/Vertical FX List/Vertical FX List Resources/plugin_select_counts.txt",
-    },
 }
 
 -- Commit selection GUI state (define early so installers can update it)

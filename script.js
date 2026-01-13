@@ -983,7 +983,7 @@
 
 	// Custom Video Controls with Progress Bar (only for feature videos)
 	function setupVideoControls() {
-		const videoWrappers = document.querySelectorAll('.feature-media .video-controls-wrapper');
+		const videoWrappers = document.querySelectorAll('.feature-media .video-controls-wrapper, .accordion-content .video-controls-wrapper');
 		
 		videoWrappers.forEach(function(wrapper) {
 			const video = wrapper.querySelector('video');
@@ -1965,3 +1965,119 @@
 	}
 })();
 
+
+// Accordion Functionality
+(function() {
+	function initAccordions() {
+		const accordionHeaders = document.querySelectorAll('.accordion-header');
+		
+		accordionHeaders.forEach(function(header) {
+			header.addEventListener('click', function() {
+				const isExpanded = header.getAttribute('aria-expanded') === 'true';
+				const accordionItem = header.closest('.accordion-item');
+				const accordionContent = header.nextElementSibling;
+				
+				// Close all other accordions (optional - remove if you want multiple open)
+				if (!isExpanded) {
+					accordionHeaders.forEach(function(otherHeader) {
+						if (otherHeader !== header) {
+							otherHeader.setAttribute('aria-expanded', 'false');
+							const otherContent = otherHeader.nextElementSibling;
+							if (otherContent) {
+								otherContent.style.maxHeight = '0';
+								otherContent.style.opacity = '0';
+							}
+						}
+					});
+				}
+				
+				// Toggle current accordion
+				const newState = !isExpanded;
+				header.setAttribute('aria-expanded', newState);
+				
+				if (newState) {
+					// Open accordion
+					if (accordionContent) {
+						accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
+						accordionContent.style.opacity = '1';
+						
+						// Play video if it exists when opening
+						const video = accordionContent.querySelector('video');
+						if (video) {
+							// Small delay to ensure accordion is opening
+							setTimeout(function() {
+								video.play().catch(function() {
+									// Ignore autoplay restrictions
+								});
+							}, 100);
+						}
+					}
+				} else {
+					// Close accordion
+					if (accordionContent) {
+						accordionContent.style.maxHeight = '0';
+						accordionContent.style.opacity = '0';
+						
+						// Pause video when closing
+						const video = accordionContent.querySelector('video');
+						if (video && !video.paused) {
+							video.pause();
+						}
+					}
+				}
+			});
+		});
+		
+		// Setup video interactions for accordion videos
+		const accordionVideos = document.querySelectorAll('.accordion-content video');
+		accordionVideos.forEach(function(video) {
+			const wrapper = video.closest('.video-controls-wrapper');
+			if (!wrapper) return;
+			
+			// Update play icon visibility
+			function updatePlayIcon() {
+				if (wrapper) {
+					if (video.paused) {
+						wrapper.classList.add('video-paused');
+					} else {
+						wrapper.classList.remove('video-paused');
+					}
+				}
+			}
+			
+			video.addEventListener('play', updatePlayIcon);
+			video.addEventListener('pause', updatePlayIcon);
+			video.addEventListener('ended', updatePlayIcon);
+			
+			// Initial state
+			video.pause();
+			updatePlayIcon();
+			
+			// Play on hover when accordion is open
+			const accordionItem = video.closest('.accordion-item');
+			if (accordionItem) {
+				const accordionHeader = accordionItem.querySelector('.accordion-header');
+				accordionItem.addEventListener('mouseenter', function() {
+					if (accordionHeader && accordionHeader.getAttribute('aria-expanded') === 'true') {
+						video.play().catch(function() {
+							// Ignore autoplay restrictions
+						});
+					}
+				});
+				
+				accordionItem.addEventListener('mouseleave', function() {
+					if (!video.paused) {
+						video.pause();
+					}
+				});
+			}
+		});
+	}
+	
+	// Initialize when DOM is ready
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', initAccordions);
+	} else {
+		initAccordions();
+	}
+})();

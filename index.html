@@ -513,19 +513,124 @@
 						</div>
 					</div>
 
-					<!-- Feature 6: Hidden Parent - Full Width Video -->
-					<div class="feature-block feature-6" data-reveal="">
+					<!-- Accordion Feature Group: Hide Folder Tracks, Pan Basics, Pan Presets -->
+					<div class="feature-block feature-accordion-group" data-reveal="">
 						<div class="feature-inner">
 							<div class="feature-content">
-								<h3>Hide Folder Tracks, but keep them accessible</h3><h3><span style="color: rgb(156, 163, 175); font-size: clamp(18px, 2vw, 24px);">Hidden parent tracks will be shown as buttons in FX list, right clicking on them will unhide them, while left clicking shows a popup that let's you adjust all essential controls.</span></h3>
+								<h2 class="accordion-group-title">Advanced Controls</h2>
 							</div>
-							<div class="feature-media feature-6-full-width">
-								<div class="video-controls-wrapper">
-									<video src="./assets/Videos/Hidden parent.mov" muted="" loop="" preload="auto" playsinline=""></video>
-									<div class="video-controls">
-										<div class="video-progress-bar">
-											<div class="video-progress-filled"></div>
-											<div class="video-progress-handle"></div>
+							<div class="accordion-container">
+								<!-- Accordion Item 1: Hide Folder Tracks -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Hidden Folder Track Controls</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Hide Folder Tracks, but keep them accessible</h3>
+												<p>Hidden parent tracks will be shown as buttons in FX list, right clicking on them will unhide them, while left clicking shows a popup that let's you adjust all essential controls.</p>
+											</div>
+											<div class="feature-media feature-6-full-width">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Hidden parent.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Accordion Item 2: Pan mode -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Pan mode</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Pan mode</h3>
+												<p>The sends pan can be turned into a quick panning area by pressing <kbd>X</kbd> (toggles) or holding <kbd>Ctrl</kbd> + <kbd>Shift</kbd> (Temporary), <kbd>Alt</kbd> + <span class="mouse-button-small"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> drag, or <span class="mouse-button-small"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> drag. This lets you pan multiple tracks at once. Press <kbd>Z</kbd> while panning multiple tracks to invert the pan direction of the currently hovered track.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Pan basic.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<kbd>X</kbd> : Toggle panning area
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Ctrl</kbd> + <kbd>Shift</kbd> : Temporary panning area
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="./assets/icons/MouseL.png" alt="Left mouse button" /></span> : Pan multiple tracks
+												</div>
+												<div class="shortcut-bubble">
+													<span class="mouse-button"><img src="./assets/icons/MouseR.png" alt="Right mouse button" /></span> : Pan multiple tracks
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Z</kbd> : Invert pan direction (while panning)
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Accordion Item 3: Pan Presets -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Pan Presets</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Pan Presets</h3>
+												<p>While panning multiple tracks, pressing numbers <kbd>1</kbd> to <kbd>3</kbd> will activate presets, which lets you pan multiple tracks at once.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="./assets/Videos/Pan Presets.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<kbd>1</kbd> : Activate preset 1
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>2</kbd> : Activate preset 2
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>3</kbd> : Activate preset 3
+												</div>
+												<div class="shortcut-bubble">
+													<span class="mouse-scroll-icon">🖱️</span> Scroll : Tweak curve
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>C</kbd> : Reset curve
+												</div>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -570,19 +675,21 @@
 						<p>Go back to action list, search for 'CRS_vertical fx list', and run.</p>
 					</li>
 				</ol>
+				<div style="margin-top: 32px; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+					<h3 style="font-size: 18px; margin-bottom: 12px;">Requirements</h3>
+					<ul style="list-style: disc; padding-left: 20px; margin: 0;">
+						<li style="margin-bottom: 8px;">
+							<strong><a href="https://forum.cockos.com/showthread.php?t=212174" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">JS API</a> & <a href="https://forum.cockos.com/showthread.php?t=250419" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">ReaImGui</a></strong> — both are available by default if you have installed <a href="https://reapack.com" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">ReaPack</a>
+						</li>
+						<li style="margin-bottom: 8px;">
+							<strong><a href="https://sws-extension.org" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">SWS extensions</a></strong>
+						</li>
+					</ul>
+					<p style="margin-top: 12px; color: rgba(255, 255, 255, 0.7); font-size: 0.9em;">All requirements are free.</p>
+				</div>
 			</div>
 		</section>
 
-		<section id="requirements" class="section alt">
-			<div class="container">
-				<h2>Requirements</h2>
-				<ul class="list">
-					<li>REAPER 6.0+ (tested on 6.x / 7.x)</li>
-					<li>macOS 12+ or Windows 10+</li>
-					<li>ReaImGui 0.9.3+ (bundled in script)</li>
-				</ul>
-			</div>
-		</section>
 
 		<section id="license" class="section">
 			<div class="container license-grid">
@@ -609,24 +716,8 @@
 				</div>
 			</div>
 
-			<div class="container license-status">
-				<div class="status-badge" id="licenseStatus">Status: unknown</div>
-				<div class="status-detail" id="licenseDetail">Start a trial or check your license to see status.</div>
-			</div>
 		</section>
 
-		<section id="installation" class="section">
-			<div class="container">
-				<h2>Installation</h2>
-				<ol class="steps">
-					<li>Purchase and download the script package (.lua and resources).</li>
-					<li>In REAPER, open Actions → Show Action List → ReaScript → Load.</li>
-					<li>Select the main script file (e.g., FXD_Vertical FX list.lua).</li>
-					<li>REAPER indexes it; search the script name and assign a shortcut.</li>
-					<li>Optional: Add to a toolbar for quick access.</li>
-				</ol>
-			</div>
-		</section>
 
 		<section id="pricing" class="section alt">
 			<div class="container">
@@ -647,21 +738,6 @@
 			</div>
 		</section>
 
-		<section id="testimonials" class="section">
-			<div class="container">
-				<h2>What users say</h2>
-				<div class="testimonials">
-					<blockquote>
-						<p>“This script instantly saved me hours on dialogue edits.”</p>
-						<footer>— Alex P., Post-Production Editor</footer>
-					</blockquote>
-					<blockquote>
-						<p>“A must-have for any Reaper user who values speed.”</p>
-						<footer>— Jamie L., Mixing Engineer</footer>
-					</blockquote>
-				</div>
-			</div>
-		</section>
 
 		<section id="faq" class="section alt">
 			<div class="container">
@@ -690,25 +766,14 @@
 		<section id="contact" class="section">
 			<div class="container">
 				<h2>Contact</h2>
-				<p>Questions or support? Email <a href="mailto:support@example.com">support@example.com</a>.</p>
-				
-				<div style="margin-top: 32px; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
-					<h3 style="font-size: 18px; margin-bottom: 12px;">Test Email Sending</h3>
-					<p class="muted tiny" style="margin-bottom: 16px;">Test the license email delivery system.</p>
-					<form id="testEmailForm" class="license-form" style="max-width: 400px;">
-						<label for="testEmailInput" class="sr-only">Test Email</label>
-						<input id="testEmailInput" name="email" type="email" placeholder="your@email.com" required="" autocomplete="email" style="margin-bottom: 12px;">
-						<button class="btn btn-secondary" type="submit" id="testEmailSubmit">Send Test Email</button>
-						<p class="tiny muted" id="testEmailMessage" style="margin-top: 8px;"></p>
-					</form>
-				</div>
+				<p>Questions or support? Email <a href="brwchi@gmail.com">brwchi@gmail.com</a>.</p>
 			</div>
 		</section>
 	</main>
 
 	<footer class="site-footer">
 		<div class="container footer-inner">
-			<p class="muted">© <span id="year">2025</span> YourName. Not affiliated with Cockos Incorporated.</p>
+			<p class="muted">© <span id="year">2026</span> CoolReaperScripts. Not affiliated with Cockos Incorporated.</p>
 			<nav class="footer-nav">
 				<a href="#pricing">Buy</a>
 				<a href="#license">License</a>

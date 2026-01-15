@@ -3320,3 +3320,30 @@ ul, ol {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Full-width image styles */
+.img-full-width {
+	width: 100%;
+	max-width: 100%;
+	height: auto;
+	display: block;
+	margin: 0;
+	padding: 0;
+}
+
+/* Full-width image container (breaks out of container) */
+.img-full-width-container {
+	width: 100vw;
+	position: relative;
+	left: 50%;
+	right: 50%;
+	margin-left: -50vw;
+	margin-right: -50vw;
+	overflow: hidden;
+}
+
+.img-full-width-container img {
+	width: 100%;
+	height: auto;
+	display: block;
+}

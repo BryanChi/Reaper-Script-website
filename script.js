@@ -983,7 +983,7 @@
 
 	// Custom Video Controls with Progress Bar (only for feature videos)
 	function setupVideoControls() {
-		const videoWrappers = document.querySelectorAll('.feature-media .video-controls-wrapper, .accordion-content .video-controls-wrapper');
+		const videoWrappers = document.querySelectorAll('.feature-media .video-controls-wrapper');
 		
 		videoWrappers.forEach(function(wrapper) {
 			const video = wrapper.querySelector('video');
@@ -1964,7 +1964,6 @@
 		initCarousels();
 	}
 })();
-
 
 // Accordion Functionality
 (function() {

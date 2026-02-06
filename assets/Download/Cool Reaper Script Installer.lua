@@ -1,5 +1,5 @@
 -- @description BRYAN Script Installer - Mini ReaPack Alternative
--- @version 1.0.0
+-- @version 1.0.1
 -- @author bryan
 -- @about Downloads and installs scripts, JSFX, and assets from GitHub repo. Automatically registers scripts in Action List.
 -- @changelog Initial release
@@ -176,8 +176,8 @@ end
 local FILES_TO_INSTALL = {
     -- Main script
     {
-        url_path = "FXD_Vertical FX list.lua",
-        target_path = "Scripts/CoolReaperScripts/Vertical FX List/FXD_Vertical FX list.lua",
+        url_path = "[DEV] CRS_Vertical FX list.lua",
+        target_path = "Scripts/CoolReaperScripts/Vertical FX List/CRS_Vertical FX list.lua",
         script_type = "lua",
     },
     
@@ -603,7 +603,8 @@ local function InstallFromRelease(extracted_folder, progress_callback)
         
         -- Special handling for Vertical FX List script
         local filename = target_path:match("([^/\\]+)$") or url_path:match("([^/\\]+)$")
-        local is_vertical_fx_list = (filename == "FXD_Vertical FX list.lua")
+        local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
+            or (filename == "[DEV] CRS_Vertical FX list.lua")
         
         if is_vertical_fx_list then
             -- Install directly to CoolReaperScripts/Vertical FX List folder with different name
@@ -820,7 +821,8 @@ local function InstallFromRelease(extracted_folder, progress_callback)
         
         -- Get filename
         local filename = target_path:match("([^/\\]+)$") or url_path:match("([^/\\]+)$")
-        local is_vertical_fx_list = (filename == "FXD_Vertical FX list.lua")
+        local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
+            or (filename == "[DEV] CRS_Vertical FX list.lua")
         
         -- Special handling for Vertical FX List script
         if is_vertical_fx_list then
@@ -908,7 +910,8 @@ local function InstallFile(file_info, progress_callback)
     local filename = target_path:match("([^/\\]+)$") or url_path:match("([^/\\]+)$")
     
     -- Special handling for Vertical FX List script
-    local is_vertical_fx_list = (filename == "FXD_Vertical FX list.lua")
+    local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
+        or (filename == "[DEV] CRS_Vertical FX list.lua")
     local download_path
     local final_download_path
     
@@ -1163,7 +1166,7 @@ local function ProcessNextFile()
                 for _, file_path in ipairs(results.success) do
                     local file_name = file_path:match("([^/\\]+)$") or file_path
                     -- Check if it's Vertical FX List (which gets renamed)
-                    local is_vertical_fx_list = (file_name == "FXD_Vertical FX list.lua")
+                    local is_vertical_fx_list = (file_name == "CRS_Vertical FX list.lua")
                     -- Use the final downloaded filename for log entries
                     file_name = is_vertical_fx_list and "CRS_vertical fx list.lua" or file_name
                     table.insert(commit_gui_state.install_log, {
@@ -1176,7 +1179,7 @@ local function ProcessNextFile()
                 for _, failed in ipairs(results.failed) do
                     local file_name = failed.path:match("([^/\\]+)$") or failed.path
                     -- Check if it's Vertical FX List (which gets renamed)
-                    local is_vertical_fx_list = (file_name == "FXD_Vertical FX list.lua")
+                    local is_vertical_fx_list = (file_name == "CRS_Vertical FX list.lua")
                     -- Use the final downloaded filename for log entries
                     file_name = is_vertical_fx_list and "CRS_vertical fx list.lua" or file_name
                     table.insert(commit_gui_state.install_log, {
@@ -1221,7 +1224,7 @@ local function ProcessNextFile()
         commit_gui_state.install_progress = i / install_state.total
         -- Get filename and check if it's Vertical FX List (which gets renamed)
         local filename = file_info.url_path:match("([^/\\]+)$") or file_info.url_path
-        local is_vertical_fx_list = (filename == "FXD_Vertical FX list.lua")
+        local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
         -- Use the final downloaded filename for display
         commit_gui_state.install_current_file = is_vertical_fx_list and "CRS_vertical fx list.lua" or filename
         commit_gui_state.install_status = "Installing..."
@@ -1241,7 +1244,11 @@ local function ProcessNextFile()
     
     -- Get filename and check if it's Vertical FX List (which gets renamed)
     local filename = file_info.url_path:match("([^/\\]+)$") or file_info.url_path
-    local is_vertical_fx_list = (filename == "FXD_Vertical FX list.lua")
+    local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
+        or (filename == "[DEV] CRS_Vertical FX list.lua")
+    local filename = file_info.url_path:match("([^/\\]+)$") or file_info.url_path
+    local is_vertical_fx_list = (filename == "CRS_Vertical FX list.lua")
+        or (filename == "[DEV] CRS_Vertical FX list.lua")
     -- Use the final downloaded filename for log entries
     local file_name = is_vertical_fx_list and "CRS_vertical fx list.lua" or filename
     local target_path = file_info.target_path or file_info.url_path

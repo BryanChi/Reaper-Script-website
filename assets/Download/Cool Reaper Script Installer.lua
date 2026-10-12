@@ -22,7 +22,7 @@ local SEP = IS_WIN and '\\' or '/'
 local RES = r.GetResourcePath()
 
 ---------------------------------------------------------------------------------------------------
--- ReaImGui (needed for the window; the scripts need it too)
+-- Opening links
 ---------------------------------------------------------------------------------------------------
 
 local function OpenUrl(url)
@@ -32,19 +32,6 @@ local function OpenUrl(url)
   else os.execute('xdg-open "' .. url .. '"') end
 end
 
-if not r.ImGui_GetBuiltinPath then
-  local msg = 'The installer and the scripts need the ReaImGui extension.\n\n'
-  if r.ReaPack_BrowsePackages then
-    msg = msg .. 'Click OK to open ReaPack, install "ReaImGui: ReaScript binding for Dear ImGui", restart REAPER and run this installer again.'
-    if r.ShowMessageBox(msg, 'Cool Reaper Scripts Installer', 1) == 1 then r.ReaPack_BrowsePackages('ReaImGui') end
-  else
-    msg = msg .. 'Install ReaPack first (reapack.com), then ReaImGui from it, restart REAPER and run this installer again.\n\nOpen reapack.com now?'
-    if r.ShowMessageBox(msg, 'Cool Reaper Scripts Installer', 1) == 1 then OpenUrl('https://reapack.com') end
-  end
-  return
-end
-package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
-local im = require 'imgui' '0.9.3'
 
 ---------------------------------------------------------------------------------------------------
 -- Files and processes
@@ -237,6 +224,159 @@ local function Api(url, body)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Free REAPER extensions the scripts need. Official builds are downloaded from their authors'
+-- release pages into UserPlugins; REAPER loads them after a restart.
+---------------------------------------------------------------------------------------------------
+
+-- Download url to path (follows redirects); true when it got a non-empty file with HTTP 200
+local function Get(url, path)
+  local tmp = path .. '.download'
+  os.remove(tmp)
+  local code
+  if IS_WIN then
+    local res = r.ExecProcess(string.format('curl -sS -L -f --max-time 120 -o "%s" -w "%%{http_code}" "%s"', tmp, url), 130000)
+    code = tonumber((res or ''):match('(%d%d%d)%s*$'))
+  else
+    local codeFile, sh = TempFile('code.txt'), TempFile('get.sh')
+    WriteFile(sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --max-time 120 -o %s -w '%%{http_code}' %s > %s 2>/dev/null\n",
+      ShellQuote(tmp), ShellQuote(url), ShellQuote(codeFile)))
+    os.execute('/bin/sh ' .. ShellQuote(sh))
+    code = tonumber((ReadFile(codeFile) or ''):match('(%d%d%d)'))
+    os.remove(codeFile) os.remove(sh)
+  end
+  local f = io.open(tmp, 'rb')
+  local size = f and f:seek('end') or 0
+  if f then f:close() end
+  if code == 200 and size > 0 then
+    os.remove(path)
+    if os.rename(tmp, path) then return true end
+    os.remove(tmp)
+    return false, 'could not write ' .. path .. ' (is REAPER using it?)'
+  end
+  os.remove(tmp)
+  return false, (code == 200 and 'empty download') or (code and ('HTTP ' .. code)) or 'no connection'
+end
+
+-- This REAPER's build: asset suffix used by ReaPack, ReaImGui and SWS releases, and ReaPack's
+-- platform names (most specific first) for packages listed in a ReaPack index
+local function Platform()
+  local os_, app = r.GetOS(), (r.GetAppVersion() or ''):lower()
+  if IS_WIN then
+    if app:find('arm64ec') then return { arch = 'arm64ec', fallback = 'x64', ext = 'dll', names = { 'windows-arm64ec', 'win64', 'windows', 'win' } } end
+    if os_ == 'Win32' then return { arch = 'x86', ext = 'dll', names = { 'win32', 'windows', 'win' } } end
+    return { arch = 'x64', ext = 'dll', names = { 'win64', 'windows', 'win' } }
+  elseif os_:match('OSX') or os_:match('macOS') then
+    if os_:find('arm64') or app:find('arm64') then return { arch = 'arm64', ext = 'dylib', names = { 'darwin-arm64', 'darwin' } } end
+    if os_ == 'OSX32' then return { arch = 'i386', ext = 'dylib', names = { 'darwin32', 'darwin' } } end
+    return { arch = 'x86_64', ext = 'dylib', names = { 'darwin64', 'darwin' } }
+  end
+  if app:find('aarch64') or app:find('arm64') then return { arch = 'aarch64', ext = 'so', names = { 'linux-aarch64', 'linux' } } end
+  if app:find('armv7') then return { arch = 'armv7l', ext = 'so', names = { 'linux-armv7l', 'linux' } } end
+  if app:find('i686') then return { arch = 'i686', ext = 'so', names = { 'linux32', 'linux' } } end
+  return { arch = 'x86_64', ext = 'so', names = { 'linux64', 'linux-x86_64', 'linux' } }
+end
+
+-- Newest build of a package listed in a ReaPack index (only the extension binary)
+local function FromReaPackIndex(indexUrl, package, plat)
+  local idx = TempFile('index.xml')
+  local ok, err = Get(indexUrl, idx)
+  local xml = ok and ReadFile(idx)
+  os.remove(idx)
+  if not xml then return nil, err end
+  local s = xml:find('<reapack name="' .. package .. '"', 1, true)
+  if not s then return nil, package .. ' not listed' end
+  local block = xml:sub(s, (xml:find('</reapack>', s, true) or #xml))
+  local last
+  for v in block:gmatch('<version.-</version>') do last = v end -- versions are listed oldest first
+  if not last then return nil, 'no versions of ' .. package end
+  for rank, name in ipairs(plat.names) do
+    for attrs, url in last:gmatch('<source([^>]*)>([^<]+)</source>') do
+      local p = attrs:match('platform="([^"]+)"') or 'all'
+      local file = attrs:match('file="([^"]+)"') or url:match('([^/]+)$')
+      if p == name and file:match('%.' .. plat.ext .. '$') then
+        return { url = url:gsub('&amp;', '&'), file = file:match('([^/\\]+)$') }
+      end
+    end
+  end
+  return nil, 'no build of ' .. package .. ' for this computer'
+end
+
+local EXTENSIONS = {
+  { name = 'ReaPack', why = 'installs and updates REAPER add-ons',
+    loaded = function() return r.ReaPack_BrowsePackages ~= nil end,
+    asset = 'https://github.com/cfillion/reapack/releases/latest/download/reaper_reapack-%s.%s', hasArm64ec = true },
+  { name = 'ReaImGui', why = 'draws the scripts\' windows',
+    loaded = function() return r.ImGui_GetBuiltinPath ~= nil end,
+    asset = 'https://github.com/cfillion/reaimgui/releases/latest/download/reaper_imgui-%s.%s' },
+  { name = 'js_ReaScriptAPI', why = 'mouse and window helpers',
+    loaded = function() return r.JS_Window_Find ~= nil end,
+    index = 'https://github.com/ReaTeam/Extensions/raw/master/index.xml', package = 'js_ReaScriptAPI.ext' },
+  { name = 'SWS Extension', why = 'extra track and send functions',
+    loaded = function() return r.CF_ShellExecute ~= nil or r.BR_GetSetTrackSendInfo ~= nil end,
+    asset = 'https://github.com/reaper-oss/sws/releases/latest/download/reaper_sws-%s.%s' },
+}
+
+local function MissingExtensions()
+  local list = {}
+  for _, e in ipairs(EXTENSIONS) do
+    if not e.loaded() then list[#list + 1] = e end
+  end
+  return list
+end
+
+-- Installs the given extensions; returns names installed and { name, why } failures
+local function InstallExtensions(list)
+  local plat = Platform()
+  local dir = RES .. SEP .. 'UserPlugins'
+  r.RecursiveCreateDirectory(dir, 0)
+  local done, failed = {}, {}
+  for _, e in ipairs(list) do
+    local url, file, err
+    if e.asset then
+      local arch = (plat.arch == 'arm64ec' and not e.hasArm64ec) and plat.fallback or plat.arch
+      url = e.asset:format(arch, plat.ext)
+      file = url:match('([^/]+)$')
+    else
+      local found
+      found, err = FromReaPackIndex(e.index, e.package, plat)
+      if found then url, file = found.url, found.file end
+    end
+    local ok = false
+    if url then ok, err = Get(url, dir .. SEP .. file) end
+    if ok then done[#done + 1] = e.name else failed[#failed + 1] = { name = e.name, why = err or 'download failed' } end
+  end
+  return done, failed
+end
+
+local function ExtensionReport(done, failed)
+  local msg = ''
+  if #done > 0 then msg = 'Installed ' .. table.concat(done, ', ') .. '.\n\nRestart REAPER, then run this installer again.' end
+  if #failed > 0 then
+    local lines = {}
+    for _, f in ipairs(failed) do lines[#lines + 1] = f.name .. ': ' .. f.why end
+    msg = msg .. (msg ~= '' and '\n\n' or '') .. 'Could not install:\n' .. table.concat(lines, '\n')
+      .. '\n\nYou can install them with ReaPack (reapack.com) instead.'
+  end
+  return msg
+end
+
+-- The installer's window needs ReaImGui, so without it this step is a plain message box
+if not r.ImGui_GetBuiltinPath then
+  local missing = MissingExtensions()
+  local names = {}
+  for _, e in ipairs(missing) do names[#names + 1] = '  \u{2022} ' .. e.name .. ' (' .. e.why .. ')' end
+  local msg = 'Cool Reaper Scripts need these free REAPER extensions:\n\n' .. table.concat(names, '\n')
+    .. '\n\nInstall them now? They\'re downloaded from their authors\' official release pages.'
+  if r.ShowMessageBox(msg, 'Cool Reaper Scripts Installer', 4) == 6 then
+    local done, failed = InstallExtensions(missing)
+    r.ShowMessageBox(ExtensionReport(done, failed), 'Cool Reaper Scripts Installer', 0)
+  end
+  return
+end
+package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
+local im = require 'imgui' '0.9.3'
+
+---------------------------------------------------------------------------------------------------
 -- State
 ---------------------------------------------------------------------------------------------------
 
@@ -248,6 +388,7 @@ local S = {
   busy = nil,                -- { label, fn, frames }
   products = {},             -- from the site, plus .releases, .choice, .checked
   queue = {}, done = 0, failed = {}, installedNow = {},
+  extInstalled = {},         -- extensions downloaded this run (loaded after a restart)
 }
 
 local function Busy(label, fn) S.busy = { label = label, fn = fn, frames = 0 } S.msg = nil end
@@ -266,13 +407,6 @@ local function InstalledVersion(p)
   return txt and txt:match('release:%s*([%w%.%-]+)') or nil
 end
 
-local function Deps()
-  return {
-    { name = 'ReaImGui', ok = r.ImGui_GetBuiltinPath ~= nil, pkg = 'ReaImGui', url = 'https://forum.cockos.com/showthread.php?t=250419' },
-    { name = 'js_ReaScriptAPI', ok = r.JS_Window_Find ~= nil, pkg = 'js_ReaScriptAPI', url = 'https://forum.cockos.com/showthread.php?t=212174' },
-    { name = 'SWS Extension', ok = r.CF_ShellExecute ~= nil, url = 'https://www.sws-extension.org' },
-  }
-end
 
 ---------------------------------------------------------------------------------------------------
 -- Steps
@@ -602,18 +736,28 @@ local function PickScreen()
     im.PopID(ctx)
   end
 
-  Caps('Also needed (free)')
-  for _, d in ipairs(Deps()) do
-    im.PushStyleColor(ctx, im.Col_Text, d.ok and C.green or C.amber)
-    im.Text(ctx, d.ok and 'OK' or '--')
+  Caps('Also needed (free REAPER extensions)')
+  local toInstall = {}
+  for _, e in ipairs(EXTENSIONS) do
+    local ok, pending = e.loaded(), S.extInstalled[e.name]
+    im.PushStyleColor(ctx, im.Col_Text, ok and C.green or pending and C.blue or C.amber)
+    im.Text(ctx, ok and 'OK' or pending and 'NEW' or '--')
     im.PopStyleColor(ctx)
     im.SameLine(ctx, 64)
-    im.Text(ctx, d.name)
-    if not d.ok then
-      im.SameLine(ctx)
-      if d.pkg and r.ReaPack_BrowsePackages then
-        if Link('install with ReaPack') then r.ReaPack_BrowsePackages(d.pkg) end
-      elseif Link('get it') then OpenUrl(d.url) end
+    im.Text(ctx, e.name)
+    im.SameLine(ctx)
+    im.PushStyleColor(ctx, im.Col_Text, C.faint)
+    im.Text(ctx, pending and 'restart REAPER to load it' or ok and e.why or 'missing')
+    im.PopStyleColor(ctx)
+    if not ok and not pending then toInstall[#toInstall + 1] = e end
+  end
+  if #toInstall > 0 then
+    if Btn(#toInstall == 1 and ('Install ' .. toInstall[1].name) or ('Install the ' .. #toInstall .. ' missing extensions')) then
+      Busy('Downloading extensions...', function()
+        local done, failed = InstallExtensions(toInstall)
+        for _, name in ipairs(done) do S.extInstalled[name] = true end
+        S.msg = { kind = #failed > 0 and 'warn' or 'ok', text = ExtensionReport(done, failed):gsub(', then run this installer again', '. You can install the scripts first') }
+      end)
     end
   end
   im.Dummy(ctx, 0, 4)

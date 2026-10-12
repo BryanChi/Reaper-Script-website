@@ -302,7 +302,8 @@ local function CheckKey()
     local rel = Api(API, { action = 'releases', product = p.id, licenseKey = S.key })
     p.releases = {}
     for _, x in ipairs(rel and rel.releases or {}) do
-      if not x.prerelease then p.releases[#p.releases + 1] = x end
+      -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
+      if not x.prerelease and tostring(x.tag):match('^%a*%d') then p.releases[#p.releases + 1] = x end
     end
     p.branch = rel and rel.branch or 'main'
     p.choice = 1 -- newest release, or the branch when there are none (needs a key)
@@ -317,7 +318,7 @@ local function DevAllowed() return S.keyStatus ~= nil end
 
 local function ChosenRef(p)
   local rel = p.releases[p.choice]
-  if rel then return rel.tag, rel.name end
+  if rel then return rel.tag, rel.tag end
   return p.branch, 'Latest development version'
 end
 
@@ -579,10 +580,15 @@ local function PickScreen()
     if p.description then Muted(p.description, true) end
     local _, label = ChosenRef(p)
     local preview = p.releases[p.choice] and ('Version ' .. label .. (p.choice == 1 and ' (newest)' or '')) or label
-    im.SetNextItemWidth(ctx, 260)
+    local availW = im.GetContentRegionAvail(ctx)
+    im.SetNextItemWidth(ctx, availW)
     if im.BeginCombo(ctx, '##ver', preview) then
       for j, rel in ipairs(p.releases) do
-        if im.Selectable(ctx, 'Version ' .. rel.name .. (j == 1 and ' (newest)' or ''), p.choice == j) then p.choice = j end
+        local about = rel.name:gsub('^v?' .. rel.tag:gsub('%p', '%%%0') .. '%s*[-:]*%s*', '')
+        if about:match('^%a*%d[%d%.]*$') then about = '' end -- just the version again
+        if #about > 48 then about = about:sub(1, 46) .. '...' end
+        local label = 'Version ' .. rel.tag .. (j == 1 and ' (newest)' or '') .. (about ~= '' and ('  \194\183  ' .. about) or '')
+        if im.Selectable(ctx, label .. '##' .. j, p.choice == j) then p.choice = j end
       end
       if DevAllowed() and im.Selectable(ctx, 'Latest development version', p.choice > #p.releases) then p.choice = #p.releases + 1 end
       im.EndCombo(ctx)
@@ -601,7 +607,7 @@ local function PickScreen()
     im.PushStyleColor(ctx, im.Col_Text, d.ok and C.green or C.amber)
     im.Text(ctx, d.ok and 'OK' or '--')
     im.PopStyleColor(ctx)
-    im.SameLine(ctx, 40)
+    im.SameLine(ctx, 64)
     im.Text(ctx, d.name)
     if not d.ok then
       im.SameLine(ctx)

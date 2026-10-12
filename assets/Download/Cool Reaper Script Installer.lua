@@ -3,10 +3,10 @@
 -- @author bryan
 -- @about
 --   Installs Cool Reaper Scripts (Vertical FX List, ...) into REAPER from coolreaperscripts.com.
---   Enter the license key from your purchase, or the key from a free trial, pick the scripts and
---   install. Run it again any time to update or reinstall.
+--   Pick the scripts and install; each script starts a free trial or asks for your license when
+--   it first runs. Run it again any time to update or reinstall.
 -- @changelog
---   2.0.0: downloads from coolreaperscripts.com with your license or trial key, new window,
+--   2.0.0: downloads from coolreaperscripts.com (no key needed for released versions), new window,
 --          dependency check, version picker, fills in your license for the installed scripts.
 
 local r = reaper
@@ -280,13 +280,18 @@ end
 
 local function CheckKey()
   S.key = S.key:gsub('%s', '')
-  local data, err = Api(VERIFY_URL, { licenseKey = S.key })
-  if not data then S.msg = { kind = 'err', text = Friendly(err) } return end
-  if data.status ~= 'active' and data.status ~= 'trial' then
-    S.msg = { kind = 'err', text = Friendly(data.reason or data.status) }
-    return
+  S.keyStatus, S.keyExpires = nil, nil
+  -- a key is optional: released versions install without one, it unlocks development versions
+  -- and fills in the license for the installed scripts
+  if S.key ~= '' then
+    local data, err = Api(VERIFY_URL, { licenseKey = S.key })
+    if not data then S.msg = { kind = 'err', text = Friendly(err) } return end
+    if data.status ~= 'active' and data.status ~= 'trial' then
+      S.msg = { kind = 'err', text = Friendly(data.reason or data.status) }
+      return
+    end
+    S.keyStatus, S.keyExpires = data.status, data.expiresAt
   end
-  S.keyStatus, S.keyExpires = data.status, data.expiresAt
   r.SetExtState(EXT, 'licenseKey', S.key, true)
   r.SetExtState(EXT, 'email', S.email, true)
 
@@ -300,13 +305,15 @@ local function CheckKey()
       if not x.prerelease then p.releases[#p.releases + 1] = x end
     end
     p.branch = rel and rel.branch or 'main'
-    p.choice = 1 -- newest release, or the branch when there are none
+    p.choice = 1 -- newest release, or the branch when there are none (needs a key)
     p.installed = InstalledVersion(p)
     p.checked = true
     S.products[#S.products + 1] = p
   end
   S.screen = 'pick'
 end
+
+local function DevAllowed() return S.keyStatus ~= nil end
 
 local function ChosenRef(p)
   local rel = p.releases[p.choice]
@@ -378,7 +385,7 @@ local function FinishInstall()
     end
     r.SetExtState(EXT, 'installed_' .. p.id, it.ref ~= p.branch and it.ref or 'development version', true)
     -- the script activates this computer with these on its first start (no key typing needed)
-    if p.licenseSection and r.GetExtState(p.licenseSection, 'licenseKey') == '' then
+    if p.licenseSection and S.key ~= '' and r.GetExtState(p.licenseSection, 'licenseKey') == '' then
       r.SetExtState(p.licenseSection, 'licenseKey', S.key, true)
       if S.email ~= '' then r.SetExtState(p.licenseSection, 'email', S.email, true) end
     end
@@ -516,10 +523,10 @@ local function Spinner(text)
 end
 
 local function LicenseScreen()
-  Muted('Enter the license key from your purchase email, or the key from your free trial.')
+  Muted('Already have a license or trial key? Enter it here so your scripts are ready to go. No key? Just continue: each script starts a free 14-day trial when it first runs.')
   im.Dummy(ctx, 0, 4)
   local w = im.GetContentRegionAvail(ctx)
-  Caps('License or trial key')
+  Caps('License or trial key (optional)')
   im.PushFont(ctx, F.mono)
   im.SetNextItemWidth(ctx, w - 72)
   local e1, k = im.InputTextWithHint(ctx, '##key', 'xxxxxxxxxxxxxxxx-xxxxxxxx', S.key, im.InputTextFlags_EnterReturnsTrue)
@@ -534,22 +541,26 @@ local function LicenseScreen()
   Muted('Used to activate this computer the first time you run a script.', true)
   if S.msg then Banner(S.msg.kind, S.msg.text) end
   im.Dummy(ctx, 0, 4)
-  local ready = S.key ~= ''
-  if not ready then im.BeginDisabled(ctx, true) end
-  if (Btn('Continue', w, 'primary', 36) or ((e1 or e2) and ready)) and ready then Busy('Checking your key...', CheckKey) end
-  if not ready then im.EndDisabled(ctx) end
+  local hasKey = S.key ~= ''
+  if Btn(hasKey and 'Continue' or 'Continue without a key', w, 'primary', 36) or e1 or e2 then
+    Busy(hasKey and 'Checking your key...' or 'Getting the script list...', CheckKey)
+  end
   im.Dummy(ctx, 0, 2)
-  if Link('No key yet? Start a free 14-day trial or buy a license') then OpenUrl(SITE .. '/#pricing') end
+  if Link('Buy a license') then OpenUrl(SITE .. '/#pricing') end
 end
 
 local function PickScreen()
-  local status = S.keyStatus == 'trial' and 'Free trial' or 'License'
-  if S.keyStatus == 'trial' and tonumber(S.keyExpires) then
-    local exp = tonumber(S.keyExpires)
-    if exp > 1e11 then exp = exp / 1000 end
-    status = status .. ', ' .. math.max(0, math.ceil((exp - os.time()) / 86400)) .. ' days left'
+  if DevAllowed() then
+    local status = S.keyStatus == 'trial' and 'Free trial' or 'License'
+    if S.keyStatus == 'trial' and tonumber(S.keyExpires) then
+      local exp = tonumber(S.keyExpires)
+      if exp > 1e11 then exp = exp / 1000 end
+      status = status .. ', ' .. math.max(0, math.ceil((exp - os.time()) / 86400)) .. ' days left'
+    end
+    Muted(status .. ' \194\183 ' .. S.key:sub(1, 4) .. string.rep('\194\183', 6) .. S.key:sub(-4))
+  else
+    Muted('No key entered. Each script starts its free trial, or asks for your license, when it first runs.')
   end
-  Muted(status .. ' \194\183 ' .. S.key:sub(1, 4) .. string.rep('\194\183', 6) .. S.key:sub(-4))
   im.Dummy(ctx, 0, 4)
   Caps('Scripts')
   for i, p in ipairs(S.products) do
@@ -573,7 +584,7 @@ local function PickScreen()
       for j, rel in ipairs(p.releases) do
         if im.Selectable(ctx, 'Version ' .. rel.name .. (j == 1 and ' (newest)' or ''), p.choice == j) then p.choice = j end
       end
-      if im.Selectable(ctx, 'Latest development version', p.choice > #p.releases) then p.choice = #p.releases + 1 end
+      if DevAllowed() and im.Selectable(ctx, 'Latest development version', p.choice > #p.releases) then p.choice = #p.releases + 1 end
       im.EndCombo(ctx)
     end
     local rel = p.releases[p.choice]
@@ -607,7 +618,7 @@ local function PickScreen()
   if not any then im.BeginDisabled(ctx, true) end
   if Btn('Install', w, 'primary', 36) then Busy('Getting the file list...', StartInstall) end
   if not any then im.EndDisabled(ctx) end
-  if Link('Use a different key') then S.screen = 'license' S.msg = nil end
+  if Link(DevAllowed() and 'Use a different key' or 'Enter a key') then S.screen = 'license' S.msg = nil end
 end
 
 local function InstallScreen()

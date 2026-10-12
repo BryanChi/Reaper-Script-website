@@ -5,7 +5,9 @@
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
-// Every action except "products" needs a license or trial key that verifies.
+// Released versions are free to download (the scripts ask for a license or start a trial on
+// first run). The development version (the product's main branch) needs a license or trial key
+// that verifies. No other branches are served.
 //
 // Files are read from GitHub on the server. Set GITHUB_TOKEN (a fine-grained token with read-only
 // "Contents" access to the script repos) so this keeps working when the repos are private.
@@ -57,6 +59,20 @@ async function fetchRaw(product, path, ref) {
 	return fetch(url, { headers: ghHeaders('application/vnd.github.raw') });
 }
 
+// Published release tags per product, cached for a few minutes on a warm instance
+const releaseCache = new Map();
+const RELEASE_TTL = 5 * 60 * 1000;
+
+async function fetchReleases(product) {
+	const hit = releaseCache.get(product.repo);
+	if (hit && Date.now() - hit.at < RELEASE_TTL) return hit.list;
+	const resp = await fetch(`${GH}/repos/${product.owner}/${product.repo}/releases?per_page=30`, { headers: ghHeaders() });
+	if (!resp.ok) return null;
+	const list = (await resp.json()).filter(r => !r.draft);
+	releaseCache.set(product.repo, { at: Date.now(), list });
+	return list;
+}
+
 function publicProduct(id, p) {
 	return {
 		id,
@@ -87,26 +103,31 @@ module.exports = async function handler(req, res) {
 	const product = PRODUCTS[input.product];
 	if (!product) return res.status(404).json({ ok: false, error: 'Unknown product' });
 
-	// downloads are for license and trial holders (device activation isn't needed to download)
-	const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
-	if (!key) return res.status(401).json({ ok: false, error: 'License key required' });
-	const lic = await verifyLicense(key);
-	if (!lic || !lic.ok) {
-		return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
-	}
-
 	const ref = input.ref || product.branch;
 	if (!SAFE_REF.test(ref) || ref.includes('..')) return res.status(400).json({ ok: false, error: 'Bad ref' });
 
 	try {
+		const releases = await fetchReleases(product);
+		if (!releases) return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
+
+		// unreleased code is for license and trial holders (device activation isn't needed to download)
+		const isRelease = releases.some(r => r.tag_name === ref);
+		// only published releases and the product's main branch, never other branches
+		if (!isRelease && ref !== product.branch) return res.status(404).json({ ok: false, error: 'Unknown version' });
+		if (action !== 'releases' && !isRelease) {
+			const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
+			if (!key) return res.status(401).json({ ok: false, error: 'License key required' });
+			const lic = await verifyLicense(key);
+			if (!lic || !lic.ok) {
+				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
+			}
+		}
+
 		if (action === 'releases') {
-			const resp = await fetch(`${GH}/repos/${product.owner}/${product.repo}/releases?per_page=30`, { headers: ghHeaders() });
-			if (!resp.ok) return res.status(502).json({ ok: false, error: `GitHub ${resp.status}` });
-			const list = await resp.json();
 			return res.status(200).json({
 				ok: true,
 				branch: product.branch,
-				releases: list.filter(r => !r.draft).map(r => ({
+				releases: releases.map(r => ({
 					tag: r.tag_name,
 					name: r.name || r.tag_name,
 					publishedAt: r.published_at,

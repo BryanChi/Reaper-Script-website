@@ -1,0 +1,164 @@
+// Script downloads for the installer and the in-app updaters.
+//
+// POST /api/scripts  { action, licenseKey, product, ref, path }
+//   action=products  -> list of products (no key needed)
+//   action=releases  -> releases of a product (tag, name, date, notes)
+//   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
+//   action=download  -> one file's bytes
+// Released versions are free to download (the scripts ask for a license or start a trial on
+// first run). The development version (the product's main branch) needs a license or trial key
+// that verifies. No other branches are served.
+//
+// Files are read from GitHub on the server. Set GITHUB_TOKEN (a fine-grained token with read-only
+// "Contents" access to the script repos) so this keeps working when the repos are private.
+
+const { verifyLicense } = require('./_lib/store');
+const PRODUCTS = require('./_lib/products');
+
+const GH = 'https://api.github.com';
+const SAFE_REF = /^[A-Za-z0-9._\-\/]{1,100}$/;
+
+function ghHeaders(accept) {
+	const h = {
+		Accept: accept || 'application/vnd.github+json',
+		'User-Agent': 'coolreaperscripts-site',
+		'X-GitHub-Api-Version': '2022-11-28'
+	};
+	if (process.env.GITHUB_TOKEN) h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+	return h;
+}
+
+function encodePath(p) {
+	return p.split('/').map(encodeURIComponent).join('/');
+}
+
+function isExcluded(product, path) {
+	return product.exclude.some(prefix => path === prefix || path.startsWith(prefix));
+}
+
+function validPath(product, path) {
+	if (typeof path !== 'string' || !path || path.length > 300) return false;
+	// no absolute paths, no "..", no hidden files or folders (.git, .DS_Store, .github)
+	if (path.startsWith('/') || path.includes('\\') || path.split('/').some(s => s === '' || s.startsWith('.'))) return false;
+	return !isExcluded(product, path);
+}
+
+async function listFiles(product, ref) {
+	const url = `${GH}/repos/${product.owner}/${product.repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
+	const resp = await fetch(url, { headers: ghHeaders() });
+	if (!resp.ok) return { ok: false, status: resp.status };
+	const data = await resp.json();
+	const files = (data.tree || [])
+		.filter(e => e.type === 'blob' && validPath(product, e.path))
+		.map(e => ({ path: e.path, size: e.size, sha: e.sha }));
+	return { ok: true, files, truncated: !!data.truncated };
+}
+
+async function fetchRaw(product, path, ref) {
+	const url = `${GH}/repos/${product.owner}/${product.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
+	return fetch(url, { headers: ghHeaders('application/vnd.github.raw') });
+}
+
+// Published release tags per product, cached for a few minutes on a warm instance
+const releaseCache = new Map();
+const RELEASE_TTL = 5 * 60 * 1000;
+
+async function fetchReleases(product) {
+	const hit = releaseCache.get(product.repo);
+	if (hit && Date.now() - hit.at < RELEASE_TTL) return hit.list;
+	const resp = await fetch(`${GH}/repos/${product.owner}/${product.repo}/releases?per_page=30`, { headers: ghHeaders() });
+	if (!resp.ok) return null;
+	const list = (await resp.json()).filter(r => !r.draft);
+	releaseCache.set(product.repo, { at: Date.now(), list });
+	return list;
+}
+
+function publicProduct(id, p) {
+	return {
+		id,
+		name: p.name,
+		description: p.description,
+		installDir: p.installDir,
+		mainScript: p.mainScript,
+		userData: p.userData,
+		licenseSection: p.licenseSection
+	};
+}
+
+module.exports = async function handler(req, res) {
+	if (req.method !== 'POST' && req.method !== 'GET') {
+		res.setHeader('Allow', ['GET', 'POST']);
+		return res.status(405).json({ ok: false, error: 'Method not allowed' });
+	}
+	const input = Object.assign({}, req.query || {}, req.body || {});
+	const action = input.action || 'products';
+
+	if (action === 'products') {
+		return res.status(200).json({
+			ok: true,
+			products: Object.entries(PRODUCTS).map(([id, p]) => publicProduct(id, p))
+		});
+	}
+
+	const product = PRODUCTS[input.product];
+	if (!product) return res.status(404).json({ ok: false, error: 'Unknown product' });
+
+	const ref = input.ref || product.branch;
+	if (!SAFE_REF.test(ref) || ref.includes('..')) return res.status(400).json({ ok: false, error: 'Bad ref' });
+
+	try {
+		const releases = await fetchReleases(product);
+		if (!releases) return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
+
+		// unreleased code is for license and trial holders (device activation isn't needed to download)
+		const isRelease = releases.some(r => r.tag_name === ref);
+		// only published releases and the product's main branch, never other branches
+		if (!isRelease && ref !== product.branch) return res.status(404).json({ ok: false, error: 'Unknown version' });
+		if (action !== 'releases' && !isRelease) {
+			const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
+			if (!key) return res.status(401).json({ ok: false, error: 'License key required' });
+			const lic = await verifyLicense(key);
+			if (!lic || !lic.ok) {
+				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
+			}
+		}
+
+		if (action === 'releases') {
+			return res.status(200).json({
+				ok: true,
+				branch: product.branch,
+				releases: releases.map(r => ({
+					tag: r.tag_name,
+					name: r.name || r.tag_name,
+					publishedAt: r.published_at,
+					prerelease: !!r.prerelease,
+					notes: (r.body || '').slice(0, 4000)
+				}))
+			});
+		}
+
+		if (action === 'files') {
+			const listed = await listFiles(product, ref);
+			if (!listed.ok) return res.status(listed.status === 404 ? 404 : 502).json({ ok: false, error: `GitHub ${listed.status}` });
+			let version = null;
+			const v = await fetchRaw(product, 'version.txt', ref);
+			if (v.ok) version = (await v.text()).trim().slice(0, 40);
+			return res.status(200).json({ ok: true, ref, version, files: listed.files, truncated: listed.truncated });
+		}
+
+		if (action === 'download') {
+			if (!validPath(product, input.path)) return res.status(400).json({ ok: false, error: 'Bad path' });
+			const resp = await fetchRaw(product, input.path, ref);
+			if (!resp.ok) return res.status(resp.status === 404 ? 404 : 502).json({ ok: false, error: `GitHub ${resp.status}` });
+			const buf = Buffer.from(await resp.arrayBuffer());
+			res.setHeader('Content-Type', 'application/octet-stream');
+			res.setHeader('Cache-Control', 'no-store');
+			return res.status(200).send(buf);
+		}
+	} catch (err) {
+		console.error('scripts api error', err);
+		return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
+	}
+
+	return res.status(400).json({ ok: false, error: 'Unknown action' });
+};

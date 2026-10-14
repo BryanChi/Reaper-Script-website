@@ -19,5 +19,16 @@ module.exports = {
 		userData: ['style_presets_USER.lua', 'fx_favorites.txt'],
 		// extstate section the script reads its license key and email from
 		licenseSection: 'FXD_Vertical_FX_List_License'
+	},
+	'fx-devices': {
+		name: 'FX Devices',
+		description: 'Plugin devices, modulation and layouts for every FX on a track.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		// a separate purchase from Vertical FX List; licensed here, but not offered by the installer
+		// yet (its JSFX go to the Effects folder, which the installer doesn't handle)
+		installable: false,
+		licenseSection: 'CRS_FX_Devices_License'
 	}
 };

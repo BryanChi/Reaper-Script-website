@@ -216,7 +216,7 @@ module.exports = async function handler(req, res) {
 		}
 
 		// Start trial for this email
-		const result = await startTrial(email);
+		const result = await startTrial(email, tokenData.product);
 
 		if (!result.ok) {
 			return res.status(400).send(`

@@ -1,5 +1,16 @@
 const crypto = require('crypto');
-const { generateLicenseKey, getMemoryStore } = require('./_lib/store');
+const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, DEFAULT_PRODUCT } = require('./_lib/store');
+
+// Trials are one per email per product. The trial actions narrow to the product the panel sends
+// (older panels send none: then they act on all of that email's trials, as before).
+function trialsQuery(q, email, product) {
+	q = q.eq('email', email);
+	return product ? q.eq('product', product) : q;
+}
+function memTrialKey(store, email, product) {
+	const id = `${email}|${product || DEFAULT_PRODUCT}`;
+	return store && store.trials && store.trials[id] ? id : null;
+}
 
 // Simple auth middleware
 function checkAuth(req) {
@@ -92,6 +103,7 @@ module.exports = async function handler(req, res) {
 				const licenses = Object.entries(store.licenses).map(([key, lic]) => ({
 					license_key: key,
 					email: lic.email,
+					product: lic.product || DEFAULT_PRODUCT,
 					status: lic.status,
 					created_at: lic.createdAt,
 					expires_at: lic.expiresAt ? new Date(lic.expiresAt).toISOString() : null
@@ -125,8 +137,9 @@ module.exports = async function handler(req, res) {
 		if (!supabase) {
 			const store = getMemoryStore() || global.__licenseStore;
 			if (store && store.trials) {
-				const trials = Object.entries(store.trials).map(([email, trial]) => ({
-					email: email,
+				const trials = Object.entries(store.trials).map(([id, trial]) => ({
+					email: trial.email || id,
+					product: trial.product || DEFAULT_PRODUCT,
 					license_key: trial.licenseKey || null,
 					started_at: trial.startedAt,
 					expires_at: trial.expiresAt ? new Date(trial.expiresAt).toISOString() : null
@@ -147,6 +160,23 @@ module.exports = async function handler(req, res) {
 		}
 
 		return res.status(200).json({ ok: true, trials: trials || [] });
+	}
+
+	// Handle POST /api/admin?action=license-create: issue a license by hand { email, product }
+	if (action === 'license-create') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+		const { email, product } = body || {};
+		if (!normalizeProduct(product)) {
+			return res.status(400).json({ ok: false, error: 'Unknown product' });
+		}
+		const result = await activateLicense(email, null, product);
+		if (!result.ok) {
+			return res.status(400).json({ ok: false, error: result.error || 'Unable to create license' });
+		}
+		return res.status(200).json({ ok: true, licenseKey: result.licenseKey, product: result.product });
 	}
 
 	// Handle POST /api/admin/license/update
@@ -247,6 +277,7 @@ module.exports = async function handler(req, res) {
 		}
 
 		const { email, expiresAt } = body || {};
+		const product = body && body.product ? normalizeProduct(body.product) : null;
 
 		if (!email) {
 			return res.status(400).json({ ok: false, error: 'Email required' });
@@ -259,17 +290,17 @@ module.exports = async function handler(req, res) {
 		const supabase = getSupabaseClient();
 		if (!supabase) {
 			const store = getMemoryStore() || global.__licenseStore;
-			if (store && store.trials && store.trials[email.toLowerCase().trim()]) {
-				store.trials[email.toLowerCase().trim()].expiresAt = new Date(expiresAt).getTime();
+			const id = memTrialKey(store, email.toLowerCase().trim(), product);
+			if (id) {
+				store.trials[id].expiresAt = new Date(expiresAt).getTime();
 				return res.status(200).json({ ok: true, message: 'Trial updated' });
 			}
 			return res.status(404).json({ ok: false, error: 'Trial not found' });
 		}
 
-		const { error } = await supabase
+		const { error } = await trialsQuery(supabase
 			.from('trials')
-			.update({ expires_at: expiresAt })
-			.eq('email', email.toLowerCase().trim());
+			.update({ expires_at: expiresAt }), email.toLowerCase().trim(), product);
 
 		if (error) {
 			return res.status(500).json({ ok: false, error: error.message });
@@ -286,6 +317,7 @@ module.exports = async function handler(req, res) {
 		}
 
 		const { email } = body || {};
+		const product = body && body.product ? normalizeProduct(body.product) : null;
 
 		if (!email) {
 			return res.status(400).json({ ok: false, error: 'Email required' });
@@ -296,19 +328,19 @@ module.exports = async function handler(req, res) {
 		
 		if (!supabase) {
 			const store = getMemoryStore() || global.__licenseStore;
-			if (store && store.trials && store.trials[normalizedEmail]) {
+			const id = memTrialKey(store, normalizedEmail, product);
+			if (id) {
 				const newKey = generateLicenseKey();
-				store.trials[normalizedEmail].licenseKey = newKey;
+				store.trials[id].licenseKey = newKey;
 				return res.status(200).json({ ok: true, newLicenseKey: newKey });
 			}
 			return res.status(404).json({ ok: false, error: 'Trial not found' });
 		}
 
 		// First, check if the trial exists and get current data
-		const { data: existingTrial, error: fetchError } = await supabase
+		const { data: existingTrial, error: fetchError } = await trialsQuery(supabase
 			.from('trials')
-			.select('*')
-			.eq('email', normalizedEmail)
+			.select('*'), normalizedEmail, product)
 			.single();
 
 		if (fetchError || !existingTrial) {
@@ -318,10 +350,9 @@ module.exports = async function handler(req, res) {
 		const newLicenseKey = generateLicenseKey();
 
 		// Try to update with license_key
-		const { error: updateError } = await supabase
+		const { error: updateError } = await trialsQuery(supabase
 			.from('trials')
-			.update({ license_key: newLicenseKey })
-			.eq('email', normalizedEmail);
+			.update({ license_key: newLicenseKey }), normalizedEmail, product);
 
 		if (updateError) {
 			// Check if error is about missing license_key column
@@ -346,6 +377,7 @@ module.exports = async function handler(req, res) {
 		}
 
 		const { email } = body || {};
+		const product = body && body.product ? normalizeProduct(body.product) : null;
 
 		if (!email) {
 			return res.status(400).json({ ok: false, error: 'Email required' });
@@ -356,18 +388,18 @@ module.exports = async function handler(req, res) {
 		
 		if (!supabase) {
 			const store = getMemoryStore() || global.__licenseStore;
-			if (store && store.trials && store.trials[normalizedEmail]) {
-				delete store.trials[normalizedEmail];
+			const id = memTrialKey(store, normalizedEmail, product);
+			if (id) {
+				delete store.trials[id];
 				return res.status(200).json({ ok: true, message: 'Trial deleted successfully' });
 			}
 			return res.status(404).json({ ok: false, error: 'Trial not found' });
 		}
 
 		// Delete the trial entry
-		const { error: deleteError } = await supabase
+		const { error: deleteError } = await trialsQuery(supabase
 			.from('trials')
-			.delete()
-			.eq('email', normalizedEmail);
+			.delete(), normalizedEmail, product);
 
 		if (deleteError) {
 			return res.status(500).json({ ok: false, error: deleteError.message });

@@ -2986,7 +2986,8 @@ ul, ol {
 	gap: 12px;
 }
 
-.license-form input {
+.license-form input,
+.license-form select {
 	width: 100%;
 	padding: 14px 16px;
 	border-radius: 12px;
@@ -2994,6 +2995,10 @@ ul, ol {
 	background: rgba(255, 255, 255, 0.04);
 	color: var(--text-main);
 	font-size: 15px;
+}
+
+.license-form select option {
+	background: #0b1912;
 }
 
 .license-actions {
@@ -3346,4 +3351,14 @@ ul, ol {
 	width: 100%;
 	height: auto;
 	display: block;
+}
+.license-product-name {
+	font-weight: 700;
+	font-size: 15px;
+	margin: 18px 0 8px;
+	color: var(--text-main);
+}
+
+.license-product-name:first-child {
+	margin-top: 0;
 }

@@ -96,12 +96,12 @@ module.exports = async function handler(req, res) {
 	if (action === 'products') {
 		return res.status(200).json({
 			ok: true,
-			products: Object.entries(PRODUCTS).map(([id, p]) => publicProduct(id, p))
+			products: Object.entries(PRODUCTS).filter(([, p]) => p.installable !== false).map(([id, p]) => publicProduct(id, p))
 		});
 	}
 
 	const product = PRODUCTS[input.product];
-	if (!product) return res.status(404).json({ ok: false, error: 'Unknown product' });
+	if (!product || product.installable === false) return res.status(404).json({ ok: false, error: 'Unknown product' });
 
 	const ref = input.ref || product.branch;
 	if (!SAFE_REF.test(ref) || ref.includes('..')) return res.status(400).json({ ok: false, error: 'Bad ref' });
@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
 		if (action !== 'releases' && !isRelease) {
 			const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
 			if (!key) return res.status(401).json({ ok: false, error: 'License key required' });
-			const lic = await verifyLicense(key);
+			const lic = await verifyLicense(key, null, input.product);
 			if (!lic || !lic.ok) {
 				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
 			}

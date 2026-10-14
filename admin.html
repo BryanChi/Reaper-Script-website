@@ -272,11 +272,20 @@
 
 			<div id="licensesTab" class="tab-content active">
 				<button class="refresh-btn" onclick="loadLicenses()">🔄 Refresh Licenses</button>
+				<div style="display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap;">
+					<input type="email" id="newLicenseEmail" placeholder="Email for a new license" style="max-width:260px; margin:0;" />
+					<select id="newLicenseProduct" style="max-width:200px; margin:0;">
+						<option value="vertical-fx-list">Vertical FX List</option>
+						<option value="fx-devices">FX Devices</option>
+					</select>
+					<button class="btn btn-primary" onclick="createLicense()">Create license</button>
+				</div>
 				<div class="table-container">
 					<table id="licensesTable">
 						<thead>
 							<tr>
 								<th>Email</th>
+								<th>Product</th>
 								<th>License Key</th>
 								<th>Status</th>
 								<th>Created</th>
@@ -285,7 +294,7 @@
 							</tr>
 						</thead>
 						<tbody id="licensesBody">
-							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -298,6 +307,7 @@
 						<thead>
 							<tr>
 								<th>Email</th>
+								<th>Product</th>
 								<th>License Key</th>
 								<th>Status</th>
 								<th>Started</th>
@@ -306,7 +316,7 @@
 							</tr>
 						</thead>
 						<tbody id="trialsBody">
-							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -330,6 +340,7 @@
 		let adminToken = null;
 		let currentEditType = null;
 		let currentEditId = null;
+		let currentEditProduct = null;
 
 		function authenticate() {
 			const password = document.getElementById('adminPassword').value;
@@ -421,7 +432,7 @@
 			
 			const tbody = document.getElementById('licensesBody');
 			if (!tbody) return; // Panel might not be visible yet
-			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
 			const timeoutPromise = new Promise((_, reject) => 
@@ -464,14 +475,14 @@
 				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load licenses', 'error');
-					tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error loading licenses</td></tr>';
+					tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error loading licenses</td></tr>';
 					return;
 				}
 				renderLicenses(data.licenses || []);
 			})
 			.catch(err => {
 				showMessage('Error loading licenses: ' + err.message, 'error');
-				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
 			});
 		}
 
@@ -483,7 +494,7 @@
 			
 			const tbody = document.getElementById('trialsBody');
 			if (!tbody) return; // Panel might not be visible yet
-			tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
 			const timeoutPromise = new Promise((_, reject) => 
@@ -526,21 +537,57 @@
 				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load trials', 'error');
-					tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error loading trials</td></tr>';
+					tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error loading trials</td></tr>';
 					return;
 				}
 				renderTrials(data.trials || []);
 			})
 			.catch(err => {
 				showMessage('Error loading trials: ' + err.message, 'error');
-				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+			});
+		}
+
+		const PRODUCT_NAMES = { 'vertical-fx-list': 'Vertical FX List', 'fx-devices': 'FX Devices' };
+		function productLabel(id) {
+			id = id || 'vertical-fx-list';
+			return escapeHtml(PRODUCT_NAMES[id] || id);
+		}
+
+		function createLicense() {
+			const email = document.getElementById('newLicenseEmail').value.trim();
+			const product = document.getElementById('newLicenseProduct').value;
+			if (!email) {
+				showMessage('Enter an email first', 'error');
+				return;
+			}
+			fetch('/api/admin?action=license-create', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ email, product, action: 'license-create' })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) {
+					showMessage(`${PRODUCT_NAMES[product]} license created: ${data.licenseKey}`, 'success');
+					document.getElementById('newLicenseEmail').value = '';
+					loadLicenses();
+				} else {
+					showMessage(data.error || 'Failed to create license', 'error');
+				}
+			})
+			.catch(err => {
+				showMessage('Error: ' + err.message, 'error');
 			});
 		}
 
 		function renderLicenses(licenses) {
 			const tbody = document.getElementById('licensesBody');
 			if (licenses.length === 0) {
-				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No licenses found</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No licenses found</td></tr>';
 				return;
 			}
 
@@ -555,6 +602,7 @@
 				return `
 					<tr>
 						<td>${emailEscaped}</td>
+						<td>${productLabel(lic.product)}</td>
 						<td><code class="license-key">${escapeHtml(lic.license_key || 'N/A')}</code></td>
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${created}</td>
@@ -572,7 +620,7 @@
 		function renderTrials(trials) {
 			const tbody = document.getElementById('trialsBody');
 			if (trials.length === 0) {
-				tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No trials found</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No trials found</td></tr>';
 				return;
 			}
 
@@ -585,14 +633,15 @@
 				return `
 					<tr>
 						<td>${escapeHtml(trial.email || 'N/A')}</td>
+						<td>${productLabel(trial.product)}</td>
 						<td><code class="license-key">${escapeHtml(trial.license_key || 'N/A')}</code></td>
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${started}</td>
 						<td>${expires}</td>
 					<td class="actions">
-						<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}')">Edit</button>
-						<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}')">Regenerate Key</button>
-						<button class="btn btn-danger" onclick="deleteTrial('${escapeHtml(trial.email)}')">Delete</button>
+						<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}', '${escapeHtml(trial.product || '')}')">Edit</button>
+						<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}', '${escapeHtml(trial.product || '')}')">Regenerate Key</button>
+						<button class="btn btn-danger" onclick="deleteTrial('${escapeHtml(trial.email)}', '${escapeHtml(trial.product || '')}')">Delete</button>
 					</td>
 					</tr>
 				`;
@@ -615,9 +664,10 @@
 			document.getElementById('editModal').classList.add('active');
 		}
 
-		function editTrial(email, expiresAt) {
+		function editTrial(email, expiresAt, product) {
 			currentEditType = 'trial';
 			currentEditId = email;
+			currentEditProduct = product || '';
 			const expiresDate = expiresAt ? new Date(expiresAt).toISOString().split('T')[0] : '';
 			document.getElementById('modalTitle').textContent = 'Edit Trial';
 			document.getElementById('modalBody').innerHTML = `
@@ -656,7 +706,7 @@
 			});
 		}
 
-		function regenerateTrialKey(email) {
+		function regenerateTrialKey(email, product) {
 			if (!confirm('Are you sure you want to regenerate this trial license key? The old key will no longer work.')) {
 				return;
 			}
@@ -667,7 +717,7 @@
 					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${adminToken}`
 				},
-				body: JSON.stringify({ email, action: 'trial-regenerate' })
+				body: JSON.stringify({ email, product: product || undefined, action: 'trial-regenerate' })
 			})
 			.then(r => r.json())
 			.then(data => {
@@ -683,7 +733,7 @@
 			});
 		}
 
-		function deleteTrial(email) {
+		function deleteTrial(email, product) {
 			if (!confirm(`Are you sure you want to delete the trial for ${email}? This will completely remove the trial entry and allow them to start a fresh trial. This action cannot be undone.`)) {
 				return;
 			}
@@ -694,7 +744,7 @@
 					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${adminToken}`
 				},
-				body: JSON.stringify({ email, action: 'trial-delete' })
+				body: JSON.stringify({ email, product: product || undefined, action: 'trial-delete' })
 			})
 			.then(r => r.json())
 			.then(data => {
@@ -818,6 +868,7 @@
 					},
 					body: JSON.stringify({
 						email: currentEditId,
+						product: currentEditProduct || undefined,
 						expiresAt: new Date(expiresAt).toISOString(),
 						action: 'trial-update'
 					})

@@ -10,14 +10,16 @@ module.exports = async function handler(req, res) {
 	const licenseKey = body.licenseKey || (req.query && req.query.licenseKey);
 	const email = body.email || (req.query && req.query.email);
 	const deviceId = body.deviceId || (req.query && req.query.deviceId);
+	// which script is asking; none = Vertical FX List (its builds before products were added)
+	const product = body.product || (req.query && req.query.product);
 
 	// If email is provided, check license or trial status by email
 	// Otherwise, verify by license key
 	let result;
 	if (email) {
-		result = await getLicenseOrTrialStatus(email);
+		result = await getLicenseOrTrialStatus(email, product);
 	} else if (licenseKey) {
-		result = await verifyLicense(licenseKey, deviceId);
+		result = await verifyLicense(licenseKey, deviceId, product);
 	} else {
 		return res.status(400).json({
 			ok: false,

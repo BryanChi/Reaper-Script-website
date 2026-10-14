@@ -42,6 +42,8 @@ module.exports = async function handler(req, res) {
 		email: email,
 		expiresAt: expiresAt
 	};
+	// the script the trial is for (none = Vertical FX List)
+	if (typeof body.product === 'string' && body.product) tokenData.product = body.product;
 	const encodedToken = Buffer.from(JSON.stringify(tokenData)).toString('base64url');
 	
 	// Get site URL from environment or use default

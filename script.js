@@ -213,20 +213,19 @@
 		licenseStatusDisplay.innerHTML = '<div class="license-loading">Loading license information...</div>';
 
 		try {
-			const res = await postJson('/api/license/info', { email });
-			
-			// Debug logging
-			console.log('License info response:', res);
-			if (res._debug) {
-				console.log('Debug info:', res._debug);
-			}
-			
-			if (!res.ok) {
+			// each script is its own purchase: one section per product (FX Devices only when there is one)
+			const products = [['vertical-fx-list', 'Vertical FX List'], ['fx-devices', 'FX Devices']];
+			const results = await Promise.all(products.map(([id]) => postJson('/api/license/info', { email, product: id })));
+
+			if (!results[0].ok) {
 				licenseStatusDisplay.innerHTML = `<div class="license-error">Unable to load license information.</div>`;
 				return;
 			}
 
 			let html = '';
+			results.forEach(function(res, i) {
+			if (i > 0 && !(res.ok && res.licenseKey)) return;
+			html += `<div class="license-product-name">${products[i][1]}</div>`;
 
 			// License key section
 			if (res.licenseKey) {
@@ -286,6 +285,7 @@
 					</div>
 				</div>`;
 			}
+			});
 
 			licenseStatusDisplay.innerHTML = html;
 
@@ -1389,7 +1389,9 @@
 				trialSubmit.textContent = 'Working...';
 				setText(trialMessage, '');
 				try {
-					const res = await postJson('/api/trial/start', { email });
+					const productEl = document.getElementById('trialProduct');
+					const product = (productEl && productEl.value) || 'vertical-fx-list';
+					const res = await postJson('/api/trial/start', { email, product });
 					const expiry = prettyExpiry(res.expiresAt);
 					setText(trialMessage, res.message + (expiry ? ` · Expires: ${expiry}` : ''));
 					setBadge(res.status, expiry ? `Expires on ${expiry}` : 'Trial created.');

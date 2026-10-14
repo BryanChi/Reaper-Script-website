@@ -13,7 +13,8 @@ module.exports = async function handler(req, res) {
 		return res.status(400).json({ ok: false, error: 'Email required' });
 	}
 
-	const result = await getLicenseInfo(email);
+	const product = body.product || (req.query && req.query.product);
+	const result = await getLicenseInfo(email, product);
 	if (!result.ok) {
 		return res.status(400).json({ ok: false, error: result.error || 'Unable to get license info' });
 	}

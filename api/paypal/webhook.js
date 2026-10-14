@@ -1,4 +1,5 @@
-const { activateLicense, normalizeEmail } = require('../_lib/store');
+const { activateLicense, normalizeEmail, normalizeProduct } = require('../_lib/store');
+const PRODUCTS = require('../_lib/products');
 
 // Lazy-load Resend to avoid requiring it if not configured
 let resendClient = null;
@@ -44,10 +45,17 @@ module.exports = async function handler(req, res) {
 		(body.payer?.name && `${body.payer.name.given_name || ''} ${body.payer.name.surname || ''}`.trim()) ||
 		'';
 
+	// Which script was bought (the order's custom_id); none = Vertical FX List
+	const product = normalizeProduct(body.product || body.purchase_units?.[0]?.custom_id);
+	if (!product) {
+		return res.status(400).json({ ok: false, error: 'Unknown product' });
+	}
+	const productName = PRODUCTS[product].name;
+
 	// Activate or generate a license
 	let licenseResult;
 	try {
-		licenseResult = await activateLicense(payerEmail);
+		licenseResult = await activateLicense(payerEmail, null, product);
 		if (!licenseResult.ok) {
 			return res.status(400).json({ ok: false, error: licenseResult.error || 'Unable to activate license' });
 		}
@@ -86,10 +94,10 @@ module.exports = async function handler(req, res) {
 			const emailResponse = await resend.emails.send({
 				from: fromEmail,
 				to: payerEmail,
-				subject: 'Your Reaper Script License',
+				subject: `Your ${productName} License`,
 				html: `
 					<p>Hi ${payerName || 'there'},</p>
-					<p>Thank you for your purchase. Here is your license key:</p>
+					<p>Thank you for buying ${productName}. Here is your license key:</p>
 					<pre style="font-size:16px;font-weight:bold;">${licenseResult.licenseKey}</pre>
 					<p>Status: ${licenseResult.status}</p>
 					${licenseResult.expiresAt ? `<p>Expires: ${new Date(licenseResult.expiresAt).toISOString()}</p>` : ''}
@@ -121,6 +129,7 @@ module.exports = async function handler(req, res) {
 		ok: true,
 		orderId: orderId || null,
 		email: payerEmail,
+		product,
 		licenseKey: licenseResult.licenseKey,
 		status: licenseResult.status,
 		expiresAt: licenseResult.expiresAt || null,

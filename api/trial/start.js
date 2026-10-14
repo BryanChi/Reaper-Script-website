@@ -7,7 +7,8 @@ module.exports = async function handler(req, res) {
 	}
 
 	const email = (req.body && req.body.email) || (req.query && req.query.email);
-	const result = await startTrial(email);
+	const product = (req.body && req.body.product) || (req.query && req.query.product);
+	const result = await startTrial(email, product);
 
 	if (!result.ok) {
 		return res.status(400).json({ ok: false, error: result.error || 'Unable to start trial' });

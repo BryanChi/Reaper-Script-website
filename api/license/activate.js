@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
 	const email = body.email || (req.query && req.query.email);
 	const providedKey = body.licenseKey || (req.query && req.query.licenseKey);
 
-	const result = await activateLicense(email, providedKey);
+	const product = body.product || (req.query && req.query.product);
+	const result = await activateLicense(email, providedKey, product);
 	if (!result.ok) {
 		return res.status(400).json({ ok: false, error: result.error || 'Unable to activate license' });
 	}

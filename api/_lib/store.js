@@ -279,7 +279,7 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 	if (!supabase) {
 		const store = getMemoryStore();
 		const existing = store.licenses[licenseKey];
-		if (existing) return { ok: true, licenseKey, status: existing.status, expiresAt: existing.expiresAt || null, product: rowProduct(existing), existing: true };
+		if (existing) return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expiresAt || null, product: rowProduct(existing), existing: true };
 		return memActivateLicense(email, licenseKey, product);
 	}
 
@@ -290,7 +290,7 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 		.maybeSingle();
 	if (findErr) return { ok: false, error: findErr.message || 'Unable to look up license' };
 	if (existing) {
-		return { ok: true, licenseKey, status: existing.status, expiresAt: existing.expires_at || null, product: rowProduct(existing), existing: true };
+		return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expires_at || null, product: rowProduct(existing), existing: true };
 	}
 
 	const now = Date.now();
@@ -300,6 +300,18 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 		.insert({ license_key: licenseKey, email: normalized, product, status: 'active', created_at: iso(now), expires_at: null });
 	if (insErr) return { ok: false, error: insErr.message || 'Unable to issue license' };
 	return { ok: true, licenseKey, status: 'active', expiresAt: null, product };
+}
+
+// The email of the site account a Supabase access token belongs to, or null if the token isn't valid
+async function emailFromAccessToken(token) {
+	if (!token || !supabase) return null;
+	try {
+		const { data, error } = await supabase.auth.getUser(String(token));
+		if (error || !data || !data.user) return null;
+		return normalizeEmail(data.user.email) || null;
+	} catch (_) {
+		return null;
+	}
 }
 
 async function verifyLicense(licenseKey, deviceId, productInput) {
@@ -829,6 +841,7 @@ module.exports = {
 	startTrial,
 	activateLicense,
 	issuePurchaseLicense,
+	emailFromAccessToken,
 	verifyLicense,
 	getLicenseInfo,
 	getLicenseOrTrialStatus,

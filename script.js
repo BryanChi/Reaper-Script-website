@@ -1306,6 +1306,7 @@
 
 	function updateLicenseUserText(user) {
 		const email = user?.email || '';
+		setText(document.getElementById('pricingSignedIn'), email ? `Signed in as ${email}. Your key will be sent there.` : '');
 		if (trialUserLine) {
 			trialUserLine.textContent = email
 				? `Signed in as ${email}`
@@ -1582,8 +1583,18 @@
 		}, 3000);
 	}
 
-	function showSuccessModal(email, licenseKey) {
+	// Where the key was emailed: the signed-in account's email, or the one given at checkout
+	function sentToText(r) {
+		if (!r || !r.email) return 'Thank you for your purchase. Your license key is below.';
+		if (!r.emailSent) return `Thank you for your purchase. Save the key below: it's linked to ${r.email}, but the email with it could not be sent.`;
+		return r.emailSource === 'account'
+			? `Thank you for your purchase. We also emailed the key to ${r.email}, the email on your account.`
+			: `Thank you for your purchase. We also emailed the key to ${r.email}, the email you gave at checkout.`;
+	}
+
+	function showSuccessModal(email, licenseKey, result) {
 		const modal = document.getElementById('success-modal');
+		setText(document.getElementById('success-sent'), sentToText(result || { email }));
 		const licenseKeyText = document.getElementById('license-key-text');
 		const copyBtn = document.getElementById('copy-license-btn');
 		const licenseInfoDiv = document.querySelector('.license-info');
@@ -1690,8 +1701,8 @@
 		}
 	}
 
-	async function sendPaymentToBackend({ orderId }) {
-		const payload = { orderId };
+	async function sendPaymentToBackend({ orderId, accessToken }) {
+		const payload = { orderId, accessToken };
 
 		const resp = await fetch('/api/paypal/webhook', {
 			method: 'POST',
@@ -1784,7 +1795,13 @@
 				showLoadingState();
 				let backendResponse = null;
 				try {
-					backendResponse = await sendPaymentToBackend({ orderId: data.orderID });
+					// Signed in? The key goes to the account's email (the server checks the token)
+					let accessToken = null;
+					try {
+						const { data: sess } = supabaseClient ? await supabaseClient.auth.getSession() : { data: null };
+						accessToken = sess?.session?.access_token || null;
+					} catch (_) { /* not signed in */ }
+					backendResponse = await sendPaymentToBackend({ orderId: data.orderID, accessToken });
 				} catch (err) {
 					console.error('Backend license issuance failed:', err);
 					hideLoadingState();
@@ -1795,7 +1812,7 @@
 				const msg = 'Payment received. Your license key is ready.';
 				setText(licenseMessage, msg);
 				setBadge('active', msg);
-				showSuccessModal(backendResponse.email, backendResponse.licenseKey);
+				showSuccessModal(backendResponse.email, backendResponse.licenseKey, backendResponse);
 				refreshLicenseStatus({ targetMessage: licenseMessage });
 			},
 			onError: function(err) {

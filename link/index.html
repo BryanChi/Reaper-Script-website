@@ -65,6 +65,7 @@ input {
 .msg { margin-top: 14px; font-size: 14px; min-height: 0; }
 .msg.err { color: var(--red); }
 .msg.warn { color: var(--amber); }
+.msg.ok { color: #49cc85; }
 .done { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 14px;
   background: rgba(73, 204, 133, .14); border: 1px solid rgba(73, 204, 133, .45); }
 .done svg { width: 24px; height: 24px; }
@@ -95,12 +96,14 @@ input {
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.2 14.6 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.7 0 9.4-4 9.4-9.6 0-.6-.1-1.1-.2-1.6H12z"/></svg>
       Continue with Google
     </button>
-    <div class="or">or with email</div>
+    <div class="or">or with any email</div>
     <form id="email-form">
-      <input id="email" type="email" autocomplete="email" placeholder="Email" required>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+      <input id="email" type="email" autocomplete="email" placeholder="Email you bought it with" required>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password (if you have one)">
       <button class="btn" type="submit" id="email-go">Sign in</button>
+      <button class="btn" type="button" id="email-link">Email me a sign-in link</button>
     </form>
+    <p class="small">No account or no password? Use Email me a sign-in link: it works with any email address.</p>
   </section>
 
   <!-- signed in, confirm -->
@@ -252,9 +255,21 @@ input {
     });
   });
 
+  $('email-link').addEventListener('click', function () {
+    msg('');
+    var email = $('email').value.trim();
+    if (!email) { msg('Enter your email address first.', 'err'); return; }
+    $('email-link').disabled = true;
+    api('link-email', { code: info.userCode, email: email }).then(function (res) {
+      if (!res.ok) { msg(res.error || 'Couldn\'t send the email.', 'err'); return; }
+      msg('Check your inbox at ' + email + ' and click the link in it. It brings you back here.', 'ok');
+    }).finally(function () { $('email-link').disabled = false; });
+  });
+
   $('email-form').addEventListener('submit', function (e) {
     e.preventDefault();
     msg('');
+    if (!$('password').value) { $('email-link').click(); return; }
     $('email-go').disabled = true;
     client.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value }).then(function (r) {
       if (r.error) msg(r.error.message || 'Couldn\'t sign in.', 'err');

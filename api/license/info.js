@@ -1,4 +1,4 @@
-const { getLicenseInfo, emailFromAccessToken, startLink, linkInfo, confirmLink, linkStartTrial, pollLink } = require('../_lib/store');
+const { getLicenseInfo, emailFromAccessToken, startLink, linkEmail, linkInfo, confirmLink, linkStartTrial, pollLink } = require('../_lib/store');
 
 // "Sign in with browser" from the scripts lives here too (Vercel Hobby allows 12 functions):
 //   link-start   script -> { deviceCode, userCode, url }    (deviceCode stays in the script)
@@ -7,6 +7,7 @@ const { getLicenseInfo, emailFromAccessToken, startLink, linkInfo, confirmLink, 
 //   link-info    /link page, before sign-in
 //   link-confirm /link page, signed in (accessToken) -> ties the code to that account
 //   link-trial   /link page, signed in, no license yet -> starts the trial for that account
+//   link-email   /link page, not signed in (code, email) -> emails a one-click sign-in link
 const SITE = 'https://www.coolreaperscripts.com';
 
 async function handleLink(action, body, res) {
@@ -20,6 +21,8 @@ async function handleLink(action, body, res) {
 		result = await linkInfo(body.code);
 	} else if (action === 'link-confirm') {
 		result = await confirmLink(body.code, body.accessToken);
+	} else if (action === 'link-email') {
+		result = await linkEmail(body.code, body.email);
 	} else if (action === 'link-trial') {
 		result = await linkStartTrial(body.code, body.accessToken);
 		if (result.ok) result = { ok: true, status: result.status, expiresAt: result.expiresAt || null };

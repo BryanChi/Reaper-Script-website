@@ -76,6 +76,21 @@
 	function getUserAvatar() { return document.getElementById('userAvatar'); }
 	function getUserAvatarSmall() { return document.getElementById('userAvatarSmall'); }
 
+	// Back from Google sign-in that started on /link (a script's "Sign in with browser"), but the
+	// auth server sent us to the home page instead: carry on to /link, where the session is picked up.
+	const backFromSignIn = /access_token=|[?&]code=/.test(window.location.href);
+	function forwardPendingLink() {
+		if (!backFromSignIn) return false;
+		try {
+			const saved = JSON.parse(localStorage.getItem('crs_link_pending') || 'null');
+			if (saved && saved.code && Date.now() - saved.t < 15 * 60 * 1000) {
+				window.location.replace('/link?code=' + encodeURIComponent(saved.code));
+				return true;
+			}
+		} catch (_) {}
+		return false;
+	}
+
 	function createSupabaseClient() {
 		if (!window.supabase || !authConfig.supabaseUrl || !authConfig.supabaseAnonKey) {
 			return null;
@@ -435,6 +450,7 @@
 		try {
 			const { data, error } = await supabaseClient.auth.getSession();
 			if (error) throw error;
+			if (data?.session?.user && forwardPendingLink()) return;
 			updateUserUI(data?.session?.user || null);
 			if (data?.session?.user) {
 				refreshLicenseStatus({ targetMessage: licenseMessage });

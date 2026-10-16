@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in to your script · Cool Reaper Scripts</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0b0c0f">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --page: #0b0c0f; --card: #15171b; --field: #0f1013;
+  --ink: #e6e8eb; --ink-2: #a9afb8; --ink-3: #6f7681;
+  --line: rgba(255, 255, 255, .08); --line-2: rgba(255, 255, 255, .16);
+  --signal: #49cc85; --signal-ink: #062414; --red: #ef6a6a; --amber: #f2b84b;
+  --f-ui: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.55 var(--f-ui); -webkit-font-smoothing: antialiased;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px 32px;
+}
+button, input { font: inherit; color: inherit; }
+a { color: var(--signal); }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 6px; }
+.card {
+  width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 26px 24px 22px;
+}
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; color: var(--ink-3); font: 600 11px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+.brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+h1 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -.01em; }
+p { margin: 0 0 14px; color: var(--ink-2); }
+.code {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--field); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; margin: 4px 0 18px;
+}
+.code span { color: var(--ink-3); font-size: 13px; }
+.code b { font: 600 18px/1 var(--f-mono); letter-spacing: .08em; }
+.btn {
+  display: flex; width: 100%; align-items: center; justify-content: center; gap: 10px;
+  height: 44px; border-radius: 9px; border: 1px solid var(--line-2); background: #20232a;
+  font-weight: 600; cursor: pointer; text-decoration: none; color: var(--ink); margin-top: 10px;
+}
+.btn:hover { background: #282c34; }
+.btn.go { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+.btn.go:hover { background: #5ad893; }
+.btn[disabled] { opacity: .55; cursor: default; }
+.btn svg { width: 18px; height: 18px; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 12px; margin: 16px 0 6px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+input {
+  width: 100%; height: 42px; border-radius: 9px; border: 1px solid var(--line-2);
+  background: var(--field); padding: 0 12px; margin-top: 8px;
+}
+.msg { margin-top: 14px; font-size: 14px; min-height: 0; }
+.msg.err { color: var(--red); }
+.msg.warn { color: var(--amber); }
+.done { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 14px;
+  background: rgba(73, 204, 133, .14); border: 1px solid rgba(73, 204, 133, .45); }
+.done svg { width: 24px; height: 24px; }
+.small { font-size: 13px; color: var(--ink-3); margin-top: 16px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--ink-2); text-decoration: underline; cursor: pointer; font-size: 13px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="card" aria-live="polite">
+  <div class="brand"><i></i>Cool Reaper Scripts</div>
+
+  <!-- loading -->
+  <section id="v-loading"><p>Loading…</p></section>
+
+  <!-- link not valid / expired -->
+  <section id="v-bad" hidden>
+    <h1 id="bad-title">This sign-in link isn't valid</h1>
+    <p id="bad-text">Go back to REAPER and click Sign in with browser again.</p>
+  </section>
+
+  <!-- not signed in -->
+  <section id="v-signin" hidden>
+    <h1>Sign in to activate <span class="pname"></span></h1>
+    <p>Use the account you bought <span class="pname"></span> with. Your license is found automatically, nothing to copy.</p>
+    <div class="code"><span>Code shown in REAPER</span><b class="ucode"></b></div>
+    <button class="btn" id="google" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.2 14.6 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.7 0 9.4-4 9.4-9.6 0-.6-.1-1.1-.2-1.6H12z"/></svg>
+      Continue with Google
+    </button>
+    <div class="or">or with email</div>
+    <form id="email-form">
+      <input id="email" type="email" autocomplete="email" placeholder="Email" required>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+      <button class="btn" type="submit" id="email-go">Sign in</button>
+    </form>
+  </section>
+
+  <!-- signed in, confirm -->
+  <section id="v-confirm" hidden>
+    <h1>Activate <span class="pname"></span> on your computer?</h1>
+    <p>Signed in as <b class="who"></b>. Check that this code matches the one in REAPER.</p>
+    <div class="code"><span>Code</span><b class="ucode"></b></div>
+    <button class="btn go" id="confirm" type="button">Activate</button>
+    <p class="small">Not you? <button class="linkbtn switch" type="button">Use a different account</button></p>
+  </section>
+
+  <!-- linked, license found -->
+  <section id="v-done" hidden>
+    <div class="done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#49cc85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1>You're all set</h1>
+    <p id="done-text">Go back to REAPER. <span class="pname"></span> activates on its own in a few seconds. You can close this tab.</p>
+  </section>
+
+  <!-- linked, no license on this account -->
+  <section id="v-none" hidden>
+    <h1>No <span class="pname"></span> license on this account</h1>
+    <p><b class="who"></b> has no <span class="pname"></span> license or trial yet. Start a trial or buy a license here and REAPER picks it up while it's waiting.</p>
+    <button class="btn go" id="trial" type="button">Start a 30-day free trial</button>
+    <a class="btn" id="buy" href="/#pricing" target="_blank" rel="noopener">Buy a license</a>
+    <p class="small">Bought it with another email? <button class="linkbtn switch" type="button">Use a different account</button></p>
+  </section>
+
+  <div class="msg" id="msg" role="status"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  'use strict';
+  var PENDING_KEY = 'crs_link_pending';
+  var BUY = { 'fx-devices': '/fx-devices#buy', 'vertical-fx-list': '/#pricing' };
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ['loading', 'bad', 'signin', 'confirm', 'done', 'none'];
+  var info = null, client = null;
+
+  function show(name) {
+    views.forEach(function (v) { $('v-' + v).hidden = v !== name; });
+  }
+  function msg(text, kind) {
+    $('msg').textContent = text || '';
+    $('msg').className = 'msg' + (kind ? ' ' + kind : '');
+  }
+  function fill(cls, text) {
+    document.querySelectorAll('.' + cls).forEach(function (el) { el.textContent = text; });
+  }
+  function store(fn) { try { return fn(); } catch (_) { return null; } }
+
+  // The code from the URL, or the one saved before a sign-in redirect that dropped it
+  function readCode() {
+    var q = new URLSearchParams(location.search).get('code');
+    if (q) {
+      store(function () { localStorage.setItem(PENDING_KEY, JSON.stringify({ code: q, t: Date.now() })); });
+      return q;
+    }
+    var saved = store(function () { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); });
+    if (saved && saved.code && Date.now() - saved.t < 15 * 60 * 1000) return saved.code;
+    return null;
+  }
+  function clearPending() { store(function () { localStorage.removeItem(PENDING_KEY); }); }
+
+  function api(action, extra) {
+    var body = Object.assign({ action: action }, extra || {});
+    return fetch('/api/license/info', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'The server sent an unexpected answer.' }; }); })
+      .catch(function () { return { ok: false, error: 'Couldn\'t reach the server. Check your connection and try again.' }; });
+  }
+
+  function token() {
+    return client.auth.getSession().then(function (r) { return r && r.data && r.data.session; });
+  }
+
+  function bad(title, text) {
+    clearPending();
+    $('bad-title').textContent = title;
+    $('bad-text').textContent = text;
+    show('bad');
+  }
+
+  function afterConfirm(res) {
+    if (!res.ok) { msg(res.error || 'Something went wrong. Try again.', 'err'); return; }
+    fill('who', res.email);
+    if (res.hasLicense) {
+      clearPending();
+      show('done');
+    } else {
+      $('buy').href = BUY[info.product] || '/#pricing';
+      show('none');
+    }
+  }
+
+  function confirmNow() {
+    msg('');
+    $('confirm').disabled = true;
+    return token().then(function (s) {
+      if (!s) { show('signin'); return; }
+      return api('link-confirm', { code: info.userCode, accessToken: s.access_token }).then(afterConfirm);
+    }).finally(function () { $('confirm').disabled = false; });
+  }
+
+  function route() {
+    return token().then(function (s) {
+      msg('');
+      if (!s) { show('signin'); return; }
+      fill('who', s.user && s.user.email || '');
+      // already confirmed (page reloaded, or back from buying): show where it stands
+      if (info.status === 'linked') return confirmNow();
+      show('confirm');
+    });
+  }
+
+  function start() {
+    var code = readCode();
+    if (!code) { bad('No sign-in code', 'Open this page from REAPER: click Sign in with browser in the script\'s license window.'); return; }
+    if (!window.supabase) { bad('Sign-in is unavailable', 'The sign-in library didn\'t load. Reload the page.'); return; }
+
+    // The site's public Supabase settings live once, on the home page's <body>
+    var config = fetch('/').then(function (r) { return r.text(); }).then(function (html) {
+      var b = new DOMParser().parseFromString(html, 'text/html').body.dataset;
+      if (!b.supabaseUrl || !b.supabaseAnonKey) throw new Error('no config');
+      client = window.supabase.createClient(b.supabaseUrl, b.supabaseAnonKey, { auth: { persistSession: true, detectSessionInUrl: true } });
+    });
+
+    Promise.all([api('link-info', { code: code }), config]).then(function (all) {
+      var res = all[0];
+      if (!res.ok || res.status === 'invalid') { bad('This sign-in link isn\'t valid', 'Go back to REAPER and click Sign in with browser again.'); return; }
+      if (res.status === 'expired') { bad('This sign-in link has expired', 'Links work for 10 minutes. Go back to REAPER and click Sign in with browser again.'); return; }
+      info = res;
+      fill('pname', res.productName);
+      fill('ucode', res.userCode);
+      document.title = 'Activate ' + res.productName + ' · Cool Reaper Scripts';
+      client.auth.onAuthStateChange(function (event) {
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') route();
+      });
+      route();
+    }).catch(function () { bad('Sign-in is unavailable', 'Couldn\'t load the sign-in settings. Reload the page.'); });
+  }
+
+  $('google').addEventListener('click', function () {
+    msg('');
+    var back = location.origin + '/link?code=' + encodeURIComponent(info.userCode);
+    client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }).then(function (r) {
+      if (r.error) msg(r.error.message || 'Couldn\'t start Google sign-in.', 'err');
+    });
+  });
+
+  $('email-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    msg('');
+    $('email-go').disabled = true;
+    client.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value }).then(function (r) {
+      if (r.error) msg(r.error.message || 'Couldn\'t sign in.', 'err');
+    }).finally(function () { $('email-go').disabled = false; });
+  });
+
+  $('confirm').addEventListener('click', confirmNow);
+
+  document.querySelectorAll('.switch').forEach(function (el) {
+    el.addEventListener('click', function () { client.auth.signOut(); });
+  });
+
+  $('trial').addEventListener('click', function () {
+    msg('');
+    $('trial').disabled = true;
+    token().then(function (s) {
+      if (!s) { show('signin'); return; }
+      return api('link-trial', { code: info.userCode, accessToken: s.access_token }).then(function (res) {
+        if (!res.ok) { msg(res.error || 'Couldn\'t start the trial.', 'err'); return; }
+        clearPending();
+        $('done-text').textContent = 'Your 30-day trial has started. Go back to REAPER, ' + info.productName + ' activates on its own in a few seconds. You can close this tab.';
+        show('done');
+      });
+    }).finally(function () { $('trial').disabled = false; });
+  });
+
+  start();
+})();
+</script>
+</body>
+</html>

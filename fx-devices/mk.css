@@ -383,6 +383,31 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .get-req { align-self: start; padding: 24px; background: rgba(0, 0, 0, .7); border: 1px solid var(--line-2); }
 .get-req h3 { margin: 0; font: 400 22px var(--f-display); text-transform: uppercase; letter-spacing: .02em; }
 
+/* buy */
+.buy { padding-top: 40px; }
+.buy-card { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 48px; align-items: center; padding: clamp(28px, 5.5vw, 76px); border: 1px solid rgba(255, 255, 255, .22); }
+.buy-card h2 { font-size: clamp(42px, 5.4vw, 84px); }
+.buy-copy > p:not(.kicker) { color: var(--ink-2); font-size: 17px; line-height: 1.6; margin: 22px 0 0; max-width: 46ch; }
+.buy-box { position: relative; padding: 30px 28px 24px; border: 1px solid rgba(255, 255, 255, .3); background: #050505;
+  background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px); background-size: 28px 28px; }
+.buy-box::before, .buy-box::after { content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; }
+.buy-box::before { left: -7px; top: -7px; border-left: 1px solid #fff; border-top: 1px solid #fff; }
+.buy-box::after { right: -7px; bottom: -7px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; }
+.buy-name { margin: 0; font: 500 11.5px var(--f-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
+.buy-price { margin: 10px 0 0; font: 400 clamp(84px, 9vw, 128px)/.85 var(--f-display); background: var(--chrome); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: chrome 7s linear infinite; }
+.buy-price span { font-size: .45em; vertical-align: .9em; margin-right: 4px; }
+.buy-sub { margin: 12px 0 22px; font: 500 11px var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+.buy-paypal { min-height: 52px; }
+.buy-wait { margin: 0; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.buy-msg { margin: 12px 0 0; min-height: 1.4em; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.buy-msg.bad { color: #ff8a80; }
+.buy-done { border: 1px solid color-mix(in srgb, var(--acc) 60%, transparent); padding: 18px; background: rgba(73, 204, 133, .06); }
+.buy-done-h { margin: 0 0 8px; font: 400 22px/1.05 var(--f-display); text-transform: uppercase; letter-spacing: .02em; }
+.buy-done-p { margin: 8px 0 0; font-size: 14px; color: var(--ink-2); }
+.buy-key { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.buy-key code { font: 600 15px var(--f-mono); color: #fff; background: rgba(255, 255, 255, .06); padding: 8px 10px; overflow-wrap: anywhere; user-select: all; }
+.buy-fine { margin: 16px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
+
 /* faq */
 .faq { padding-top: 140px; padding-bottom: 40px; }
 .faq details { max-width: 920px; }
@@ -451,6 +476,7 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .cards .card:last-child { grid-column: 1 / -1; }
   .card-wide, .cards .card-wide { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); }
   .get-card { grid-template-columns: minmax(0, 1fr); }
+  .buy-card { grid-template-columns: minmax(0, 1fr); }
   .ring { width: 520px; height: 520px; right: -260px; top: 10px; }
   .cols { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .cols i:nth-child(n+7) { display: none; }
@@ -461,6 +487,9 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .hero { padding-top: 56px; }
   h1 { line-height: .92; }
   .get-card h2 { font-size: 38px; }
+  .buy-card { padding: 28px 22px; }
+  .buy-card h2 { font-size: 40px; }
+  .buy-box { padding: 24px 18px 20px; }
   .get .cta-row .btn { width: 100%; padding: 0 16px; white-space: normal; text-align: center; line-height: 1.3; }
   .hero-shot { margin-top: 56px; }
   .feature { padding-top: 110px; }
@@ -500,5 +529,5 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .ring, h1 em, h2 em, .stat b, .marquee-row, .md-tile.armed { animation: none !important; }
+  .ring, h1 em, h2 em, .stat b, .buy-price, .marquee-row, .md-tile.armed { animation: none !important; }
 }

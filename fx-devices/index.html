@@ -43,6 +43,7 @@
       <a href="#clash">Clash Finder</a>
       <a href="#more">Workflow</a>
       <a href="#download">Download</a>
+      <a href="#buy">Pricing</a>
     </nav>
     <div class="nav-cta">
       <a class="btn btn-ghost hide-sm" href="/">Vertical FX List</a>
@@ -291,6 +292,7 @@
           <a class="btn btn-go btn-lg" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="Cool Reaper Script Manager.lua">
             <svg class="dl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download the Script Manager</a>
           <a class="btn btn-ghost btn-lg" href="/?product=fx-devices#license">Start your free trial</a>
+          <a class="btn btn-ghost btn-lg" href="#buy">Buy a license</a>
         </div>
         <ol class="dl-steps">
           <li><b>1</b><div><h3>Load the Script Manager</h3><p>In REAPER, open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, and pick the <code>Cool Reaper Script Manager.lua</code> you downloaded.</p></div></li>
@@ -306,6 +308,36 @@
           <li>js_ReaScriptAPI</li>
           <li>ReaPack, which installs both for free</li>
         </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== buy -->
+  <section class="wrap buy" id="buy" aria-labelledby="buy-h">
+    <div class="buy-card">
+      <div class="buy-copy">
+        <p class="kicker"><b>08</b> License</p>
+        <h2 id="buy-h">One license.<br><em>Yours for good.</em></h2>
+        <p>Pay once and your key arrives right here and by email. Paste it into FX Devices under Settings, License.</p>
+        <ul class="ticks">
+          <li>1 user, lifetime license</li>
+          <li>Lifetime updates through the Script Manager</li>
+          <li>Email support</li>
+        </ul>
+      </div>
+      <div class="buy-box">
+        <p class="buy-name">FX Devices</p>
+        <p class="buy-price"><span>$</span>93</p>
+        <p class="buy-sub">USD · one-time payment</p>
+        <div id="fxd-paypal" class="buy-paypal" aria-live="polite"><p class="buy-wait">Loading PayPal…</p></div>
+        <p class="buy-msg" id="fxd-buy-msg" role="status"></p>
+        <div class="buy-done" id="fxd-buy-done" hidden>
+          <p class="buy-done-h">Thanks for buying FX Devices</p>
+          <p class="buy-done-p">Your license key:</p>
+          <div class="buy-key"><code id="fxd-key"></code><button class="btn btn-ghost btn-sm" type="button" id="fxd-copy">Copy</button></div>
+          <p class="buy-done-p" id="fxd-key-mail"></p>
+        </div>
+        <p class="buy-fine">Card, PayPal and Pay Later through PayPal's secure checkout. 30-day money-back guarantee.</p>
       </div>
     </div>
   </section>
@@ -345,5 +377,6 @@
 <script src="/fx-devices/dev-fabfilter.js"></script>
 <script src="/fx-devices/dev-fxd.js"></script>
 <script src="/fx-devices/mk.js"></script>
+<script src="/fx-devices/buy.js"></script>
 </body>
 </html>

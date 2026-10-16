@@ -1,4 +1,4 @@
-const { startTrial } = require('../_lib/store');
+const { startTrial, emailFromAccessToken } = require('../_lib/store');
 
 module.exports = async function handler(req, res) {
 	if (req.method !== 'POST') {
@@ -6,7 +6,10 @@ module.exports = async function handler(req, res) {
 		return res.status(405).json({ ok: false, error: 'Method not allowed' });
 	}
 
-	const email = (req.body && req.body.email) || (req.query && req.query.email);
+	// Only for a signed-in account: a typed email could start (or read back) someone else's
+	// trial key. REAPER scripts and the Script Manager start trials from the /link page.
+	const email = await emailFromAccessToken(req.body && req.body.accessToken);
+	if (!email) return res.status(401).json({ ok: false, error: 'Sign in to start your trial.' });
 	const product = (req.body && req.body.product) || (req.query && req.query.product);
 	const result = await startTrial(email, product);
 

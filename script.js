@@ -1426,7 +1426,7 @@
 				try {
 					const productEl = document.getElementById('trialProduct');
 					const product = (productEl && productEl.value) || 'vertical-fx-list';
-					const res = await postJson('/api/trial/start', { email, product });
+					const res = await postJson('/api/trial/start', { email, product, accessToken: await getAccessToken() });
 					const expiry = prettyExpiry(res.expiresAt);
 					setText(trialMessage, res.message + (expiry ? ` · Expires: ${expiry}` : ''));
 					setBadge(res.status, expiry ? `Expires on ${expiry}` : 'Trial created.');

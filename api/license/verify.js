@@ -1,4 +1,4 @@
-const { verifyLicense, getLicenseOrTrialStatus } = require('../_lib/store');
+const { verifyLicense, getLicenseOrTrialStatus, emailFromAccessToken } = require('../_lib/store');
 
 module.exports = async function handler(req, res) {
 	if (req.method !== 'POST') {
@@ -13,13 +13,23 @@ module.exports = async function handler(req, res) {
 	// which script is asking; none = Vertical FX List (its builds before products were added)
 	const product = body.product || (req.query && req.query.product);
 
-	// If email is provided, check license or trial status by email
-	// Otherwise, verify by license key
+	// By email (the site's account page): only for the signed-in account itself, since the answer
+	// carries the key. Otherwise verify by license key (the scripts).
 	let result;
 	if (email) {
-		result = await getLicenseOrTrialStatus(email, product);
+		const accountEmail = await emailFromAccessToken(body.accessToken);
+		if (!accountEmail) {
+			return res.status(401).json({ ok: false, status: 'invalid', reason: 'Sign in to check your license.' });
+		}
+		result = await getLicenseOrTrialStatus(accountEmail, product);
 	} else if (licenseKey) {
 		result = await verifyLicense(licenseKey, deviceId, product);
+		if (result.retry) {
+			// plain text on purpose: the scripts treat a reply without JSON as "server not reachable"
+			// and keep working on their offline grace
+			res.setHeader('Content-Type', 'text/plain');
+			return res.status(503).send(result.reason);
+		}
 	} else {
 		return res.status(400).json({
 			ok: false,

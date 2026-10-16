@@ -33,7 +33,8 @@ function encodePath(p) {
 }
 
 function isExcluded(product, path) {
-	return product.exclude.some(prefix => path === prefix || path.startsWith(prefix));
+	if (product.include && !product.include.some(prefix => path.startsWith(prefix))) return true;
+	return (product.exclude || []).some(prefix => path === prefix || path.startsWith(prefix));
 }
 
 function validPath(product, path) {
@@ -81,7 +82,9 @@ function publicProduct(id, p) {
 		installDir: p.installDir,
 		mainScript: p.mainScript,
 		userData: p.userData,
-		licenseSection: p.licenseSection
+		routes: p.routes,
+		licenseSection: p.licenseSection,
+		buyUrl: p.buyUrl
 	};
 }
 
@@ -93,10 +96,14 @@ module.exports = async function handler(req, res) {
 	const input = Object.assign({}, req.query || {}, req.body || {});
 	const action = input.action || 'products';
 
+	// installer generation: none = the 2.0 installer, 3 = the Script Manager (handles routes)
+	const client = Number(input.client) || 2;
+	const offered = p => p.installable !== false && client >= (p.minClient || 0);
+
 	if (action === 'products') {
 		return res.status(200).json({
 			ok: true,
-			products: Object.entries(PRODUCTS).filter(([, p]) => p.installable !== false).map(([id, p]) => publicProduct(id, p))
+			products: Object.entries(PRODUCTS).filter(([, p]) => offered(p)).map(([id, p]) => publicProduct(id, p))
 		});
 	}
 

@@ -1721,6 +1721,7 @@
 
 	// Discount code: checked with the server, which also applies it when it creates the PayPal order
 	let discountCode = '';
+	let createError = null;
 	const discountForm = document.getElementById('discountForm');
 	if (discountForm) {
 		discountForm.addEventListener('submit', async function(e) {
@@ -1785,7 +1786,8 @@
 				});
 				const json = await resp.json().catch(() => ({}));
 				if (!resp.ok || !json.id) {
-					showError(json.error || 'Could not start the PayPal checkout. Please try again.');
+					createError = json.error || 'Could not start the PayPal checkout. Please try again.';
+					showError(createError);
 					throw new Error(json.error || 'create failed');
 				}
 				return json.id;
@@ -1817,7 +1819,8 @@
 			},
 			onError: function(err) {
 				console.error('PayPal error:', err);
-				showError('Payment failed. Please try again.');
+				if (!createError) showError('Payment failed. Please try again.');
+				createError = null;
 				hideLoadingState();
 			},
 			onCancel: function(data) {

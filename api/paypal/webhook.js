@@ -116,6 +116,8 @@ module.exports = async function handler(req, res) {
 			const token = await paypalToken();
 			const r = await paypalApi('/v2/checkout/orders', token, { method: 'POST', body: {
 				intent: 'CAPTURE',
+				// A download: no shipping address on PayPal's page or card form
+				application_context: { shipping_preference: 'NO_SHIPPING', brand_name: 'Cool Reaper Scripts' },
 				purchase_units: [{
 					amount: { currency_code: 'USD', value: q.json.price },
 					description: `${PRODUCTS[q.product].name} for REAPER - Lifetime License` + (q.discount ? ` (${q.discount.label} ${q.discount.percent}% off)` : ''),

@@ -13,7 +13,7 @@ try {
 	// ignore; fallback to memory
 }
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 30;
 
 // Each script is its own purchase: a key or trial only unlocks the product it was issued for.
 // Rows saved before products existed have product = 'vertical-fx-list' (the column's default), and

@@ -1683,16 +1683,8 @@
 		}
 	}
 
-	async function sendPaymentToBackend({ orderId, details }) {
-		const payload = {
-			orderId: orderId || details?.id,
-			status: details?.status,
-			payerEmail: details?.payer?.email_address,
-			payerName: details?.payer?.name ? `${details.payer.name.given_name || ''} ${details.payer.name.surname || ''}`.trim() : '',
-			purchase_units: details?.purchase_units,
-			amount: details?.purchase_units?.[0]?.amount?.value,
-			currency: details?.purchase_units?.[0]?.amount?.currency_code
-		};
+	async function sendPaymentToBackend({ orderId }) {
+		const payload = { orderId };
 
 		const resp = await fetch('/api/paypal/webhook', {
 			method: 'POST',
@@ -1709,6 +1701,51 @@
 		return json;
 	}
 
+	// Discount code: checked with the server, which also applies it when it creates the PayPal order
+	let discountCode = '';
+	const discountForm = document.getElementById('discountForm');
+	if (discountForm) {
+		discountForm.addEventListener('submit', async function(e) {
+			e.preventDefault();
+			const input = document.getElementById('discountCode');
+			const msgEl = document.getElementById('discountMsg');
+			const amountEl = document.getElementById('priceAmount');
+			const wasEl = document.getElementById('priceWas');
+			const code = (input.value || '').trim();
+			msgEl.classList.remove('ok');
+			if (!code) {
+				discountCode = '';
+				amountEl.textContent = '89';
+				wasEl.hidden = true;
+				setText(msgEl, '');
+				return;
+			}
+			setText(msgEl, 'Checking...');
+			try {
+				const resp = await fetch('/api/paypal/webhook', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'quote', product: 'vertical-fx-list', code })
+				});
+				const json = await resp.json().catch(() => ({}));
+				if (!resp.ok || !json.ok) {
+					discountCode = '';
+					amountEl.textContent = '89';
+					wasEl.hidden = true;
+					setText(msgEl, json.error || 'That code could not be checked.');
+					return;
+				}
+				discountCode = code;
+				amountEl.textContent = json.price.replace(/\.00$/, '');
+				wasEl.hidden = false;
+				msgEl.classList.add('ok');
+				setText(msgEl, `${json.label}: ${json.percent}% off applied.`);
+			} catch (_) {
+				setText(msgEl, 'That code could not be checked. Please try again.');
+			}
+		});
+	}
+
 	// PayPal Smart Buttons
 	function setupPayPalButtons() {
 		if (!paypalContainer) return;
@@ -1721,44 +1758,38 @@
 				shape: 'rect',
 				label: 'paypal'
 			},
-			createOrder: function(data, actions) {
-				return actions.order.create({
-					purchase_units: [{
-						amount: { value: '89.00', currency_code: 'USD' },
-						description: 'Vertical FX List for REAPER - Lifetime License',
-						custom_id: 'vertical-fx-list'
-					}]
+			// The server creates the order (with the discount code, if any) so the price can't be changed here
+			createOrder: async function() {
+				const resp = await fetch('/api/paypal/webhook', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'create', product: 'vertical-fx-list', code: discountCode })
 				});
+				const json = await resp.json().catch(() => ({}));
+				if (!resp.ok || !json.id) {
+					showError(json.error || 'Could not start the PayPal checkout. Please try again.');
+					throw new Error(json.error || 'create failed');
+				}
+				return json.id;
 			},
-			onApprove: function(data, actions) {
+			// PayPal approved the payment; the server takes it and issues the key
+			onApprove: async function(data) {
 				showLoadingState();
-				
-				return actions.order.capture().then(async function(details) {
-					console.log('Payment completed:', details);
-					
-					const customerEmail = details.payer?.email_address;
-					const msg = 'Payment captured via PayPal. Your license will be issued via email.';
-					setText(licenseMessage, msg);
-					setBadge('active', msg);
-					
-					// Send to backend to issue license and email
-					let backendResponse = null;
-					try {
-						backendResponse = await sendPaymentToBackend({ orderId: data.orderID, details });
-					} catch (err) {
-						console.error('Backend license issuance failed:', err);
-						showError('Payment captured, but license delivery failed. We will follow up via email.');
-					}
-
+				let backendResponse = null;
+				try {
+					backendResponse = await sendPaymentToBackend({ orderId: data.orderID });
+				} catch (err) {
+					console.error('Backend license issuance failed:', err);
 					hideLoadingState();
-					showSuccessModal(customerEmail, backendResponse && backendResponse.licenseKey);
-					refreshLicenseStatus({ targetMessage: licenseMessage });
-					
-				}).catch(function(error) {
-					console.error('Payment capture error:', error);
-					showError('Payment processing failed. Please try again.');
-					hideLoadingState();
-				});
+					showError(err.message || 'The payment could not be completed. If you were charged, email us and we will sort it out.');
+					return;
+				}
+				hideLoadingState();
+				const msg = 'Payment received. Your license key is ready.';
+				setText(licenseMessage, msg);
+				setBadge('active', msg);
+				showSuccessModal(backendResponse.email, backendResponse.licenseKey);
+				refreshLicenseStatus({ targetMessage: licenseMessage });
 			},
 			onError: function(err) {
 				console.error('PayPal error:', err);

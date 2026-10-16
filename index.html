@@ -694,7 +694,7 @@
 		<section id="license" class="section">
 			<div class="container license-grid">
 				<div class="license-card">
-					<h3>Start your 14-day free trial</h3>
+					<h3>Start your 30-day free trial</h3>
 					<p class="lead-text">Sign in with Google or email to link the trial to your account. No card required.</p>
 					<form id="trialForm" class="license-form">
 						<p class="tiny muted" id="trialUserLine">Sign in to link the trial to your account.</p>
@@ -718,12 +718,17 @@
 				<div class="pricing">
 					<div class="price-card">
 						<h3>Standard License</h3>
-						<p class="price"><span class="currency">$</span><span class="amount">89</span></p>
+						<p class="price"><s class="price-was" id="priceWas" hidden>$89</s><span class="currency">$</span><span class="amount" id="priceAmount">89</span></p>
 						<ul class="list">
 							<li>1 user, lifetime license</li>
 							<li>Lifetime updates</li>
 							<li>Email support</li>
 						</ul>
+						<form class="discount-row" id="discountForm" autocomplete="off">
+							<input type="text" id="discountCode" placeholder="Discount code" aria-label="Discount code" maxlength="40">
+							<button class="btn btn-ghost" type="submit" id="discountApply">Apply</button>
+						</form>
+						<p class="tiny muted discount-msg" id="discountMsg" aria-live="polite"></p>
 						<div id="paypal-button-container" style="margin-top: 16px;"></div>
 						<p class="muted tiny">30-day money-back guarantee.</p>
 					</div>

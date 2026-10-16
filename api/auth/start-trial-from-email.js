@@ -341,7 +341,7 @@ module.exports = async function handler(req, res) {
 				<div class="container">
 					<div class="success">✓</div>
 					<h1>Trial Started Successfully!</h1>
-					<p>Your email has been confirmed and your 14-day free trial has been activated for <strong>${email}</strong>.</p>
+					<p>Your email has been confirmed and your 30-day free trial has been activated for <strong>${email}</strong>.</p>
 					<p style="color: #22f36b; margin-top: 16px;">✓ You can now log in with your email and password!</p>
 					${result.licenseKey ? `
 						<p>Your trial license key:</p>

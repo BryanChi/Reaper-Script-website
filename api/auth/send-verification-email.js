@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
 						<div style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
 							<h1 style="color: #111827; margin-top: 0;">Welcome to Reaper Script!</h1>
 							<p style="color: #374151; line-height: 1.6;">Thank you for creating an account. Please verify your email address by clicking the confirmation link sent by Supabase.</p>
-							<p style="color: #374151; line-height: 1.6;">Once your email is verified, you can start your 14-day free trial right away!</p>
+							<p style="color: #374151; line-height: 1.6;">Once your email is verified, you can start your 30-day free trial right away!</p>
 							<div style="margin: 30px 0; text-align: center;">
 								<a href="${startTrialUrl}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 16px;">Start Your Free Trial</a>
 							</div>

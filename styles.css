@@ -2816,6 +2816,45 @@ ul, ol {
 	color: var(--text-muted);
 }
 
+.price-was {
+	font-size: 24px;
+	margin: 8px 12px 0 0;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+
+.discount-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.discount-row input {
+	flex: 1;
+	min-width: 0;
+	padding: 10px 12px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--card-border);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--text-main);
+	font: inherit;
+	text-transform: uppercase;
+}
+
+.discount-row input::placeholder {
+	text-transform: none;
+}
+
+.discount-msg {
+	min-height: 1.4em;
+	margin: 6px 0 0;
+	text-align: left;
+}
+
+.discount-msg.ok {
+	color: var(--primary);
+}
+
 .price-card .list {
 	text-align: left;
 	margin: 32px 0;

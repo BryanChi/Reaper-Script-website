@@ -658,7 +658,7 @@ local function Spinner(text)
 end
 
 local function LicenseScreen()
-  Muted('Already have a license or trial key? Enter it here so your scripts are ready to go. No key? Just continue: each script starts a free 14-day trial when it first runs.')
+  Muted('Already have a license or trial key? Enter it here so your scripts are ready to go. No key? Just continue: each script starts a free 30-day trial when it first runs.')
   im.Dummy(ctx, 0, 4)
   local w = im.GetContentRegionAvail(ctx)
   Caps('License or trial key (optional)')

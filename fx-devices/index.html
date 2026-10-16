@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FX Devices for REAPER</title>
+<link rel="canonical" href="https://www.coolreaperscripts.com/fx-devices">
+<meta property="og:title" content="FX Devices for REAPER">
+<meta property="og:description" content="Every plugin, a native device. Two-move modulation, readable chains and signal splitters for REAPER.">
+<meta property="og:type" content="product">
+<meta property="og:url" content="https://www.coolreaperscripts.com/fx-devices">
+<meta property="og:image" content="https://www.coolreaperscripts.com/fx-devices/img/modulators.webp">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="FX Devices docks your REAPER plugins as native-feeling devices, with two-move modulation, readable containers and parallel chains, signal splitters and Clash Finder.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/fx-devices/core.css">
+<link rel="stylesheet" href="/fx-devices/mk.css">
+</head>
+<body>
+
+<div class="cols" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<header class="nav" id="top">
+  <div class="nav-in">
+    <a class="logo" href="/fx-devices" aria-label="FX Devices home">
+      <svg class="logo-mark" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="1.5" y="3.5" width="31" height="27" rx="5" fill="#1a1c20" stroke="rgba(255,255,255,.14)"/>
+        <path d="M6.5 3.5h4v27h-4a5 5 0 0 1-5-5v-17a5 5 0 0 1 5-5z" fill="#25282e"/>
+        <circle cx="6" cy="9" r="2.2" fill="none" stroke="#49cc85" stroke-width="1.3"/>
+        <path d="M18.3 22.6a5.6 5.6 0 1 1 7.4 0" fill="none" stroke="#0c0d10" stroke-width="2.2"/>
+        <path d="M18.3 22.6a5.6 5.6 0 0 1 4.9-9.3" fill="none" stroke="#49cc85" stroke-width="2.2"/>
+        <circle cx="22" cy="18.4" r="3.2" fill="#2c2f36"/>
+      </svg>
+      <span>FX Devices</span>
+    </a>
+    <nav class="nav-links" id="nav-links" aria-label="Sections">
+      <a href="#native">Devices</a>
+      <a href="#modulation">Modulation</a>
+      <a href="#chain">Signal chain</a>
+      <a href="#splitters">Splitters</a>
+      <a href="#clash">Clash Finder</a>
+      <a href="#more">Workflow</a>
+      <a href="#download">Download</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost hide-sm" href="/">Vertical FX List</a>
+      <a class="btn btn-go" href="#download">Download</a>
+      <button class="nav-menu" id="nav-menu" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ======================================================== hero -->
+  <section class="hero">
+    <svg class="ring" viewBox="-100 -100 200 200" aria-hidden="true">
+      <circle r="96" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".4"/>
+      <circle r="80" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5" stroke-dasharray="1 3.2"/>
+      <path d="M-56.6 56.6A80 80 0 1 1 56.6 56.6" fill="none" stroke="rgba(73,204,133,.55)" stroke-width="1.2" stroke-dasharray="190 400"/>
+      <circle r="62" fill="none" stroke="rgba(255,255,255,.06)" stroke-width=".4"/>
+      <line x1="0" y1="-30" x2="0" y2="-58" stroke="rgba(255,255,255,.35)" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <div class="wrap hero-copy">
+      <p class="pill">For REAPER 7 · Free trial<span class="pulse"></span></p>
+      <h1>Every plugin,<br><em>a native device</em><span class="dot">.</span></h1>
+      <p class="lede">FX Devices docks your plugins along the bottom of REAPER as devices, the way Bitwig and Ableton do it. Then it makes modulation and routing so easy to see that you'll actually use them.</p>
+      <div class="cta-row">
+        <a class="btn btn-go btn-lg" href="#download">Download free trial</a>
+        <a class="btn btn-ghost btn-lg" href="#modulation">See modulation in two moves</a>
+      </div>
+      <p class="fine">Works with the plugins you already own.</p>
+    </div>
+    <div class="wrap-wide hero-shot">
+      <div class="plate"><b>01</b><span>The dock · REAPER 7</span></div>
+      <div class="glow-frame">
+        <div class="frame daw" data-acc="#49cc85">
+          <div class="frame-bar"><i></i><i></i><i></i><span>REAPER</span></div>
+          <div class="arrange" id="arrange" aria-hidden="true"></div>
+          <div class="dock-tab"><span class="dock-grip"></span><b>FX Devices</b><span>docked</span></div>
+          <div class="shot" data-img="modulators" data-alt="FX Devices docked under the arrange view: track modulators over Pro-R 2 and ReaComp"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== marquee -->
+  <section class="marquee" aria-label="Plugins with a front panel">
+    <p class="marquee-lbl">Hand-built front panels for</p>
+    <div class="marquee-track"><div class="marquee-row" id="marquee"></div></div>
+  </section>
+
+  <!-- ======================================================== three pillars -->
+  <section class="wrap pillars" aria-label="Why FX Devices">
+    <a class="pillar" href="#native"><span class="pn">01</span><h3>Feels native</h3><p>Your third-party plugins live in a device dock, like the instruments and effects in Bitwig or Ableton.</p></a>
+    <a class="pillar" href="#modulation"><span class="pn">02</span><h3>Modulation in two moves</h3><p>Right-click a modulator, right-drag a knob. That's the whole workflow.</p></a>
+    <a class="pillar" href="#chain"><span class="pn">03</span><h3>A chain you can read</h3><p>Containers, parallel chains and splitters drawn so you can see the signal flow at a glance.</p></a>
+  </section>
+
+  <!-- ======================================================== 01 native -->
+  <section class="feature" id="native" data-n="01">
+    <div class="wrap feat-head">
+      <div>
+        <p class="kicker"><b>01</b> Native devices</p>
+        <h2>Third-party plugins<br><em>that feel built in.</em></h2>
+      </div>
+      <p class="feat-lede">Select a track and its FX chain sits in a dock at the bottom of the screen, one device after another. Every plugin gets the same frame, the same knobs and the same gestures, whoever made it. No more hunting for floating plugin windows.</p>
+    </div>
+    <div class="wrap-wide">
+      <div class="frame"><div class="shot" data-img="chain-mastering" data-alt="A mastering chain of Pro-Q 4, Pro-C 3 and Pro-L 2 docked in FX Devices"></div></div>
+    </div>
+    <div class="wrap points">
+      <div class="point"><span class="pi">▭</span><h3>One dock, every track</h3><p>Select another track and the dock follows. Pin it when you want it to stay on one track.</p></div>
+      <div class="point"><span class="pi">◉</span><h3>The same frame everywhere</h3><p>Bypass, wet and a preset menu on every device, from FabFilter to REAPER's own FX.</p></div>
+      <div class="point"><span class="pi">↔</span><h3>Drag to reorder</h3><p>Move devices along the chain and watch the others make room. Fold the ones you're not using.</p></div>
+      <div class="point"><span class="pi">⌕</span><h3>Add FX from anywhere</h3><p>Press Ctrl+F, type a few letters, and the plugin lands where you want it.</p></div>
+    </div>
+
+    <div class="wrap sub-head" id="devices">
+      <h3>Front panels made for each plugin</h3>
+      <p>The plugins people reach for most get a hand-built panel: the display, the main controls, and nothing in the way. They're real controls, so everything on them can be automated and modulated.</p>
+    </div>
+    <div class="wrap-wide">
+      <div class="tabs" role="tablist" aria-label="Devices" data-tabs="dev"></div>
+      <div class="dev-panel">
+        <div class="frame dev-frame"><div class="shot" data-tabbed="dev"></div></div>
+        <div class="dev-info">
+          <p class="dev-vendor" id="dev-vendor"></p>
+          <h3 id="dev-name"></h3>
+          <p id="dev-text"></p>
+          <button class="btn btn-live" type="button" id="dev-live"><span class="live-dot"></span>Play with it live</button>
+          <p class="fine">A working copy of the panel, right in your browser.</p>
+        </div>
+      </div>
+    </div>
+    <div class="wrap also">
+      <p><b>Plus</b> VELA, Love 2, ReaEQ, ReaDelay, ReaVerbate, ReaSynth, FX Devices' own Algorithmic Reverb, and <b>121 community layouts</b> that load by themselves when you add the plugin. Every other plugin gets a clean generic panel you fill with the controls you want.</p>
+    </div>
+  </section>
+
+  <!-- ======================================================== 02 modulation -->
+  <section class="feature" id="modulation" data-n="02">
+    <div class="wrap feat-head">
+      <div>
+        <p class="kicker"><b>02</b> Modulation</p>
+        <h2>Modulate anything<br><em>in two moves.</em></h2>
+      </div>
+      <p class="feat-lede">Right-click a modulator. Right-drag the knob you want it to move, and how far you drag sets the range. That's all. Every knob then shows a coloured ring for each modulator on it, so you always see what's moving it.</p>
+    </div>
+    <div class="wrap-wide">
+      <div class="mdemo" id="mdemo">
+        <div class="md-stage">
+          <div class="md-win fx" id="md-win"></div>
+          <div class="md-cursor" id="md-cursor" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 2.5 19 13.2l-6.6.9 3.9 7.4-2.7 1.4-3.9-7.5L4 20z" fill="#fff" stroke="#0b0c0f" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <span class="md-click"></span><span class="md-say" id="md-say"></span>
+          </div>
+        </div>
+        <aside class="md-steps">
+          <p class="md-mode" id="md-mode"><span class="live-dot"></span><span>Watch, then try it yourself</span></p>
+          <ol>
+            <li data-step="arm"><b>1</b><div><h4>Right-click a modulator</h4><p>It blinks, and every knob it can drive lights up in its colour. On a phone, tap it.</p></div></li>
+            <li data-step="drag"><b>2</b><div><h4>Right-drag a knob</h4><p>Up for more, down for a negative range. Hold <kbd>Alt</kbd> to make it go both ways.</p></div></li>
+            <li data-step="done"><b>3</b><div><h4>That's it</h4><p>The ring shows the range and the white dot shows what you hear. Press <kbd>Esc</kbd> when you're done.</p></div></li>
+          </ol>
+          <button class="btn btn-ghost btn-sm" type="button" id="md-replay">Watch it again</button>
+        </aside>
+      </div>
+    </div>
+    <div class="wrap points">
+      <div class="point"><span class="pi">∿</span><h3>13 kinds of modulator</h3><p>LFO, envelope, ADSR, steps, random, follower, transient, pitch, macros, XY pad, and MIDI velocity, key track and CC.</p></div>
+      <div class="point"><span class="pi">◌</span><h3>Your value stays put</h3><p>Modulation rides on top of the knob, so you can still turn it while it moves.</p></div>
+      <div class="point"><span class="pi">✎</span><h3>Draw your own shapes</h3><p>Edit LFO curves point by point, bend the lines, and keep favourites in a shape library.</p></div>
+      <div class="point"><span class="pi">⊕</span><h3>Stack and combine</h3><p>Several modulators on one knob, each with its own amount and curve. Add them, or let a macro scale the rest.</p></div>
+    </div>
+    <div class="wrap-wide more-shots">
+      <div class="tabs" role="tablist" aria-label="Modulation views" data-tabs="mod"></div>
+      <div class="frame"><div class="shot" data-tabbed="mod"></div></div>
+      <p class="tab-cap" data-cap="mod"></p>
+    </div>
+  </section>
+
+  <!-- ======================================================== 03 chain -->
+  <section class="feature" id="chain" data-n="03">
+    <div class="wrap feat-head">
+      <div>
+        <p class="kicker"><b>03</b> Signal chain</p>
+        <h2>A signal chain<br><em>you can actually read.</em></h2>
+      </div>
+      <p class="feat-lede">REAPER's FX window squeezes your chain into a narrow list and shows one plugin at a time. Containers and parallel chains become an indented list that's hard to follow and wastes most of the screen, so they rarely get used. FX Devices draws them the way you'd sketch them on paper.</p>
+    </div>
+    <div class="wrap compare">
+      <div class="ba-toggle" role="group" aria-label="Compare">
+        <button type="button" data-ba="before" aria-pressed="true">REAPER's FX window</button>
+        <button type="button" data-ba="after" aria-pressed="false">FX Devices</button>
+      </div>
+      <div class="ba-stage" id="ba-stage" aria-hidden="true"></div>
+      <p class="tab-cap" id="ba-cap"></p>
+    </div>
+    <div class="wrap points three">
+      <div class="point"><span class="pi">☰</span><h3>Parallel FX as tabs</h3><p>Branches sit side by side as tabs, each with its own mix bar, mute and solo. Open one to see it in full.</p></div>
+      <div class="point"><span class="pi">▣</span><h3>Containers as boxes</h3><p>Group FX into a container, fold it into one device, and give it macros that drive everything inside.</p></div>
+      <div class="point"><span class="pi">↧</span><h3>Always know where you are</h3><p>The chain marks which branch or band you're editing, so you never lose your place.</p></div>
+    </div>
+    <div class="wrap-wide more-shots">
+      <div class="tabs" role="tablist" aria-label="Chain views" data-tabs="chain"></div>
+      <div class="frame"><div class="shot" data-tabbed="chain"></div></div>
+      <p class="tab-cap" data-cap="chain"></p>
+    </div>
+  </section>
+
+  <!-- ======================================================== 04 splitters -->
+  <section class="feature" id="splitters" data-n="04">
+    <div class="wrap feat-head">
+      <div>
+        <p class="kicker"><b>04</b> Splitters</p>
+        <h2>Split the signal.<br><em>Tweak each part.</em></h2>
+      </div>
+      <p class="feat-lede">Custom splitters cut a sound into parts you can process on their own: low, mid and high bands, mid and side, or the attack and the tail. Drop FX on any part and hear it right away. No pin matrix, no routing tricks.</p>
+    </div>
+    <div class="wrap-wide">
+      <div class="tabs" role="tablist" aria-label="Splitters" data-tabs="split"></div>
+      <div class="frame"><div class="shot" data-tabbed="split"></div></div>
+      <p class="tab-cap" data-cap="split"></p>
+    </div>
+    <div class="wrap points">
+      <div class="point"><span class="pi">≋</span><h3>Band split</h3><p>Drag the crossovers, pick the slope or linear phase, and give each band its own FX.</p></div>
+      <div class="point"><span class="pi">◐</span><h3>Mid-Side</h3><p>Widen the sides without touching the centre, or clean up the centre on its own.</p></div>
+      <div class="point"><span class="pi">◭</span><h3>Transient-Sustain</h3><p>Shape the attack and the tail separately, so you can add punch without touching the room.</p></div>
+      <div class="point"><span class="pi">⧉</span><h3>Nest them</h3><p>Put a splitter inside a band or a branch. Mute and solo each part to hear what it does.</p></div>
+    </div>
+  </section>
+  <!-- ======================================================== 05 clash -->
+  <section class="feature spotlight" id="clash" data-n="05">
+    <div class="wrap spot-grid">
+      <div class="spot-copy">
+        <p class="kicker"><b>05</b> Clash Finder</p>
+        <h2>Find the frequencies<br><em>fighting in your mix.</em></h2>
+        <p class="feat-lede">Put Clash Finder on the tracks you want to compare. It listens across 32 bands, ranks where two tracks fight, and tells you when: "58 Hz, strong, ducks while Kick plays."</p>
+        <ul class="ticks">
+          <li>Fix the worst three clashes in one click</li>
+          <li>Static cuts, or dynamic ones that only dip while the other track plays</li>
+          <li>A/B the result, or swap which track gets the cut</li>
+        </ul>
+        <button class="btn btn-live" type="button" data-live="fxd-clash-finder"><span class="live-dot"></span>Play with it live</button>
+      </div>
+      <div class="frame"><div class="shot" data-img="clash-finder" data-alt="Clash Finder comparing Bass with Kick, Guitar, Vocal and Keys"></div></div>
+    </div>
+  </section>
+
+  <!-- ======================================================== stats -->
+  <section class="wrap stats" aria-label="In numbers">
+    <div class="stat"><b data-count="121">121</b><span>ready-made layouts</span></div>
+    <div class="stat"><b data-count="13">13</b><span>kinds of modulator</span></div>
+    <div class="stat"><b>2</b><span>moves to modulate any knob</span></div>
+    <div class="stat"><b data-count="32">32</b><span>bands in Clash Finder</span></div>
+  </section>
+
+  <!-- ======================================================== more -->
+  <section class="wrap more" id="more" aria-labelledby="more-h">
+    <p class="kicker"><b>06</b> Workflow</p>
+    <h2 id="more-h">Built around<br><em>how you actually work.</em></h2>
+    <div class="cards">
+      <article class="card card-wide">
+        <div>
+          <h3>Presets, then morph between two</h3>
+          <p>Every device opens the same preset list with search, favourites and recents. Store two states as A and B, and one slider moves every parameter between them.</p>
+        </div>
+        <div class="morph" id="morph"></div>
+      </article>
+      <article class="card"><span class="ci">⌘</span><h3>Learn</h3><p>Move a control in a plugin window and click Learn. It turns into a knob on the device.</p></article>
+      <article class="card"><span class="ci">▦</span><h3>Layout editor</h3><p>Build a front panel for any plugin with knobs, sliders, buttons and your own colours.</p></article>
+      <article class="card"><span class="ci">⊞</span><h3>Add FX, your way</h3><p>A quick search, a full browser by folder or developer, or straight into a slot.</p></article>
+      <article class="card"><span class="ci">♪</span><h3>MIDI devices included</h3><p>Note Generator, Step Engine, Echo &amp; Strum, Note Shaper and Audio To Notes come with it.</p></article>
+      <article class="card"><span class="ci">◎</span><h3>Native REAPER underneath</h3><p>Your FX stay ordinary REAPER FX, with REAPER's automation and delay compensation.</p></article>
+    </div>
+  </section>
+
+  <!-- ======================================================== download -->
+  <section class="wrap get" id="download" aria-labelledby="get-h">
+    <div class="get-card">
+      <div class="get-grid" aria-hidden="true"></div>
+      <div class="get-copy">
+        <p class="kicker"><b>07</b> Download</p>
+        <h2 id="get-h">Try it free.<br><em>Keep it if it changes how you mix.</em></h2>
+        <p>FX Devices installs and updates through the free Cool Reaper Script Manager. Start a 14-day trial with no card required, and a license key unlocks it for good.</p>
+        <div class="cta-row">
+          <a class="btn btn-go btn-lg" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="Cool Reaper Script Manager.lua">
+            <svg class="dl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download the Script Manager</a>
+          <a class="btn btn-ghost btn-lg" href="/?product=fx-devices#license">Start your free trial</a>
+        </div>
+        <ol class="dl-steps">
+          <li><b>1</b><div><h3>Load the Script Manager</h3><p>In REAPER, open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, and pick the <code>Cool Reaper Script Manager.lua</code> you downloaded.</p></div></li>
+          <li><b>2</b><div><h3>Install FX Devices</h3><p>Run the Script Manager and click Install next to FX Devices. Run it again any time to update.</p></div></li>
+          <li><b>3</b><div><h3>Run it</h3><p>Search the Actions list for <code>BryanChi_FX Devices</code> and run it. Give it a shortcut so the dock is one key away.</p></div></li>
+        </ol>
+      </div>
+      <div class="get-req">
+        <h3>What you need</h3>
+        <ul class="ticks">
+          <li>REAPER 7</li>
+          <li>ReaImGui 0.9 or newer</li>
+          <li>js_ReaScriptAPI</li>
+          <li>ReaPack, which installs both for free</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== faq -->
+  <section class="wrap faq" aria-labelledby="faq-h">
+    <h2 id="faq-h">Questions</h2>
+    <details><summary>Do I need FabFilter plugins?</summary><p>No. Any plugin works. Plugins without a hand-built panel show their parameters as knobs, and you choose which ones with Learn or the layout editor.</p></details>
+    <details><summary>Does it change how my plugins sound?</summary><p>No. Your plugins do the processing as always. FX Devices gives them a front panel and adds small helper effects for modulation and splitting.</p></details>
+    <details><summary>How do I assign a modulator?</summary><p>Right-click the modulator to arm it, then right-drag any knob: up for a positive range, down for a negative one, and hold Alt to make it go both ways. Press Esc when you're done.</p></details>
+    <details><summary>Can I modulate plugins that don't have a custom panel?</summary><p>Yes. Any parameter you put on a device can take modulators, on any plugin.</p></details>
+    <details><summary>Is it the same license as Vertical FX List?</summary><p>No. FX Devices is its own product with its own license key.</p></details>
+    <details><summary>How do I update?</summary><p>Run the Cool Reaper Script Manager again and it updates FX Devices for you. Your shortcuts, colours and favourites are kept.</p></details>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="logo" href="/fx-devices"><span>FX Devices</span></a>
+    <span>by Bryan Chi · <a href="/">coolreaperscripts.com</a></span>
+    <span class="foot-note">Plugin names belong to their makers. FX Devices is not affiliated with FabFilter, Valhalla DSP, Minimal Audio, Sonic Digital, Dawesome, Cockos, Bitwig or Ableton.</span>
+  </div>
+</footer>
+
+<dialog class="live" id="live" aria-labelledby="live-h">
+  <div class="live-head">
+    <span class="live-dot"></span>
+    <h3 id="live-h">Live</h3>
+    <span class="live-hint">Drag, click and right-click like in REAPER.</span>
+    <button class="btn btn-ghost btn-sm" type="button" id="live-play">Pause</button>
+    <button class="live-x" type="button" id="live-close" aria-label="Close">×</button>
+  </div>
+  <div class="live-body"><div class="stage-inner" id="live-stage"></div></div>
+</dialog>
+
+<script src="/fx-devices/core.js"></script>
+<script src="/fx-devices/dev-fabfilter.js"></script>
+<script src="/fx-devices/dev-fxd.js"></script>
+<script src="/fx-devices/mk.js"></script>
+</body>
+</html>

@@ -1724,8 +1724,9 @@
 			createOrder: function(data, actions) {
 				return actions.order.create({
 					purchase_units: [{
-						amount: { value: '19.00', currency_code: 'USD' },
-						description: 'Vertical FX List for REAPER - Lifetime License'
+						amount: { value: '89.00', currency_code: 'USD' },
+						description: 'Vertical FX List for REAPER - Lifetime License',
+						custom_id: 'vertical-fx-list'
 					}]
 				});
 			},

@@ -1,32 +1,6 @@
-const { activateLicense } = require('../_lib/store');
-
+// Turned off: it created an active license for any email without a payment, and nothing on the
+// site or in the scripts calls it. Keys come from a verified PayPal order (/api/paypal/webhook)
+// or from the admin page ("Create license").
 module.exports = async function handler(req, res) {
-	if (req.method !== 'POST') {
-		res.setHeader('Allow', ['POST']);
-		return res.status(405).json({ ok: false, error: 'Method not allowed' });
-	}
-
-	const body = req.body || {};
-	const email = body.email || (req.query && req.query.email);
-	const providedKey = body.licenseKey || (req.query && req.query.licenseKey);
-
-	const product = body.product || (req.query && req.query.product);
-	const result = await activateLicense(email, providedKey, product);
-	if (!result.ok) {
-		return res.status(400).json({ ok: false, error: result.error || 'Unable to activate license' });
-	}
-
-	return res.status(200).json({
-		ok: true,
-		status: result.status,
-		licenseKey: result.licenseKey,
-		expiresAt: result.expiresAt || null
-	});
+	return res.status(410).json({ ok: false, error: 'Licenses are issued after purchase or by the admin.' });
 };
-
-
-
-
-
-
-

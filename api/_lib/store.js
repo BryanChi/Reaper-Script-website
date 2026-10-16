@@ -267,6 +267,41 @@ async function activateLicense(email, providedKey, productInput) {
 	return { ok: true, licenseKey, status: 'active', expiresAt: null, product };
 }
 
+// The license a paid order gets. The key comes from the order id, so the same order always gets the
+// same key, and an existing row (perhaps revoked after a refund) is returned as it is, never re-activated.
+async function issuePurchaseLicense(email, licenseKey, productInput) {
+	const normalized = normalizeEmail(email);
+	if (!normalized) return { ok: false, error: 'Email required' };
+	const product = normalizeProduct(productInput);
+	if (!product) return { ok: false, error: 'Unknown product' };
+	if (!licenseKey) return { ok: false, error: 'License key required' };
+
+	if (!supabase) {
+		const store = getMemoryStore();
+		const existing = store.licenses[licenseKey];
+		if (existing) return { ok: true, licenseKey, status: existing.status, expiresAt: existing.expiresAt || null, product: rowProduct(existing), existing: true };
+		return memActivateLicense(email, licenseKey, product);
+	}
+
+	const { data: existing, error: findErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('license_key', licenseKey)
+		.maybeSingle();
+	if (findErr) return { ok: false, error: findErr.message || 'Unable to look up license' };
+	if (existing) {
+		return { ok: true, licenseKey, status: existing.status, expiresAt: existing.expires_at || null, product: rowProduct(existing), existing: true };
+	}
+
+	const now = Date.now();
+	await supabase.from('users').upsert({ email: normalized, created_at: iso(now) });
+	const { error: insErr } = await supabase
+		.from('licenses')
+		.insert({ license_key: licenseKey, email: normalized, product, status: 'active', created_at: iso(now), expires_at: null });
+	if (insErr) return { ok: false, error: insErr.message || 'Unable to issue license' };
+	return { ok: true, licenseKey, status: 'active', expiresAt: null, product };
+}
+
 async function verifyLicense(licenseKey, deviceId, productInput) {
 	const now = Date.now();
 
@@ -793,6 +828,7 @@ async function deactivateDevice(email, licenseKey, deviceId) {
 module.exports = {
 	startTrial,
 	activateLicense,
+	issuePurchaseLicense,
 	verifyLicense,
 	getLicenseInfo,
 	getLicenseOrTrialStatus,

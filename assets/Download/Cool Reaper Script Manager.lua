@@ -524,7 +524,7 @@ local function SaveKey(p)
   p.lic = { status = data.status, expiresAt = data.expiresAt }
   p.showKey = false
   p.msg = { kind = 'ok', text = data.status == 'active' and 'License saved. Thanks for buying ' .. p.name .. '!'
-    or ('Trial key saved, ' .. (DaysLeft(data.expiresAt) or 14) .. ' days left.') }
+    or ('Trial key saved, ' .. (DaysLeft(data.expiresAt) or 30) .. ' days left.') }
 end
 
 local function StartTrial(p)
@@ -540,7 +540,7 @@ local function StartTrial(p)
   UseKey(p, data.licenseKey)
   p.lic = { status = 'trial', expiresAt = data.expiresAt }
   p.showKey = false
-  p.msg = { kind = 'ok', text = 'Trial started: ' .. (DaysLeft(data.expiresAt) or 14) .. ' days of ' .. p.name .. '.' }
+  p.msg = { kind = 'ok', text = 'Trial started: ' .. (DaysLeft(data.expiresAt) or 30) .. ' days of ' .. p.name .. '.' }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1214,7 +1214,7 @@ local function ProductCard(p, x, y, w)
         Busy('Starting your trial...', function() StartTrial(p) end)
       end
       cy = cy + BTN_H + 6
-      for _, l in ipairs(Wrap('14 days, every feature. The key is saved for ' .. p.name .. ' and emailed to you.', F.body, iw - 70)) do
+      for _, l in ipairs(Wrap('30 days, every feature. The key is saved for ' .. p.name .. ' and emailed to you.', F.body, iw - 70)) do
         Txt(dl, F.body, 13, ix + 70, cy, P.ink3, l); cy = cy + 17
       end
     end

@@ -5,6 +5,8 @@
 module.exports = {
 	'vertical-fx-list': {
 		name: 'Vertical FX List',
+		// what PayPal must have charged (USD) before /api/paypal/webhook issues a key
+		price: '89.00',
 		description: 'FX chains, sends and containers next to every track.',
 		owner: 'BryanChi',
 		repo: 'Vertical-FX-List',
@@ -24,6 +26,7 @@ module.exports = {
 	},
 	'fx-devices': {
 		name: 'FX Devices',
+		price: '93.00',
 		description: 'Plugin devices, modulation and layouts for every FX on a track.',
 		owner: 'BryanChi',
 		repo: 'BryanChi-FX-Devices',

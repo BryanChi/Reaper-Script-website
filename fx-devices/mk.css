@@ -418,6 +418,22 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .buy-done-p { margin: 8px 0 0; font-size: 14px; color: var(--ink-2); }
 .buy-key { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 .buy-key code { font: 600 15px var(--f-mono); color: #fff; background: rgba(255, 255, 255, .06); padding: 8px 10px; overflow-wrap: anywhere; user-select: all; }
+/* setup steps, shown after a purchase */
+.buy-next { margin-top: 14px; }
+.setup-card { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .6fr); gap: 48px;
+  margin-top: 24px; padding: clamp(28px, 5.5vw, 76px); border: 1px solid color-mix(in srgb, var(--acc) 60%, transparent); background: #000; scroll-margin-top: 24px; }
+.setup-card[hidden] { display: none; }
+.setup-card:focus { outline: none; }
+.setup-card h2 { font-size: clamp(42px, 5.4vw, 84px); }
+.setup-card code, .setup-card kbd { font: 500 .88em var(--f-mono); color: var(--ink); background: rgba(255, 255, 255, .06); padding: 1px 5px; overflow-wrap: anywhere; }
+.setup-card .dl-steps strong { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.setup-card .dl-steps em { font-style: normal; color: var(--ink); }
+.setup-dl { margin-top: 12px; }
+.setup-side { align-self: start; display: flex; flex-direction: column; gap: 16px; }
+.setup-mail { padding: 22px; border: 1px solid var(--acc); background: rgba(73, 204, 133, .07); }
+.setup-label { margin: 0; font: 500 11px var(--f-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
+.setup-addr { margin: 10px 0 0; font: 600 16px var(--f-mono); color: #fff; overflow-wrap: anywhere; }
+.setup-note { margin: 10px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
 .buy-fine { margin: 16px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
 
 /* faq */
@@ -489,6 +505,7 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .card-wide, .cards .card-wide { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); }
   .get-card { grid-template-columns: minmax(0, 1fr); }
   .buy-card { grid-template-columns: minmax(0, 1fr); }
+  .setup-card { grid-template-columns: minmax(0, 1fr); }
   .ring { width: 520px; height: 520px; right: -260px; top: 10px; }
   .cols { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .cols i:nth-child(n+7) { display: none; }
@@ -501,6 +518,8 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .get-card h2 { font-size: 38px; }
   .buy-card { padding: 28px 22px; }
   .buy-card h2 { font-size: 40px; }
+  .setup-card { padding: 28px 22px; }
+  .setup-card h2 { font-size: 40px; }
   .buy-box { padding: 24px 18px 20px; }
   .get .cta-row .btn { width: 100%; padding: 0 16px; white-space: normal; text-align: center; line-height: 1.3; }
   .hero-shot { margin-top: 56px; }

@@ -3166,6 +3166,86 @@ ul, ol {
     margin-top: 24px;
 }
 
+/* Payment success: key, the email to sign in with, and the setup steps */
+.success-content {
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.success-content .next-steps h3 { margin: 28px 0 4px; text-align: left; }
+.success-label {
+    margin: 0;
+    font-family: monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--primary);
+    text-align: left;
+}
+.success-mail {
+    margin: 20px 0 8px;
+    padding: 16px 18px;
+    text-align: left;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    background: var(--primary-dim);
+}
+.success-addr {
+    margin: 8px 0 0;
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #fff;
+    word-break: break-all;
+}
+.success-note {
+    margin: 8px 0 0;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    text-align: left;
+}
+.success-content .license-info { margin-top: 16px; }
+.success-content .license-key { margin: 8px 0 0; }
+.success-steps {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    text-align: left;
+    border-top: 1px solid var(--glass-border);
+}
+.success-steps li {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--glass-border);
+}
+.success-steps li > b {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    color: var(--primary);
+}
+.success-steps h4 { margin: 4px 0 4px; font-size: 1rem; }
+.success-steps p { margin: 0; font-size: 0.9rem; line-height: 1.6; color: var(--text-muted); }
+.success-steps strong, .success-steps em { color: var(--text-main); font-style: normal; word-break: break-all; }
+.success-steps code, .success-steps kbd {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: var(--text-main);
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+.success-dl { display: inline-flex; margin-top: 10px; }
+@media (max-width: 560px) {
+    .success-content { padding: 28px 20px; }
+}
+
 /* Auth modal */
 .auth-modal-content {
 	text-align: left;

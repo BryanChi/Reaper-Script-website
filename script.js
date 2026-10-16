@@ -1622,6 +1622,8 @@
 	function showSuccessModal(email, licenseKey, result) {
 		const modal = document.getElementById('success-modal');
 		setText(document.getElementById('success-sent'), sentToText(result || { email }));
+		// The setup steps say which email to sign in with
+		if (email) modal.querySelectorAll('.success-email').forEach(el => { el.textContent = email; });
 		const licenseKeyText = document.getElementById('license-key-text');
 		const copyBtn = document.getElementById('copy-license-btn');
 		const licenseInfoDiv = document.querySelector('.license-info');

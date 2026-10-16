@@ -33,19 +33,17 @@ function setupSteps(productName, product, email) {
 		{ title: 'Download the Script Manager', body: [
 			'Get {b:Cool Reaper Script Manager.lua}, the free installer that installs and updates your scripts.'
 		], link: { label: 'Download the Script Manager', url: MANAGER_URL } },
-		{ title: 'Load it in REAPER', body: [
-			'Open the Actions list, click {b:New action} then {b:Load ReaScript}, and pick the file you downloaded.'
+		{ title: 'Load and run it in REAPER', body: [
+			'Open the Actions list, click {b:New action} then {b:Load ReaScript}, pick the file you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.'
 		] },
-		{ title: `Install ${productName}`, body: [
-			`Run the Script Manager and click {b:Install} next to ${productName}. Run it again any time to update.`
-		] },
-		{ title: 'Run it', body: [
-			`Search the Actions list for {code:${info.action}} and run it. Give it a shortcut so it's one key away.`
-		] },
-		{ title: 'Sign in to activate', body: [
-			`A license window asks you to sign in. Click {b:Sign in with browser} and the activation page opens with a code.`,
+		{ title: 'Sign in and install', body: [
+			`Next to ${productName}, click {b:Sign in with browser}. The activation page opens with a code.`,
 			`Sign in with {b:${email}}, the email this message was sent to. Google, a password, or {b:Email me a sign-in link} all work, as long as it's this address.`,
-			`Check that the code matches the one in REAPER and click {b:Activate}. REAPER unlocks a few seconds later.`
+			`Check that the code matches the one in REAPER and click {b:Activate}. Back in the Script Manager, click {b:Install}.`
+		] },
+		{ title: `Run ${productName}`, body: [
+			`Search the Actions list for {code:${info.action}} and run it. It opens already activated. Give it a shortcut so it's one key away.`,
+			`Updates and our other scripts live under {b:Scripts and updates} in its settings, so you won't need the Script Manager file again.`
 		] }
 	];
 }
@@ -93,7 +91,7 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:${C.page};" bgcolor="${C.page}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your ${esc(productName)} key, and five steps to get it running in REAPER. Activate with ${esc(email)}.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your ${esc(productName)} key, and four steps to get it running in REAPER. Activate with ${esc(email)}.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.page}" style="background:${C.page};">
 <tr><td align="center" style="padding:28px 12px;">
 	<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;border-left:1px solid ${C.line};border-right:1px solid ${C.line};">
@@ -142,7 +140,7 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-top:1px solid ${C.line};">
 				${stepRows}
 			</table>
-			<p style="margin:16px 0 0;font-family:${F.ui};font-size:13px;line-height:1.6;color:${C.ink3};">Already running the free trial? Open Settings, then License, in ${esc(productName)} and click Sign in with browser. Your license works on up to 3 computers.</p>
+			<p style="margin:16px 0 0;font-family:${F.ui};font-size:13px;line-height:1.6;color:${C.ink3};">Already installed it for the free trial? Open its license settings and click Sign in with browser. Your license works on up to 3 computers.</p>
 			<p style="margin:8px 0 0;font-family:${F.ui};font-size:13px;line-height:1.6;color:${C.ink3};">Needs REAPER with ${esc(info.needs)}, all free through <a href="https://reapack.com" style="color:${C.acc};">ReaPack</a>.</p>
 		</td></tr>
 
@@ -186,7 +184,7 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 			...(s.link ? [s.link.url] : [])
 		]),
 		'',
-		`Already running the free trial? Open Settings, then License, in ${productName} and click Sign in with browser. Your license works on up to 3 computers.`,
+		`Already installed it for the free trial? Open its license settings and click Sign in with browser. Your license works on up to 3 computers.`,
 		`Needs REAPER with ${info.needs}, all free through ReaPack (https://reapack.com).`,
 		'',
 		'Need a hand? Just reply to this email.',

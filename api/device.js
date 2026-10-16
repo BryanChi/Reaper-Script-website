@@ -1,4 +1,4 @@
-const { activateDevice, deactivateDevice } = require('./_lib/store');
+const { deactivateDevice } = require('./_lib/store');
 
 module.exports = async function handler(req, res) {
 	const { method, body, query } = req;
@@ -19,15 +19,9 @@ module.exports = async function handler(req, res) {
 			return res.status(405).json({ ok: false, error: 'Method not allowed' });
 		}
 
-		const result = await activateDevice(email, licenseKey, deviceId);
-		if (!result.ok) {
-			return res.status(400).json({ ok: false, error: result.error || 'Unable to activate device' });
-		}
-
-		return res.status(200).json({
-			ok: true,
-			message: result.message || 'Device activated successfully'
-		});
+		// A key alone no longer adds a computer (keys can be shared): computers are added when the
+		// owner signs in with the browser from the script (link-poll in api/license/info.js)
+		return res.status(410).json({ ok: false, error: 'Sign in with your browser to add this computer.' });
 	}
 
 	// Handle device deactivation

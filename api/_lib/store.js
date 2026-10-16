@@ -963,9 +963,50 @@ async function linkStartTrial(userCodeInput, accessToken) {
 	return startTrial(email, rowProduct(row));
 }
 
+// From the /link page: emails a one-click sign-in link, so a buyer whose email isn't a Google
+// account (or who never set a password) can still sign in as the email the key was sent to. The
+// account is created on first use. Only works for a live link code from a script.
+async function linkEmail(userCodeInput, emailInput) {
+	const email = normalizeEmail(emailInput);
+	if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter your email address.' };
+	const userCode = normalizeUserCode(userCodeInput);
+	const row = userCode && await linkRowByUserCode(userCode);
+	if (!row || linkExpired(row)) return { ok: false, error: 'This sign-in link has expired. Start again from the script.' };
+	if (row.email) return { ok: false, error: 'This computer is already signed in.' };
+	if (!supabase) return { ok: false, error: 'Email sign-in requires Supabase' };
+
+	const redirectTo = `https://www.coolreaperscripts.com/link?code=${encodeURIComponent(userCode)}`;
+	const { data, error } = await supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo } });
+	const actionLink = data && data.properties && data.properties.action_link;
+	if (error || !actionLink) return { ok: false, error: (error && error.message) || 'Couldn\'t create the sign-in link.' };
+
+	let Resend;
+	try { ({ Resend } = require('resend')); } catch (_) { /* not installed */ }
+	const from = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
+	if (!Resend || !process.env.RESEND_API_KEY || !from) return { ok: false, error: 'Email sign-in isn\'t set up on the site.' };
+	const name = productName(rowProduct(row));
+	const { error: sendErr } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+		from,
+		to: email,
+		subject: `Sign in to activate ${name}`,
+		html: `<div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+			<h2 style="margin-top: 0;">Sign in to activate ${name}</h2>
+			<p>Click the button to sign in to Cool Reaper Scripts as ${email} and activate ${name} on the computer showing the code <b>${userCode}</b>.</p>
+			<p style="margin: 28px 0;"><a href="${actionLink}" style="background: #111; color: #fff; padding: 12px 22px; text-decoration: none; font-weight: 600;">Sign in</a></p>
+			<p style="color: #6b7280; font-size: 13px;">The link works once and expires soon. If you didn't ask for it, ignore this email.</p>
+		</div>`
+	});
+	if (sendErr) return { ok: false, error: sendErr.message || 'Couldn\'t send the email.' };
+	return { ok: true, sent: true };
+}
+
 // The script's poll. pending -> linked (with the key) or no-license (signed in, but that account
 // has no license or trial for this product yet; keeps answering until the link expires).
-async function pollLink(deviceCode) {
+// Signing in is the only way a computer gets activated: the script sends its device ID with the
+// poll and the server adds that computer to the account's license before handing over the key.
+// limit = the license already has its 3 computers; keeps answering until the link expires, so
+// the person can deactivate one on the site and the waiting script carries on.
+async function pollLink(deviceCode, deviceId) {
 	if (!deviceCode) return { ok: false, status: 'invalid', error: 'Device code required' };
 	const row = await linkRowByDeviceCode(deviceCode);
 	if (!row) return { ok: true, status: 'invalid' };
@@ -973,6 +1014,14 @@ async function pollLink(deviceCode) {
 	if (!row.email) return { ok: true, status: 'pending' };
 	const lic = await getLicenseOrTrialStatus(row.email, rowProduct(row));
 	if (lic.ok && (lic.status === 'active' || lic.status === 'trial') && lic.licenseKey) {
+		if (!deviceId) {
+			return { ok: true, status: 'invalid', error: 'Update the script to sign in on this computer.' };
+		}
+		const act = await activateDevice(row.email, lic.licenseKey, String(deviceId));
+		if (!act.ok) {
+			const limit = /maximum of/.test(act.error || '');
+			return { ok: true, status: limit ? 'limit' : 'error', email: row.email, error: act.error || 'Unable to activate this computer' };
+		}
 		// one key per link: the code can't be polled again
 		if (supabase) await supabase.from('license_links').delete().eq('device_code_hash', row.device_code_hash);
 		else delete memLinks()[row.device_code_hash];
@@ -983,6 +1032,7 @@ async function pollLink(deviceCode) {
 
 module.exports = {
 	startLink,
+	linkEmail,
 	linkInfo,
 	confirmLink,
 	linkStartTrial,

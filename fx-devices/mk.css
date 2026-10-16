@@ -396,6 +396,16 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .buy-name { margin: 0; font: 500 11.5px var(--f-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
 .buy-price { margin: 10px 0 0; font: 400 clamp(84px, 9vw, 128px)/.85 var(--f-display); background: var(--chrome); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: chrome 7s linear infinite; }
 .buy-price span { font-size: .45em; vertical-align: .9em; margin-right: 4px; }
+.buy-price b { font-weight: inherit; }
+.buy-was { font: 400 .3em var(--f-display); color: var(--ink-3); -webkit-text-fill-color: var(--ink-3); vertical-align: 1.6em; margin-right: 10px; }
+.buy-code { display: flex; gap: 8px; margin: 0 0 6px; }
+.buy-code input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, .3); background: transparent; color: #fff; font: 500 12px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; border-radius: 0; }
+.buy-code input::placeholder { color: var(--ink-3); letter-spacing: .14em; }
+.buy-code input:focus { outline: none; border-color: #fff; }
+.buy-code[hidden] { display: none; }
+.buy-code-msg { margin: 0 0 14px; min-height: 1.3em; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.buy-code-msg.ok { color: var(--acc); }
+.buy-code-msg.bad { color: #ff8a80; }
 .buy-sub { margin: 12px 0 22px; font: 500 11px var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
 .buy-paypal { min-height: 52px; }
 .buy-wait { margin: 0; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }

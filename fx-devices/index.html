@@ -287,7 +287,7 @@
       <div class="get-copy">
         <p class="kicker"><b>07</b> Download</p>
         <h2 id="get-h">Try it free.<br><em>Keep it if it changes how you mix.</em></h2>
-        <p>FX Devices installs and updates through the free Cool Reaper Script Manager. Start a 14-day trial with no card required, and a license key unlocks it for good.</p>
+        <p>FX Devices installs and updates through the free Cool Reaper Script Manager. Start a 30-day trial with no card required, and a license key unlocks it for good.</p>
         <div class="cta-row">
           <a class="btn btn-go btn-lg" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="Cool Reaper Script Manager.lua">
             <svg class="dl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download the Script Manager</a>
@@ -327,8 +327,13 @@
       </div>
       <div class="buy-box">
         <p class="buy-name">FX Devices</p>
-        <p class="buy-price"><span>$</span>93</p>
+        <p class="buy-price"><s class="buy-was" id="fxd-was" hidden>$93</s><span>$</span><b id="fxd-price">93</b></p>
         <p class="buy-sub">USD · one-time payment</p>
+        <form class="buy-code" id="fxd-code-form" autocomplete="off">
+          <input type="text" id="fxd-code" placeholder="Discount code" aria-label="Discount code" maxlength="40">
+          <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
+        </form>
+        <p class="buy-code-msg" id="fxd-code-msg" aria-live="polite"></p>
         <div id="fxd-paypal" class="buy-paypal" aria-live="polite"><p class="buy-wait">Loading PayPal…</p></div>
         <p class="buy-msg" id="fxd-buy-msg" role="status"></p>
         <div class="buy-done" id="fxd-buy-done" hidden>

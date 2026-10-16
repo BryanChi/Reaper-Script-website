@@ -1812,24 +1812,20 @@
 		setTimeout(applyPayPalDarkModeFixes, 1000);
 	}
 
-	// Attempt to initialize PayPal buttons once SDK is available
+	// Load the PayPal SDK with the client id the server uses, so the button and the checkout are the same PayPal app
 	if (paypalContainer) {
 		if (typeof paypal !== 'undefined') {
 			setupPayPalButtons();
 		} else {
-			const readyCheck = setInterval(function() {
-				if (typeof paypal !== 'undefined') {
-					clearInterval(readyCheck);
-					setupPayPalButtons();
-				}
-			}, 200);
-			// Safety timeout to stop polling after 10 seconds
-			setTimeout(function() {
-				clearInterval(readyCheck);
-				if (typeof paypal === 'undefined') {
-					setText(paypalContainer, 'PayPal failed to load. Please try again or use the standard Buy button.');
-				}
-			}, 10000);
+			const failed = () => setText(paypalContainer, 'PayPal could not load. Check your connection or ad blocker, then refresh.');
+			fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
+				if (!cfg.ok || !cfg.clientId) throw new Error(cfg.error || 'no client id');
+				const s = document.createElement('script');
+				s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
+				s.onload = setupPayPalButtons;
+				s.onerror = failed;
+				document.head.appendChild(s);
+			}).catch(failed);
 		}
 	}
 })();

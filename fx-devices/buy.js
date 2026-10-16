@@ -3,7 +3,6 @@
    the buyer approves, checks it with PayPal and returns the key. */
 (function () {
   'use strict';
-  const PAYPAL_SDK = 'https://www.paypal.com/sdk/js?client-id=AW1bo3Og1P_xaSVEzcv3R-umo6OPXCMmnaBgdl7Xk3GoTQacCwuKxJqOmz4Vnirl9VOhVIguwbLUfKoC&currency=USD&intent=capture';
   const host = document.getElementById('fxd-paypal');
   if (!host) return;
   const msg = document.getElementById('fxd-buy-msg');
@@ -89,11 +88,16 @@
   function load() {
     if (loading) return; loading = true;
     if (window.paypal && window.paypal.Buttons) { render(); return; }
-    const s = document.createElement('script');
-    s.src = PAYPAL_SDK;
-    s.onload = render;
-    s.onerror = () => { host.textContent = ''; say('PayPal could not load. Check your connection or ad blocker, then refresh.', true); };
-    document.head.appendChild(s);
+    const fail = text => { host.textContent = ''; say(text, true); };
+    // The client id comes from the server, so the button uses the same PayPal app as the checkout
+    fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
+      if (!cfg.ok || !cfg.clientId) throw new Error(cfg.error || 'no client id');
+      const s = document.createElement('script');
+      s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
+      s.onload = render;
+      s.onerror = () => fail('PayPal could not load. Check your connection or ad blocker, then refresh.');
+      document.head.appendChild(s);
+    }).catch(() => fail('The checkout is not available right now. Please try again later.'));
   }
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: '800px 0px' });

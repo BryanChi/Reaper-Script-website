@@ -94,8 +94,16 @@ function orderLicenseKey(orderId) {
 }
 
 module.exports = async function handler(req, res) {
+	// The pages load the PayPal button with this client id, so the button and the server always use
+	// the same PayPal app (live, or sandbox with PAYPAL_ENV=sandbox). A client id is public.
+	if (req.method === 'GET') {
+		res.setHeader('Cache-Control', 'public, max-age=60');
+		const clientId = process.env.PAYPAL_CLIENT_ID || '';
+		if (!clientId) return res.status(503).json({ ok: false, error: 'PayPal is not configured on the server' });
+		return res.status(200).json({ ok: true, clientId, sandbox: process.env.PAYPAL_ENV === 'sandbox' });
+	}
 	if (req.method !== 'POST') {
-		res.setHeader('Allow', ['POST']);
+		res.setHeader('Allow', ['GET', 'POST']);
 		return res.status(405).json({ ok: false, error: 'Method not allowed' });
 	}
 

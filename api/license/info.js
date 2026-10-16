@@ -1,4 +1,4 @@
-const { getLicenseInfo, startLink, linkInfo, confirmLink, linkStartTrial, pollLink } = require('../_lib/store');
+const { getLicenseInfo, emailFromAccessToken, startLink, linkInfo, confirmLink, linkStartTrial, pollLink } = require('../_lib/store');
 
 // "Sign in with browser" from the scripts lives here too (Vercel Hobby allows 12 functions):
 //   link-start   script -> { deviceCode, userCode, url }    (deviceCode stays in the script)
@@ -38,10 +38,11 @@ module.exports = async function handler(req, res) {
 	const body = req.body || {};
 	const action = body.action || (req.query && req.query.action);
 	if (action) return handleLink(String(action), body, res);
-	const email = body.email || (req.query && req.query.email);
-
+	// The answer carries the key and the activated computers, so it only goes to the signed-in
+	// account itself, never to whoever knows the email
+	const email = await emailFromAccessToken(body.accessToken);
 	if (!email) {
-		return res.status(400).json({ ok: false, error: 'Email required' });
+		return res.status(401).json({ ok: false, error: 'Sign in to see your license.' });
 	}
 
 	const product = body.product || (req.query && req.query.product);

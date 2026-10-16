@@ -355,14 +355,14 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 				.eq('active', true)
 				.maybeSingle();
 
-			// If device_activations table doesn't exist, skip device check (backward compatibility)
-			if (devErr && !isMissingActivationsTable(devErr)) {
-				// Some other error occurred
+			// A failed lookup can't prove this computer is activated: answer "try again later" so the
+			// script keeps its offline grace instead of unlocking (or locking out) the computer
+			if (devErr) {
 				console.error('Error checking device activation:', devErr);
+				return { ok: false, retry: true, status: 'invalid', reason: 'License check unavailable, try again later' };
 			}
 
-			// If device activation check succeeded but device is not activated
-			if (!devErr && !deviceActivation) {
+			if (!deviceActivation) {
 				return { ok: false, status: 'invalid', reason: 'Device not activated for this license. Please activate your device first.' };
 			}
 		}
@@ -404,14 +404,12 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 					.eq('active', true)
 					.maybeSingle();
 
-				// If device_activations table doesn't exist, skip device check (backward compatibility)
-				if (devErr && !isMissingActivationsTable(devErr)) {
-					// Some other error occurred
+				if (devErr) {
 					console.error('Error checking device activation:', devErr);
+					return { ok: false, retry: true, status: 'invalid', reason: 'License check unavailable, try again later' };
 				}
 
-				// If device activation check succeeded but device is not activated
-				if (!devErr && !deviceActivation) {
+				if (!deviceActivation) {
 					return { ok: false, status: 'invalid', reason: 'Device not activated for this trial license. Please activate your device first.' };
 				}
 			}

@@ -237,7 +237,8 @@
 		try {
 			// each script is its own purchase: one section per product (FX Devices only when there is one)
 			const products = [['vertical-fx-list', 'Vertical FX List'], ['fx-devices', 'FX Devices']];
-			const results = await Promise.all(products.map(([id]) => postJson('/api/license/info', { email, product: id })));
+			const accessToken = await getAccessToken();
+			const results = await Promise.all(products.map(([id]) => postJson('/api/license/info', { email, accessToken, product: id })));
 
 			if (!results[0].ok) {
 				licenseStatusDisplay.innerHTML = `<div class="license-error">Unable to load license information.</div>`;
@@ -1320,6 +1321,16 @@
 		return currentUser?.email || '';
 	}
 
+	// The server only shows a license to the signed-in account itself, so license lookups send this
+	async function getAccessToken() {
+		try {
+			const { data } = supabaseClient ? await supabaseClient.auth.getSession() : { data: null };
+			return data?.session?.access_token || null;
+		} catch (_) {
+			return null;
+		}
+	}
+
 	function updateLicenseUserText(user) {
 		const email = user?.email || '';
 		setText(document.getElementById('pricingSignedIn'), email ? `Signed in as ${email}. Your key will be sent there.` : '');
@@ -1380,7 +1391,7 @@
 		if (!email) return;
 
 		try {
-			const res = await postJson('/api/license/verify', { email });
+			const res = await postJson('/api/license/verify', { email, accessToken: await getAccessToken() });
 			const expiry = prettyExpiry(res.expiresAt);
 			let detail = '';
 			if (res.status === 'active') {

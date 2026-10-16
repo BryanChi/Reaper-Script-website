@@ -729,6 +729,7 @@
 							<button class="btn btn-ghost" type="submit" id="discountApply">Apply</button>
 						</form>
 						<p class="tiny muted discount-msg" id="discountMsg" aria-live="polite"></p>
+						<p class="tiny muted discount-msg" id="pricingSignedIn"></p>
 						<div id="paypal-button-container" style="margin-top: 16px;"></div>
 						<p class="muted tiny">30-day money-back guarantee.</p>
 					</div>
@@ -827,7 +828,7 @@
 		<div class="modal-content">
 			<div class="success-icon">✅</div>
 			<h2>Payment Successful!</h2>
-			<p>Thank you for your purchase. Your license key has been sent to your email.</p>
+			<p id="success-sent">Thank you for your purchase. Your license key is below.</p>
 			<div class="license-info">
 				<h3>Your License Key:</h3>
 				<div class="license-key" id="license-key-display">

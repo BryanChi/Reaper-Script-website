@@ -404,6 +404,8 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .buy-code input:focus { outline: none; border-color: #fff; }
 .buy-code[hidden] { display: none; }
 .buy-code-msg { margin: 0 0 14px; min-height: 1.3em; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.buy-signed-in { margin: 0 0 12px; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.buy-signed-in:empty { display: none; }
 .buy-code-msg.ok { color: var(--acc); }
 .buy-code-msg.bad { color: #ff8a80; }
 .buy-sub { margin: 12px 0 22px; font: 500 11px var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }

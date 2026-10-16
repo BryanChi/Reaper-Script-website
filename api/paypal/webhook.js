@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { issuePurchaseLicense, normalizeEmail, normalizeProduct } = require('../_lib/store');
+const { issuePurchaseLicense, emailFromAccessToken, normalizeEmail, normalizeProduct } = require('../_lib/store');
 const PRODUCTS = require('../_lib/products');
 const { findDiscount, discountById, priceFor } = require('../_lib/discounts');
 
@@ -178,7 +178,11 @@ module.exports = async function handler(req, res) {
 		return res.status(402).json({ ok: false, error: `The amount paid doesn't match the ${productName} price` });
 	}
 
-	const payerEmail = normalizeEmail(order.payer?.email_address);
+	// The key goes to the buyer's site account when they are signed in, otherwise to the email they gave PayPal
+	const checkoutEmail = normalizeEmail(order.payer?.email_address);
+	const accountEmail = await emailFromAccessToken(body.accessToken);
+	let payerEmail = accountEmail || checkoutEmail;
+	let emailSource = accountEmail ? 'account' : 'checkout';
 	if (!payerEmail) {
 		return res.status(400).json({ ok: false, error: 'PayPal did not return the buyer email' });
 	}
@@ -196,8 +200,12 @@ module.exports = async function handler(req, res) {
 
 	// A repeated request for the same order gets the same key back, without a second email
 	if (licenseResult.existing) {
+		if (licenseResult.email && licenseResult.email !== payerEmail) {
+			payerEmail = licenseResult.email;
+			emailSource = payerEmail === checkoutEmail ? 'checkout' : 'account';
+		}
 		return res.status(200).json({
-			ok: true, orderId, email: payerEmail, product,
+			ok: true, orderId, email: payerEmail, emailSource, product,
 			licenseKey: licenseResult.licenseKey, status: licenseResult.status, expiresAt: licenseResult.expiresAt || null,
 			emailSent: false, emailError: null
 		});
@@ -269,6 +277,7 @@ module.exports = async function handler(req, res) {
 		ok: true,
 		orderId: orderId || null,
 		email: payerEmail,
+		emailSource,
 		product,
 		licenseKey: licenseResult.licenseKey,
 		status: licenseResult.status,

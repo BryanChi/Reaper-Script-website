@@ -17,9 +17,36 @@
     host.hidden = true;
     keyEl.textContent = json.licenseKey || '';
     const email = json.email;
-    mailEl.textContent = email ? (json.emailSent ? `We also sent it to ${email}.` : `Keep it safe. It's linked to ${email}.`) : '';
+    const where = json.emailSource === 'account' ? 'the email on your account' : 'the email you gave at checkout';
+    mailEl.textContent = !email ? '' : json.emailSent
+      ? `We also emailed it to ${email}, ${where}.`
+      : `Keep it safe. It's linked to ${email}, but the email with it could not be sent.`;
     say('');
   }
+
+  // Signed in on coolreaperscripts.com? Then the key goes to the account's email. The session lives in
+  // localStorage (Supabase); supabase-js is loaded only to refresh an expired token at payment time.
+  const SB_URL = 'https://txevakkpyrnbrwbqizov.supabase.co';
+  const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZXZha2tweXJuYnJ3YnFpem92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNDQ4MzcsImV4cCI6MjA4MDcyMDgzN30.T7PDcDzQ5Vn9NqRG6-34wizqznMWHt0aHKc0Osv2D7w';
+  const SB_KEY = 'sb-txevakkpyrnbrwbqizov-auth-token';
+  const SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js';
+  function storedSession() {
+    try { const s = JSON.parse(localStorage.getItem(SB_KEY) || 'null'); return s && s.user && s.user.email ? s : null; } catch (_) { return null; }
+  }
+  async function accessToken() {
+    const stored = storedSession();
+    if (!stored) return null;
+    if (stored.expires_at && stored.expires_at * 1000 > Date.now() + 60000) return stored.access_token;
+    try {
+      if (!window.supabase) await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = SB_JS; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+      const client = window.supabase.createClient(SB_URL, SB_ANON, { auth: { persistSession: true, autoRefreshToken: false } });
+      const { data } = await client.auth.getSession();
+      return (data && data.session && data.session.access_token) || null;
+    } catch (_) { return null; }
+  }
+  const signedInEl = document.getElementById('fxd-signed-in');
+  const sess = storedSession();
+  if (signedInEl && sess) signedInEl.textContent = `Signed in as ${sess.user.email}. Your key will be sent there.`;
 
   // Discount code: the server checks it and applies it when it creates the order
   let code = '';
@@ -69,7 +96,7 @@
         say('Payment approved. Getting your license key…');
         let json;
         try {
-          json = await api({ orderId: data.orderID });
+          json = await api({ orderId: data.orderID, accessToken: await accessToken() });
         } catch (err) {
           say(`The key didn't arrive: ${err.message}. If PayPal charged you, email us with PayPal order ${data.orderID} and we'll send it.`, true);
           return;

@@ -1,11 +1,12 @@
 -- @description Cool Reaper Script Manager
--- @version 3.0.0
+-- @version 3.1.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.1.0: every download needs a license or a free trial (released versions too).
 --   3.0.0: now the Cool Reaper Script Manager: one window for every script, update buttons,
 --          a license key or free trial per script, Buy buttons, FX Devices, the Monolith look.
 --   2.0.0: downloads from coolreaperscripts.com (no key needed for released versions), new window,
@@ -13,7 +14,7 @@
 
 local r = reaper
 
-local VERSION = '3.0.0'
+local VERSION = '3.1.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -644,11 +645,10 @@ local function StartInstall(p)
     return
   end
   local ref, label = ChosenRef(p)
-  if ref == p.branch and not HasValidKey(p) then
+  -- every download needs a license or trial key (the site stamps each copy with the key it went to)
+  if not HasValidKey(p) then
     p.showKey = true
-    p.msg = { kind = 'info', text = #p.releases == 0
-      and (p.name .. ' has no released version yet, so it installs the development version, which needs a license or a free trial key.')
-      or 'The development version needs a license or a free trial key.' }
+    p.msg = { kind = 'info', text = 'Start a free trial or enter your license key to install ' .. p.name .. '.' }
     return
   end
   local list, err = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = ref })

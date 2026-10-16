@@ -265,6 +265,11 @@
 		<div id="adminPanel" style="display: none;">
 			<div id="message" class="message"></div>
 
+			<div style="display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap;">
+				<input type="text" id="traceText" placeholder='Trace a leaked copy: paste its "-- build ..." line' style="max-width:420px; margin:0;" />
+				<button class="btn btn-primary" onclick="traceCopy()">Trace</button>
+			</div>
+
 			<div class="tabs">
 				<button class="tab active" onclick="switchTab('licenses')">Licenses</button>
 				<button class="tab" onclick="switchTab('trials')">Trials</button>
@@ -552,6 +557,26 @@
 		function productLabel(id) {
 			id = id || 'vertical-fx-list';
 			return escapeHtml(PRODUCT_NAMES[id] || id);
+		}
+
+		// Who a leaked script was downloaded by (every download carries a "-- build <code>" line)
+		function traceCopy() {
+			const text = document.getElementById('traceText').value.trim();
+			if (!text) { showMessage('Paste the "-- build ..." line from the leaked script first', 'error'); return; }
+			fetch('/api/admin?action=trace', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+				body: JSON.stringify({ text, action: 'trace' })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (!data.ok) { showMessage(data.error || 'Trace failed', 'error'); return; }
+				if (!data.matches.length) { showMessage(`No license or trial matches build ${data.code}.`, 'error'); return; }
+				showMessage(data.matches.map(m =>
+					`Build ${data.code}: ${m.kind} for ${m.email} (${PRODUCT_NAMES[m.product] || m.product}), key ${m.license_key}`
+				).join(' | '), 'success');
+			})
+			.catch(err => showMessage('Error: ' + err.message, 'error'));
 		}
 
 		function createLicense() {

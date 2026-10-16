@@ -100,6 +100,16 @@ module.exports = async function handler(req, res) {
 		res.setHeader('Cache-Control', 'public, max-age=60');
 		const clientId = process.env.PAYPAL_CLIENT_ID || '';
 		if (!clientId) return res.status(503).json({ ok: false, error: 'PayPal is not configured on the server' });
+		// ?check=1 signs in to PayPal with the server's id and secret, to see if they belong together
+		if (req.query && req.query.check) {
+			res.setHeader('Cache-Control', 'no-store');
+			try {
+				await paypalToken();
+				return res.status(200).json({ ok: true, signIn: 'ok', sandbox: process.env.PAYPAL_ENV === 'sandbox' });
+			} catch (err) {
+				return res.status(200).json({ ok: false, signIn: 'failed', error: err.message, sandbox: process.env.PAYPAL_ENV === 'sandbox' });
+			}
+		}
 		return res.status(200).json({ ok: true, clientId, sandbox: process.env.PAYPAL_ENV === 'sandbox' });
 	}
 	if (req.method !== 'POST') {

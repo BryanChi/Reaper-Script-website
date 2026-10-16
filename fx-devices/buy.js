@@ -79,7 +79,8 @@
         showKey(json);
       },
       onCancel: () => say('Payment cancelled. You can try again any time.'),
-      onError: err => { console.error('PayPal error:', err); say('PayPal hit an error. Please try again.', true); }
+      // Keep the checkout's own message if creating the order already failed
+      onError: err => { console.error('PayPal error:', err); if (!msg.classList.contains('bad')) say('PayPal hit an error. Please try again.', true); }
     }).render(host).catch(() => say('PayPal could not load. Refresh the page to try again.', true));
   }
 

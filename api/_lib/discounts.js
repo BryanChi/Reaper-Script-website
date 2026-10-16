@@ -11,14 +11,6 @@ const DISCOUNTS = [
 		hash: '62c564a13404c3adcfc7b6e7615209ecb37422be9f0f210566dc845f4f2535b6', // EARLYTESTERS
 		percent: 40,
 		products: null // null = every product
-	},
-	{
-		// TEMPORARY: bryan's real-money test of the checkout (2026-10-16). Remove after the test.
-		id: 'owner-test',
-		label: 'Test',
-		hash: 'a349afea1d0ed201fbf160e9d9ef45477bfe7b10286867815cb8b1a87d373acf',
-		percent: 99,
-		products: null
 	}
 ];
 

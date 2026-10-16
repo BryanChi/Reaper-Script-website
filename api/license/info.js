@@ -1,4 +1,33 @@
-const { getLicenseInfo, normalizeEmail } = require('../_lib/store');
+const { getLicenseInfo, startLink, linkInfo, confirmLink, linkStartTrial, pollLink } = require('../_lib/store');
+
+// "Sign in with browser" from the scripts lives here too (Vercel Hobby allows 12 functions):
+//   link-start   script -> { deviceCode, userCode, url }    (deviceCode stays in the script)
+//   link-poll    script -> { status: pending | linked | no-license | expired | invalid }
+//   link-info    /link page, before sign-in
+//   link-confirm /link page, signed in (accessToken) -> ties the code to that account
+//   link-trial   /link page, signed in, no license yet -> starts the trial for that account
+const SITE = 'https://www.coolreaperscripts.com';
+
+async function handleLink(action, body, res) {
+	let result;
+	if (action === 'link-start') {
+		result = await startLink(body.product);
+		if (result.ok) result.url = `${SITE}/link?code=${encodeURIComponent(result.userCode)}`;
+	} else if (action === 'link-poll') {
+		result = await pollLink(body.deviceCode);
+	} else if (action === 'link-info') {
+		result = await linkInfo(body.code);
+	} else if (action === 'link-confirm') {
+		result = await confirmLink(body.code, body.accessToken);
+	} else if (action === 'link-trial') {
+		result = await linkStartTrial(body.code, body.accessToken);
+		if (result.ok) result = { ok: true, status: result.status, expiresAt: result.expiresAt || null };
+	} else {
+		return res.status(404).json({ ok: false, error: 'Action not found' });
+	}
+	res.setHeader('Cache-Control', 'no-store');
+	return res.status(result.ok ? 200 : 400).json(result);
+}
 
 module.exports = async function handler(req, res) {
 	if (req.method !== 'POST') {
@@ -7,6 +36,8 @@ module.exports = async function handler(req, res) {
 	}
 
 	const body = req.body || {};
+	const action = body.action || (req.query && req.query.action);
+	if (action) return handleLink(String(action), body, res);
 	const email = body.email || (req.query && req.query.email);
 
 	if (!email) {

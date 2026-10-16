@@ -837,7 +837,158 @@ async function deactivateDevice(email, licenseKey, deviceId) {
 	return { ok: true, message: 'Device deactivated successfully' };
 }
 
+// ---------------------------------------------------------------------------------------------
+// "Sign in with browser" for the scripts (the device-code flow other desktop apps use).
+// The script asks for a link: it gets a secret device code (only the script ever sees it) and a
+// short user code that goes in the /link page URL. The person signs in on that page and confirms;
+// the code is then tied to their account. The script polls with the device code and gets the key
+// of the license or trial that account's email holds for that product. Only a hash of the device
+// code is stored. Rows live in public.license_links (supabase_license_links_migration.sql).
+// ---------------------------------------------------------------------------------------------
+const LINK_TTL_MS = 10 * 60 * 1000;
+const LINK_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
+
+function sha256(str) {
+	return crypto.createHash('sha256').update(String(str)).digest('hex');
+}
+
+function makeUserCode() {
+	let out = '';
+	for (let i = 0; i < 8; i++) out += LINK_CODE_CHARS[crypto.randomInt(LINK_CODE_CHARS.length)];
+	return `${out.slice(0, 4)}-${out.slice(4)}`;
+}
+
+// 'abcd2345', 'ABCD-2345' and ' abcd 2345 ' are the same code; null when it can't be one
+function normalizeUserCode(code) {
+	const raw = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+	if (raw.length !== 8) return null;
+	return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+}
+
+function memLinks() {
+	const store = getMemoryStore();
+	if (!store.links) store.links = {}; // device code hash -> row
+	return store.links;
+}
+
+async function linkRowByUserCode(userCode) {
+	if (!supabase) return Object.values(memLinks()).find(l => l.user_code === userCode) || null;
+	const { data } = await supabase.from('license_links').select('*').eq('user_code', userCode).maybeSingle();
+	return data || null;
+}
+
+async function linkRowByDeviceCode(deviceCode) {
+	const hash = sha256(deviceCode);
+	if (!supabase) return memLinks()[hash] || null;
+	const { data } = await supabase.from('license_links').select('*').eq('device_code_hash', hash).maybeSingle();
+	return data || null;
+}
+
+async function updateLinkRow(row, fields) {
+	if (!supabase) {
+		Object.assign(memLinks()[row.device_code_hash] || {}, fields);
+		return null;
+	}
+	const { error } = await supabase.from('license_links').update(fields).eq('device_code_hash', row.device_code_hash);
+	return error;
+}
+
+function linkExpired(row) {
+	return !row || Date.now() > new Date(row.expires_at).getTime();
+}
+
+async function startLink(productInput) {
+	const product = normalizeProduct(productInput);
+	if (!product) return { ok: false, error: 'Unknown product' };
+	const deviceCode = crypto.randomBytes(24).toString('hex');
+	const expiresAt = iso(Date.now() + LINK_TTL_MS);
+
+	if (!supabase) {
+		const userCode = makeUserCode();
+		memLinks()[sha256(deviceCode)] = { device_code_hash: sha256(deviceCode), user_code: userCode, product, email: null, expires_at: expiresAt, linked_at: null };
+		return { ok: true, deviceCode, userCode, product, expiresIn: LINK_TTL_MS / 1000 };
+	}
+
+	// old rows are useless after they expire; clear them out now and then
+	await supabase.from('license_links').delete().lt('expires_at', iso(Date.now() - 24 * 60 * 60 * 1000));
+
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const userCode = makeUserCode();
+		const { error } = await supabase.from('license_links').insert({
+			device_code_hash: sha256(deviceCode), user_code: userCode, product,
+			created_at: iso(Date.now()), expires_at: expiresAt
+		});
+		if (!error) return { ok: true, deviceCode, userCode, product, expiresIn: LINK_TTL_MS / 1000 };
+		if (error.code !== '23505') return { ok: false, error: error.message || 'Unable to start sign-in' }; // 23505 = user code taken
+	}
+	return { ok: false, error: 'Unable to start sign-in' };
+}
+
+// What the /link page shows before and after the person confirms
+async function linkInfo(userCodeInput) {
+	const userCode = normalizeUserCode(userCodeInput);
+	const row = userCode && await linkRowByUserCode(userCode);
+	if (!row) return { ok: false, status: 'invalid', error: 'This sign-in link is not valid. Start again from the script.' };
+	const base = { ok: true, userCode, product: rowProduct(row), productName: productName(rowProduct(row)) };
+	if (linkExpired(row)) return { ...base, status: 'expired' };
+	return { ...base, status: row.email ? 'linked' : 'pending' };
+}
+
+// Ties the code to the signed-in account. The email always comes from the verified access token.
+async function confirmLink(userCodeInput, accessToken) {
+	const email = await emailFromAccessToken(accessToken);
+	if (!email) return { ok: false, error: 'Sign in first.' };
+	const userCode = normalizeUserCode(userCodeInput);
+	const row = userCode && await linkRowByUserCode(userCode);
+	if (!row) return { ok: false, error: 'This sign-in link is not valid. Start again from the script.' };
+	if (linkExpired(row)) return { ok: false, error: 'This sign-in link has expired. Start again from the script.' };
+	if (row.email && row.email !== email) return { ok: false, error: 'This link was already used by another account.' };
+	if (!row.email) {
+		const err = await updateLinkRow(row, { email, linked_at: iso(Date.now()) });
+		if (err) return { ok: false, error: err.message || 'Unable to link this computer' };
+	}
+	const product = rowProduct(row);
+	const lic = await getLicenseOrTrialStatus(email, product);
+	const usable = lic.ok && (lic.status === 'active' || lic.status === 'trial') && !!lic.licenseKey;
+	return { ok: true, email, product, productName: productName(product), hasLicense: usable, licenseStatus: lic.status || 'inactive' };
+}
+
+// From the /link page when the account has no license yet: starts the trial for the signed-in
+// email, so the waiting script picks it up on its next poll.
+async function linkStartTrial(userCodeInput, accessToken) {
+	const email = await emailFromAccessToken(accessToken);
+	if (!email) return { ok: false, error: 'Sign in first.' };
+	const userCode = normalizeUserCode(userCodeInput);
+	const row = userCode && await linkRowByUserCode(userCode);
+	if (!row || linkExpired(row)) return { ok: false, error: 'This sign-in link has expired. Start again from the script.' };
+	if (row.email !== email) return { ok: false, error: 'Confirm this computer first.' };
+	return startTrial(email, rowProduct(row));
+}
+
+// The script's poll. pending -> linked (with the key) or no-license (signed in, but that account
+// has no license or trial for this product yet; keeps answering until the link expires).
+async function pollLink(deviceCode) {
+	if (!deviceCode) return { ok: false, status: 'invalid', error: 'Device code required' };
+	const row = await linkRowByDeviceCode(deviceCode);
+	if (!row) return { ok: true, status: 'invalid' };
+	if (linkExpired(row)) return { ok: true, status: 'expired' };
+	if (!row.email) return { ok: true, status: 'pending' };
+	const lic = await getLicenseOrTrialStatus(row.email, rowProduct(row));
+	if (lic.ok && (lic.status === 'active' || lic.status === 'trial') && lic.licenseKey) {
+		// one key per link: the code can't be polled again
+		if (supabase) await supabase.from('license_links').delete().eq('device_code_hash', row.device_code_hash);
+		else delete memLinks()[row.device_code_hash];
+		return { ok: true, status: 'linked', email: row.email, licenseKey: lic.licenseKey, licenseStatus: lic.status, expiresAt: lic.expiresAt || null };
+	}
+	return { ok: true, status: 'no-license', email: row.email, licenseStatus: lic.status || 'inactive' };
+}
+
 module.exports = {
+	startLink,
+	linkInfo,
+	confirmLink,
+	linkStartTrial,
+	pollLink,
 	startTrial,
 	activateLicense,
 	issuePurchaseLicense,

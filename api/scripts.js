@@ -5,14 +5,15 @@
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
-// Released versions are free to download (the scripts ask for a license or start a trial on
-// first run). The development version (the product's main branch) needs a license or trial key
-// that verifies. No other branches are served.
+// Every download needs a license or trial key that verifies (a free trial is enough), so the
+// repos can be private and each copy can be traced: the main script of every download carries a
+// code naming the key it was downloaded with (downloadStamp; the admin page traces it back).
+// Only published releases and the product's main branch are served, never other branches.
 //
 // Files are read from GitHub on the server. Set GITHUB_TOKEN (a fine-grained token with read-only
 // "Contents" access to the script repos) so this keeps working when the repos are private.
 
-const { verifyLicense } = require('./_lib/store');
+const { verifyLicense, downloadStamp } = require('./_lib/store');
 const PRODUCTS = require('./_lib/products');
 
 const GH = 'https://api.github.com';
@@ -74,6 +75,17 @@ async function fetchReleases(product) {
 	return list;
 }
 
+// The stamp goes in twice, as plain Lua comments: after the first line (headers like
+// "-- @noindex" stay first) and at the very end. Sizes in the files list are GitHub's, so
+// clients don't compare them byte for byte.
+function stampScript(buf, code) {
+	const text = buf.toString('utf8');
+	const nl = text.indexOf('\n');
+	const line = `-- build ${code}\n`;
+	const head = nl < 0 ? text + '\n' + line : text.slice(0, nl + 1) + line + text.slice(nl + 1);
+	return Buffer.from(head + (head.endsWith('\n') ? '' : '\n') + `--[[ ${code} ]]\n`, 'utf8');
+}
+
 function publicProduct(id, p) {
 	return {
 		id,
@@ -117,13 +129,14 @@ module.exports = async function handler(req, res) {
 		const releases = await fetchReleases(product);
 		if (!releases) return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
 
-		// unreleased code is for license and trial holders (device activation isn't needed to download)
 		const isRelease = releases.some(r => r.tag_name === ref);
 		// only published releases and the product's main branch, never other branches
 		if (!isRelease && ref !== product.branch) return res.status(404).json({ ok: false, error: 'Unknown version' });
-		if (action !== 'releases' && !isRelease) {
-			const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
-			if (!key) return res.status(401).json({ ok: false, error: 'License key required' });
+		// files and downloads are for license and trial holders (device activation isn't needed to download)
+		let key = '';
+		if (action !== 'releases') {
+			key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
+			if (!key) return res.status(401).json({ ok: false, error: 'License key required. Start a free trial or enter your license key.' });
 			const lic = await verifyLicense(key, null, input.product);
 			if (!lic || !lic.ok) {
 				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
@@ -157,7 +170,8 @@ module.exports = async function handler(req, res) {
 			if (!validPath(product, input.path)) return res.status(400).json({ ok: false, error: 'Bad path' });
 			const resp = await fetchRaw(product, input.path, ref);
 			if (!resp.ok) return res.status(resp.status === 404 ? 404 : 502).json({ ok: false, error: `GitHub ${resp.status}` });
-			const buf = Buffer.from(await resp.arrayBuffer());
+			let buf = Buffer.from(await resp.arrayBuffer());
+			if (product.mainScript && input.path === product.mainScript.from) buf = stampScript(buf, downloadStamp(key));
 			res.setHeader('Content-Type', 'application/octet-stream');
 			res.setHeader('Cache-Control', 'no-store');
 			return res.status(200).send(buf);

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, DEFAULT_PRODUCT } = require('./_lib/store');
+const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, DEFAULT_PRODUCT, downloadStamp } = require('./_lib/store');
 
 // Trials are one per email per product. The trial actions narrow to the product the panel sends
 // (older panels send none: then they act on all of that email's trials, as before).
@@ -160,6 +160,32 @@ module.exports = async function handler(req, res) {
 		}
 
 		return res.status(200).json({ ok: true, trials: trials || [] });
+	}
+
+	// POST /api/admin?action=trace { text }: which license or trial a leaked copy was downloaded
+	// with. text = the copy's "-- build <code>" line (or the whole script); the code is matched by
+	// computing every key's download stamp.
+	if (action === 'trace') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+		const text = String((body && body.text) || '');
+		const m = text.match(/--\s*build\s+([0-9a-f]{16})\b/i) || text.match(/\b([0-9a-f]{16})\b/i);
+		if (!m) return res.status(400).json({ ok: false, error: 'No build code found. Paste the "-- build ..." line from the script.' });
+		const code = m[1].toLowerCase();
+		const supabase = getSupabaseClient();
+		if (!supabase) return res.status(500).json({ ok: false, error: 'Tracing requires Supabase' });
+		const [lic, tri] = await Promise.all([
+			supabase.from('licenses').select('license_key, email, product, status, created_at'),
+			supabase.from('trials').select('license_key, email, product, expires_at')
+		]);
+		if (lic.error || tri.error) return res.status(500).json({ ok: false, error: (lic.error || tri.error).message });
+		const matches = []
+			.concat((lic.data || []).map(r => ({ kind: 'license', ...r })))
+			.concat((tri.data || []).map(r => ({ kind: 'trial', ...r })))
+			.filter(r => r.license_key && downloadStamp(r.license_key) === code);
+		return res.status(200).json({ ok: true, code, matches });
 	}
 
 	// Handle POST /api/admin?action=license-create: issue a license by hand { email, product }

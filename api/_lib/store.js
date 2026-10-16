@@ -1030,7 +1030,16 @@ async function pollLink(deviceCode, deviceId) {
 	return { ok: true, status: 'no-license', email: row.email, licenseStatus: lic.status || 'inactive' };
 }
 
+// The code stamped into every script download (api/scripts.js): who downloaded it, without
+// putting the key or email in the file. The admin page's "Trace a leaked copy" finds the
+// license or trial a code belongs to by computing it for each key.
+function downloadStamp(licenseKey) {
+	const secret = process.env.STAMP_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+	return crypto.createHmac('sha256', secret).update('download-stamp:' + String(licenseKey || '')).digest('hex').slice(0, 16);
+}
+
 module.exports = {
+	downloadStamp,
 	startLink,
 	linkEmail,
 	linkInfo,

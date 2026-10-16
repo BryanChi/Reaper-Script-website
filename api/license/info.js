@@ -2,7 +2,8 @@ const { getLicenseInfo, emailFromAccessToken, startLink, linkInfo, confirmLink, 
 
 // "Sign in with browser" from the scripts lives here too (Vercel Hobby allows 12 functions):
 //   link-start   script -> { deviceCode, userCode, url }    (deviceCode stays in the script)
-//   link-poll    script -> { status: pending | linked | no-license | expired | invalid }
+//   link-poll    script (deviceCode, deviceId) -> { status: pending | linked | no-license | limit | expired | invalid }
+//                linked = this computer was activated on the license and the key is in the answer
 //   link-info    /link page, before sign-in
 //   link-confirm /link page, signed in (accessToken) -> ties the code to that account
 //   link-trial   /link page, signed in, no license yet -> starts the trial for that account
@@ -14,7 +15,7 @@ async function handleLink(action, body, res) {
 		result = await startLink(body.product);
 		if (result.ok) result.url = `${SITE}/link?code=${encodeURIComponent(result.userCode)}`;
 	} else if (action === 'link-poll') {
-		result = await pollLink(body.deviceCode);
+		result = await pollLink(body.deviceCode, body.deviceId);
 	} else if (action === 'link-info') {
 		result = await linkInfo(body.code);
 	} else if (action === 'link-confirm') {

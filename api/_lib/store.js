@@ -965,7 +965,11 @@ async function linkStartTrial(userCodeInput, accessToken) {
 
 // The script's poll. pending -> linked (with the key) or no-license (signed in, but that account
 // has no license or trial for this product yet; keeps answering until the link expires).
-async function pollLink(deviceCode) {
+// Signing in is the only way a computer gets activated: the script sends its device ID with the
+// poll and the server adds that computer to the account's license before handing over the key.
+// limit = the license already has its 3 computers; keeps answering until the link expires, so
+// the person can deactivate one on the site and the waiting script carries on.
+async function pollLink(deviceCode, deviceId) {
 	if (!deviceCode) return { ok: false, status: 'invalid', error: 'Device code required' };
 	const row = await linkRowByDeviceCode(deviceCode);
 	if (!row) return { ok: true, status: 'invalid' };
@@ -973,6 +977,14 @@ async function pollLink(deviceCode) {
 	if (!row.email) return { ok: true, status: 'pending' };
 	const lic = await getLicenseOrTrialStatus(row.email, rowProduct(row));
 	if (lic.ok && (lic.status === 'active' || lic.status === 'trial') && lic.licenseKey) {
+		if (!deviceId) {
+			return { ok: true, status: 'invalid', error: 'Update the script to sign in on this computer.' };
+		}
+		const act = await activateDevice(row.email, lic.licenseKey, String(deviceId));
+		if (!act.ok) {
+			const limit = /maximum of/.test(act.error || '');
+			return { ok: true, status: limit ? 'limit' : 'error', email: row.email, error: act.error || 'Unable to activate this computer' };
+		}
 		// one key per link: the code can't be polled again
 		if (supabase) await supabase.from('license_links').delete().eq('device_code_hash', row.device_code_hash);
 		else delete memLinks()[row.device_code_hash];

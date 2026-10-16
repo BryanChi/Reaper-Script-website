@@ -197,4 +197,20 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 	return { subject, html, text };
 }
 
-module.exports = { buildPurchaseEmail };
+// Sends one email through Resend (RESEND_API_KEY, RESEND_FROM_EMAIL). Returns { ok, id } or { ok: false, error }.
+async function sendEmail({ to, subject, html, text }) {
+	let Resend;
+	try { ({ Resend } = require('resend')); } catch (_) { /* not installed */ }
+	if (!Resend || !process.env.RESEND_API_KEY) return { ok: false, error: 'Resend is not configured (RESEND_API_KEY)' };
+	const from = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
+	if (!from) return { ok: false, error: 'RESEND_FROM_EMAIL is not set' };
+	try {
+		const r = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to, subject, html, text });
+		if (r.error) return { ok: false, error: r.error.message || JSON.stringify(r.error) };
+		return { ok: true, id: r.data && r.data.id };
+	} catch (err) {
+		return { ok: false, error: err.message || 'Could not send the email' };
+	}
+}
+
+module.exports = { buildPurchaseEmail, sendEmail };

@@ -284,6 +284,7 @@
 						<option value="fx-devices">FX Devices</option>
 					</select>
 					<button class="btn btn-primary" onclick="createLicense()">Create license</button>
+					<button class="btn" onclick="sendEmailPreview()" title="Sends the purchase email for this product with a sample key. Creates no license.">Send purchase email preview</button>
 				</div>
 				<div class="table-container">
 					<table id="licensesTable">
@@ -607,6 +608,29 @@
 			.catch(err => {
 				showMessage('Error: ' + err.message, 'error');
 			});
+		}
+
+		function sendEmailPreview() {
+			const email = document.getElementById('newLicenseEmail').value.trim();
+			const product = document.getElementById('newLicenseProduct').value;
+			if (!email) {
+				showMessage('Enter an email first', 'error');
+				return;
+			}
+			fetch('/api/admin?action=email-preview', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${adminToken}`
+				},
+				body: JSON.stringify({ email, product, action: 'email-preview' })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.ok) showMessage(`${PRODUCT_NAMES[product]} purchase email preview sent to ${email}`, 'success');
+				else showMessage(data.error || 'Could not send the preview', 'error');
+			})
+			.catch(err => showMessage('Error: ' + err.message, 'error'));
 		}
 
 		function renderLicenses(licenses) {

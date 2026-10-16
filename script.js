@@ -1,6 +1,13 @@
 (function() {
 	'use strict';
 
+	// The FX Devices page links to /?product=fx-devices#license: preselect that script in the trial form
+	try {
+		const wanted = new URLSearchParams(location.search).get('product');
+		const productSel = document.getElementById('trialProduct');
+		if (wanted && productSel && Array.from(productSel.options).some(o => o.value === wanted)) productSel.value = wanted;
+	} catch (e) { /* old browser: keep the default */ }
+
 	// Smooth scroll for same-page anchors
 	document.addEventListener('click', function(e) {
 		const target = e.target;

@@ -318,7 +318,7 @@
       <div class="buy-copy">
         <p class="kicker"><b>08</b> License</p>
         <h2 id="buy-h">One license.<br><em>Yours for good.</em></h2>
-        <p>Pay once and your key arrives right here and by email. Paste it into FX Devices under Settings, License.</p>
+        <p>Pay once and your key arrives right here and by email. When you install it, you sign in with that same email and it unlocks.</p>
         <ul class="ticks">
           <li>1 user, lifetime license</li>
           <li>Lifetime updates through the Script Manager</li>
@@ -342,9 +342,44 @@
           <p class="buy-done-p">Your license key:</p>
           <div class="buy-key"><code id="fxd-key"></code><button class="btn btn-ghost btn-sm" type="button" id="fxd-copy">Copy</button></div>
           <p class="buy-done-p" id="fxd-key-mail"></p>
+          <a class="btn btn-go btn-sm buy-next" href="#setup">See the setup steps</a>
         </div>
         <p class="buy-fine">Card, PayPal and Pay Later through PayPal's secure checkout. 30-day money-back guarantee.</p>
       </div>
+    </div>
+
+    <!-- shown after a purchase -->
+    <div class="setup-card" id="setup" hidden aria-labelledby="setup-h" tabindex="-1">
+      <div class="get-grid" aria-hidden="true"></div>
+      <div class="setup-copy">
+        <p class="kicker"><b>09</b> Set it up</p>
+        <h2 id="setup-h">You're in.<br><em>Now set it up.</em></h2>
+        <ol class="dl-steps">
+          <li><b>1</b><div><h3>Download the Script Manager</h3><p>The free installer that installs and updates your scripts.</p>
+            <a class="btn btn-go btn-sm setup-dl" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="Cool Reaper Script Manager.lua">
+              <svg class="dl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download the Script Manager</a></div></li>
+          <li><b>2</b><div><h3>Load and run it in REAPER</h3><p>Open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, pick the <code>Cool Reaper Script Manager.lua</code> you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.</p></div></li>
+          <li><b>3</b><div><h3>Sign in and install</h3><p>Next to FX Devices, click <kbd>Sign in with browser</kbd>. The activation page opens with a code. Sign in with <strong class="setup-email">the email your key was sent to</strong>, using Google, a password or <em>Email me a sign-in link</em>. Check that the code matches the one in REAPER, click <kbd>Activate</kbd>, then click Install in the Script Manager.</p></div></li>
+          <li><b>4</b><div><h3>Run FX Devices</h3><p>Search the Actions list for <code>BryanChi_FX Devices</code> and run it. It opens already activated. Give it a shortcut so the dock is one key away.</p></div></li>
+        </ol>
+      </div>
+      <aside class="setup-side">
+        <div class="setup-mail">
+          <p class="setup-label">Activate with this email</p>
+          <p class="setup-addr setup-email">the email your key was sent to</p>
+          <p class="setup-note">Your license is linked to this address. Sign in with it when you install and FX Devices unlocks on its own. We emailed these steps there too.</p>
+        </div>
+        <div class="get-req">
+          <h3>Good to know</h3>
+          <ul class="ticks">
+            <li>No key to type: signing in finds your license</li>
+            <li>Works on up to 3 computers</li>
+            <li>Updates live under Scripts and updates in FX Devices' settings, so you won't need the Script Manager file again</li>
+            <li>Installed it for the free trial? Open Settings, License and sign in</li>
+            <li>Needs ReaImGui and js_ReaScriptAPI, free through ReaPack</li>
+          </ul>
+        </div>
+      </aside>
     </div>
   </section>
 

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { issuePurchaseLicense, emailFromAccessToken, normalizeEmail, normalizeProduct } = require('../_lib/store');
 const PRODUCTS = require('../_lib/products');
 const { findDiscount, discountById, priceFor } = require('../_lib/discounts');
+const { buildPurchaseEmail } = require('../_lib/purchase-email');
 
 // Lazy-load Resend to avoid requiring it if not configured
 let resendClient = null;
@@ -251,18 +252,15 @@ module.exports = async function handler(req, res) {
 	
 	if (!emailError) {
 		try {
+			const mail = buildPurchaseEmail({
+				productName, product, licenseKey: licenseResult.licenseKey, email: payerEmail, payerName, orderId
+			});
 			const emailResponse = await resend.emails.send({
 				from: fromEmail,
 				to: payerEmail,
-				subject: `Your ${productName} License`,
-				html: `
-					<p>Hi ${payerName || 'there'},</p>
-					<p>Thank you for buying ${productName}. Here is your license key:</p>
-					<pre style="font-size:16px;font-weight:bold;">${licenseResult.licenseKey}</pre>
-					<p>Status: ${licenseResult.status}</p>
-					${licenseResult.expiresAt ? `<p>Expires: ${new Date(licenseResult.expiresAt).toISOString()}</p>` : ''}
-					<p>If you have any questions, reply to this email.</p>
-				`
+				subject: mail.subject,
+				html: mail.html,
+				text: mail.text
 			});
 			
 			// Check if Resend returned an error in the response

@@ -1,5 +1,7 @@
 const crypto = require('crypto');
-const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, DEFAULT_PRODUCT, downloadStamp } = require('./_lib/store');
+const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, normalizeEmail, DEFAULT_PRODUCT, downloadStamp } = require('./_lib/store');
+const PRODUCTS = require('./_lib/products');
+const { buildPurchaseEmail, sendEmail } = require('./_lib/purchase-email');
 
 // Trials are one per email per product. The trial actions narrow to the product the panel sends
 // (older panels send none: then they act on all of that email's trials, as before).
@@ -189,6 +191,23 @@ module.exports = async function handler(req, res) {
 	}
 
 	// Handle POST /api/admin?action=license-create: issue a license by hand { email, product }
+	// Sends the purchase email with a sample key, so it can be checked in a real inbox. Creates no license.
+	if (action === 'email-preview') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+		const email = normalizeEmail(body?.email);
+		const product = normalizeProduct(body?.product);
+		if (!email) return res.status(400).json({ ok: false, error: 'Email required' });
+		if (!product) return res.status(400).json({ ok: false, error: 'Unknown product' });
+		const mail = buildPurchaseEmail({
+			productName: PRODUCTS[product].name, product, licenseKey: 'SAMPLE-KEY-NOT-A-LICENSE', email, payerName: '', orderId: 'PREVIEW'
+		});
+		const sent = await sendEmail({ to: email, subject: '[Preview] ' + mail.subject, html: mail.html, text: mail.text });
+		return res.status(sent.ok ? 200 : 502).json(sent);
+	}
+
 	if (action === 'license-create') {
 		if (method !== 'POST') {
 			res.setHeader('Allow', ['POST']);

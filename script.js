@@ -1472,58 +1472,7 @@
 
 	wireLicensingForms();
 
-	// Test Email Form Handler
-	function wireTestEmailForm() {
-		const testEmailForm = document.getElementById('testEmailForm');
-		const testEmailInput = document.getElementById('testEmailInput');
-		const testEmailSubmit = document.getElementById('testEmailSubmit');
-		const testEmailMessage = document.getElementById('testEmailMessage');
 
-		if (testEmailForm && testEmailInput && testEmailSubmit && testEmailMessage) {
-			testEmailForm.addEventListener('submit', async function(e) {
-				e.preventDefault();
-				const email = (testEmailInput.value || '').trim();
-				if (!email) {
-					setText(testEmailMessage, 'Please enter an email address.');
-					return;
-				}
-				testEmailSubmit.disabled = true;
-				testEmailSubmit.textContent = 'Sending...';
-				setText(testEmailMessage, '');
-				try {
-					const res = await postJson('/api/test/email', { email, name: 'Test User' });
-					if (res.ok) {
-						if (res.emailSent) {
-							const detailsMsg = res.emailDetails ? ` (Email ID: ${res.emailDetails.id})` : '';
-							setText(testEmailMessage, `✅ Test email sent successfully to ${email}!${detailsMsg} Check your inbox (and spam folder). License key: ${res.licenseKey}`);
-							showInfo(`Test email sent to ${email}. Check spam folder if not received.`);
-						} else {
-							const errorMsg = res.emailError || 'Unknown error';
-							setText(testEmailMessage, `⚠️ Email not sent: ${errorMsg}. License key generated: ${res.licenseKey}`);
-							showError(`Email sending failed: ${errorMsg}`);
-						}
-					} else {
-						setText(testEmailMessage, `❌ ${res.error || 'Failed to send test email'}`);
-						showError(res.error || 'Failed to send test email');
-					}
-				} catch (err) {
-					console.error('Test email error:', err);
-					let msg = err.message || 'Unable to send test email.';
-					// Provide more helpful error messages
-					if (msg.includes('Failed to connect') || msg.includes('Failed to fetch') || msg.includes('NetworkError') || err instanceof TypeError) {
-						msg = 'Failed to connect to server. If testing locally, run "vercel dev" in your terminal. If deployed, make sure the endpoint is deployed.';
-					}
-					setText(testEmailMessage, `❌ ${msg}`);
-					showError(msg);
-				} finally {
-					testEmailSubmit.disabled = false;
-					testEmailSubmit.textContent = 'Send Test Email';
-				}
-			});
-		}
-	}
-
-	wireTestEmailForm();
 
 	// Helper Functions for UI
 	function showLoadingState() {
@@ -1622,6 +1571,8 @@
 	function showSuccessModal(email, licenseKey, result) {
 		const modal = document.getElementById('success-modal');
 		setText(document.getElementById('success-sent'), sentToText(result || { email }));
+		// The setup steps say which email to sign in with
+		if (email) modal.querySelectorAll('.success-email').forEach(el => { el.textContent = email; });
 		const licenseKeyText = document.getElementById('license-key-text');
 		const copyBtn = document.getElementById('copy-license-btn');
 		const licenseInfoDiv = document.querySelector('.license-info');

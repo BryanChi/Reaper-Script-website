@@ -22,6 +22,19 @@
       ? `We also emailed it to ${email}, ${where}.`
       : `Keep it safe. It's linked to ${email}, but the email with it could not be sent.`;
     say('');
+    showSetup(email);
+  }
+
+  // The setup steps under the license card: fill in the email to sign in with and bring them into view
+  function showSetup(email) {
+    const setup = document.getElementById('setup');
+    if (!setup) return;
+    if (email) setup.querySelectorAll('.setup-email').forEach(el => { el.textContent = email; });
+    setup.hidden = false;
+    requestAnimationFrame(() => {
+      setup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setup.focus({ preventScroll: true });
+    });
   }
 
   // Signed in on coolreaperscripts.com? Then the key goes to the account's email. The session lives in

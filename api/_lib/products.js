@@ -47,6 +47,8 @@ module.exports = {
 			'BryanChi_FX_Devices/src/FX_Adder_Cache/fx_favorites.txt'
 		],
 		licenseSection: 'CRS_FX_Devices_License',
+		// main is an old build without the license check: only published releases are served
+		releasesOnly: true,
 		// no FX Devices checkout on the site yet, so this is the shared pricing section
 		buyUrl: 'https://www.coolreaperscripts.com/#pricing',
 		// installers before the Script Manager (3) can't put the JSFX in the Effects folder

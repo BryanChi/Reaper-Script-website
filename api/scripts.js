@@ -96,6 +96,7 @@ function publicProduct(id, p) {
 		userData: p.userData,
 		routes: p.routes,
 		licenseSection: p.licenseSection,
+		releasesOnly: !!p.releasesOnly,
 		buyUrl: p.buyUrl
 	};
 }
@@ -132,6 +133,9 @@ module.exports = async function handler(req, res) {
 		const isRelease = releases.some(r => r.tag_name === ref);
 		// only published releases and the product's main branch, never other branches
 		if (!isRelease && ref !== product.branch) return res.status(404).json({ ok: false, error: 'Unknown version' });
+		if (!isRelease && product.releasesOnly && action !== 'releases') {
+			return res.status(404).json({ ok: false, error: 'Install the newest release; the development version isn\'t available for ' + product.name + '.' });
+		}
 		// files and downloads are for license and trial holders (device activation isn't needed to download)
 		let key = '';
 		if (action !== 'releases') {

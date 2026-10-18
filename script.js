@@ -294,17 +294,10 @@
 				
 				html += `</div></div>`;
 			} else if (res.licenseKey) {
-				// Check if activations is actually an array or if it's null/undefined
-				const activationsInfo = res.activations === null ? 'null' : 
-				                      res.activations === undefined ? 'undefined' : 
-				                      Array.isArray(res.activations) ? `array with ${res.activations.length} items` : 
-				                      typeof res.activations;
-				
 				html += `<div class="device-activations-section">
 					<div class="device-activations-header">Device Activations</div>
 					<div class="device-activations-empty">No active device activations.
-					${res._debug ? `<br><small style="color: #9ca3af; font-size: 10px;">Debug: activations=${activationsInfo}, licenseKey=${res.licenseKey}</small>` : ''}
-					<br><small style="color: #9ca3af; font-size: 10px;">Note: Device activations are created when you run the Reaper script with this license key.</small>
+					<br><small style="color: #9ca3af; font-size: 10px;">To add a computer, click Sign in with browser in the script or in the Cool Reaper Script Manager (3 computers per license).</small>
 					</div>
 				</div>`;
 			}
@@ -1426,7 +1419,7 @@
 				try {
 					const productEl = document.getElementById('trialProduct');
 					const product = (productEl && productEl.value) || 'vertical-fx-list';
-					const res = await postJson('/api/trial/start', { email, product });
+					const res = await postJson('/api/trial/start', { email, product, accessToken: await getAccessToken() });
 					const expiry = prettyExpiry(res.expiresAt);
 					setText(trialMessage, res.message + (expiry ? ` · Expires: ${expiry}` : ''));
 					setBadge(res.status, expiry ? `Expires on ${expiry}` : 'Trial created.');

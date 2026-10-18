@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.1.0
+-- @version 3.2.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.2.0: "Sign in with browser" replaces the key box and the email trial (the same sign-in the
+--          scripts use, and it activates this computer for the script too). Run from Downloads,
+--          the Manager moves itself into REAPER's Scripts folder and its Actions list.
 --   3.1.0: every download needs a license or a free trial (released versions too).
 --   3.0.0: now the Cool Reaper Script Manager: one window for every script, update buttons,
 --          a license key or free trial per script, Buy buttons, FX Devices, the Monolith look.
@@ -14,17 +17,20 @@
 
 local r = reaper
 
-local VERSION = '3.1.0'
+local VERSION = '3.2.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
-local TRIAL_URL = SITE .. '/api/trial/start'
+local LINK_URL = SITE .. '/api/license/info'
 local FONT_URL = SITE .. '/assets/Fonts/'
 -- kept from the 2.0 installer: the scripts read what was installed from this section
 local EXT = 'CoolReaperScripts_Installer'
 -- tells the site this client can put files outside the script's folder (FX Devices' JSFX)
 local CLIENT = 3
 local TITLE = 'Cool Reaper Script Manager'
+-- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
+local MANAGER_DIR = 'Scripts/CoolReaperScripts'
+local MANAGER_FILE = 'Cool Reaper Script Manager.lua'
 
 local OS = r.GetOS()
 local IS_WIN = OS:match('Win') ~= nil
@@ -231,6 +237,37 @@ local function Api(url, body)
   if type(data) ~= 'table' then return nil, 'The server sent an unexpected answer (HTTP ' .. code .. ').' end
   if code >= 400 or data.ok == false then return nil, data.error or data.reason or ('HTTP ' .. code), data end
   return data
+end
+
+-- The same POST in the background, so the window keeps drawing while sign-in waits on the browser.
+-- AsyncPost returns a job; AsyncResult(job) is nil until curl is done, then the answer (decoded).
+local function AsyncPost(url, body)
+  local job = { body = TempFile('body.json'), out = TempFile('out.txt'), done = TempFile('done.txt'), started = os.time() }
+  if not WriteFile(job.body, JsonEncode(body)) then return nil end
+  if IS_WIN then
+    -- cmd /C strips the outer quotes; ExecProcess with -1 returns at once, without a console window
+    r.ExecProcess(string.format(
+      'cmd.exe /C ""curl" -L -s -S --max-time 15 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" "%s" & echo done>"%s""',
+      job.body, job.out, url, job.done), -1)
+  else
+    job.sh = TempFile('run.sh')
+    if not WriteFile(job.sh, string.format("#!/bin/sh\n/usr/bin/curl -L -s -S --max-time 15 -X POST -H %s --data-binary @%s %s > %s 2>&1\necho done > %s\n",
+      ShellQuote('Content-Type: application/json'), ShellQuote(job.body), ShellQuote(url), ShellQuote(job.out), ShellQuote(job.done))) then
+      os.remove(job.body)
+      return nil
+    end
+    os.execute('/bin/sh ' .. ShellQuote(job.sh) .. ' >/dev/null 2>&1 &')
+  end
+  return job
+end
+
+local function AsyncResult(job)
+  local finished = Exists(job.done)
+  if not finished and os.time() - job.started < 30 then return nil end
+  local text = finished and ReadFile(job.out) or ''
+  for _, f in ipairs({ job.body, job.out, job.done, job.sh }) do if f then os.remove(f) end end
+  local data = text and JsonDecode(text)
+  return type(data) == 'table' and data or false
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -513,35 +550,102 @@ local function UseKey(p, key)
   end
 end
 
-local function SaveKey(p)
-  local key = (p.keyInput or ''):gsub('%s', '')
-  if key == '' then p.msg = { kind = 'err', text = 'Paste the key from your purchase or trial email first.' } return end
-  local data, err, body = Api(VERIFY_URL, { licenseKey = key, product = p.id })
-  if not data or (data.status ~= 'active' and data.status ~= 'trial') then
-    p.msg = { kind = 'err', text = Friendly((body and (body.reason or body.error)) or (data and (data.reason or data.status)) or err) }
-    return
-  end
-  UseKey(p, key)
-  p.lic = { status = data.status, expiresAt = data.expiresAt }
-  p.showKey = false
-  p.msg = { kind = 'ok', text = data.status == 'active' and 'License saved. Thanks for buying ' .. p.name .. '!'
-    or ('Trial key saved, ' .. (DaysLeft(data.expiresAt) or 30) .. ' days left.') }
+-- The script's own computer ID (made here when the script hasn't run on this computer yet), so
+-- signing in here activates this computer for the script: no second sign-in when it starts.
+local function DeviceId(p)
+  if not p.licenseSection then return '' end
+  local id = r.GetExtState(p.licenseSection, 'deviceId')
+  if id ~= '' then return id end
+  math.randomseed(os.time() + math.floor(r.time_precise() * 1000) % 100000)
+  local chars, t = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', {}
+  for i = 1, 16 do local n = math.random(1, #chars) t[i] = chars:sub(n, n) end
+  math.randomseed()
+  id = table.concat(t)
+  r.SetExtState(p.licenseSection, 'deviceId', id, true)
+  return id
 end
 
-local function StartTrial(p)
-  S.email = (S.email or ''):match('^%s*(.-)%s*$')
-  if not S.email:find('.@.') then p.msg = { kind = 'err', text = 'Enter your email to start the trial.' } return end
-  r.SetExtState(EXT, 'email', S.email, true)
-  local data, err = Api(TRIAL_URL, { email = S.email, product = p.id })
-  if not data or not data.licenseKey then p.msg = { kind = 'err', text = Friendly(err or 'Could not start the trial') } return end
-  if data.status == 'expired' or (DaysLeft(data.expiresAt) or 1) <= 0 then
-    p.msg = { kind = 'warn', text = 'Your free trial of ' .. p.name .. ' has ended. Buy a license to keep using it.' }
+-- "Sign in with browser": the site's /link page signs the person in (Google, password or an
+-- emailed link), offers the free trial when they have no license, and this computer gets the key.
+local function StopLink(p, kind, text)
+  p.link = nil
+  if text then p.msg = { kind = kind, text = text } end
+end
+
+local function StartLink(p)
+  p.msg = nil
+  local job = AsyncPost(LINK_URL, { action = 'link-start', product = p.id })
+  if not job then return StopLink(p, 'err', 'Couldn\'t start the sign-in. Try again.') end
+  p.link = { phase = 'starting', job = job, fails = 0 }
+end
+
+local function Linked(p, data)
+  local key = tostring(data.licenseKey or ''):gsub('%s', '')
+  if key == '' then return StopLink(p, 'err', 'The server sent an unexpected answer. Try again.') end
+  p.link = nil
+  if data.email and data.email ~= '' then
+    S.email = data.email
+    r.SetExtState(EXT, 'email', data.email, true)
+  end
+  UseKey(p, key)
+  if p.licenseSection then
+    r.SetExtState(p.licenseSection, 'email', S.email or '', true)
+    r.SetExtState(p.licenseSection, 'lastCheck', '0', true) -- the script checks the new key on its next start
+  end
+  local st = data.licenseStatus == 'trial' and 'trial' or 'active'
+  p.lic = { status = st, expiresAt = data.expiresAt }
+  p.showKey = false
+  p.msg = { kind = 'ok', text = st == 'active' and ('Signed in. Your ' .. p.name .. ' license is ready on this computer.')
+    or ('Free trial ready: ' .. (DaysLeft(data.expiresAt) or 30) .. ' days of ' .. p.name .. '.') }
+end
+
+local function LinkAnswer(p, k, data)
+  local now = os.time()
+  if not data then -- no answer: try again a few times
+    k.fails = k.fails + 1
+    if k.phase == 'starting' or k.fails >= 15 then
+      return StopLink(p, 'err', 'Couldn\'t reach coolreaperscripts.com. Check your internet connection and try again.')
+    end
+    k.nextPoll = now + 4
     return
   end
-  UseKey(p, data.licenseKey)
-  p.lic = { status = 'trial', expiresAt = data.expiresAt }
-  p.showKey = false
-  p.msg = { kind = 'ok', text = 'Trial started: ' .. (DaysLeft(data.expiresAt) or 30) .. ' days of ' .. p.name .. '.' }
+  k.fails = 0
+  if k.phase == 'starting' then
+    if not (data.deviceCode and data.userCode and data.url) then
+      return StopLink(p, 'err', data.error or 'Sign-in isn\'t available right now. Try again in a moment.')
+    end
+    k.deviceCode, k.userCode, k.url = data.deviceCode, data.userCode, data.url
+    k.phase, k.expires, k.nextPoll = 'waiting', now + (tonumber(data.expiresIn) or 600), now + 3
+    OpenUrl(k.url)
+    return
+  end
+  local st = data.status
+  if st == 'linked' then return Linked(p, data)
+  elseif st == 'limit' then k.phase, k.email, k.nextPoll = 'limit', data.email, now + 3
+  elseif st == 'no-license' then k.phase, k.email, k.nextPoll = 'nolicense', data.email, now + 3
+  elseif st == 'pending' then k.nextPoll = now + 2
+  elseif st == 'error' then StopLink(p, 'err', data.error or 'Couldn\'t activate this computer. Try again.')
+  elseif st == 'expired' then StopLink(p, 'warn', 'The sign-in link expired. Click Sign in with browser to try again.')
+  else StopLink(p, 'err', data.error or 'The sign-in link isn\'t valid anymore. Click Sign in with browser to try again.') end
+end
+
+local function LinkTick(p)
+  local k = p.link
+  if not k then return end
+  if k.job then
+    local data = AsyncResult(k.job)
+    if data == nil then return end
+    k.job = nil
+    return LinkAnswer(p, k, data)
+  end
+  local now = os.time()
+  if k.expires and now > k.expires then
+    return StopLink(p, 'warn', 'The sign-in link expired. Click Sign in with browser to try again.')
+  end
+  if k.nextPoll and now >= k.nextPoll then
+    k.job = AsyncPost(LINK_URL, { action = 'link-poll', deviceCode = k.deviceCode, deviceId = DeviceId(p) })
+    if not k.job then k.nextPoll = now + 4 end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -566,7 +670,7 @@ local function LoadProducts()
     p.choice = 1 -- newest release, or the development version when there are none
     p.installed = InstalledVersion(p)
     if p.installed and IsDev(p.installed) then p.choice = #p.releases + 1 end
-    if prev then p.keyInput, p.showKey = prev.keyInput, prev.showKey end
+    if prev then p.keyInput, p.showKey, p.link = prev.keyInput, prev.showKey, prev.link end
     CheckLicense(p)
     -- a script with no releases needs a key; show where to put it
     if #p.releases == 0 and not HasValidKey(p) and p.showKey == nil then p.showKey = true end
@@ -648,7 +752,7 @@ local function StartInstall(p)
   -- every download needs a license or trial key (the site stamps each copy with the key it went to)
   if not HasValidKey(p) then
     p.showKey = true
-    p.msg = { kind = 'info', text = 'Start a free trial or enter your license key to install ' .. p.name .. '.' }
+    p.msg = { kind = 'info', text = 'Sign in to install ' .. p.name .. '. No license yet? The sign-in page starts your free 30-day trial.' }
     return
   end
   local list, err = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = ref })
@@ -708,11 +812,53 @@ local function FinishInstall(job)
     if i > 4 then lines[#lines + 1] = '...' break end
     lines[#lines + 1] = f.path .. ': ' .. tostring(f.why):sub(1, 100)
   end
-  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files).' }
+  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files). To update it or get other scripts later, open '
+      .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.' }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil
   -- next one of "Update all"
   if S.updateAll and #S.updateAll > 0 then StartInstall(table.remove(S.updateAll, 1)) end
+end
+
+-- The scripts' settings windows ("Scripts and updates") run the Manager from here.
+local function ManagerPath() return NativePath(RES .. '/' .. MANAGER_DIR .. '/' .. MANAGER_FILE) end
+
+-- Run from Downloads (or anywhere outside REAPER's Scripts folder), the Manager copies itself to
+-- Scripts/CoolReaperScripts, puts that copy in the Actions list instead, and removes the download.
+local function SettleIn()
+  local _, self = r.get_action_context()
+  if not self or self == '' then
+    local src = debug.getinfo(1, 'S').source or ''
+    self = src:sub(1, 1) == '@' and src:sub(2) or nil
+  end
+  if not self or not Exists(self) then return end
+  local function Norm(path)
+    path = path:gsub('\\', '/'):gsub('/+', '/')
+    return IS_WIN and path:lower() or path
+  end
+  local scripts = Norm(RES .. '/Scripts/')
+  if Norm(self):sub(1, #scripts) == scripts then
+    -- kept somewhere else in Scripts: still put a copy where the scripts look for it
+    if Norm(self) ~= Norm(ManagerPath()) and not Exists(ManagerPath()) then
+      local data = ReadFile(self)
+      r.RecursiveCreateDirectory(DirOf(ManagerPath()), 0)
+      if data then WriteFile(ManagerPath(), data) end
+    end
+    return
+  end
+  local target = ManagerPath()
+  local data = ReadFile(self)
+  r.RecursiveCreateDirectory(DirOf(target), 0)
+  if not data or not WriteFile(target, data) then
+    S.msg = { kind = 'warn', text = 'Couldn\'t copy the Script Manager into REAPER\'s Scripts folder, so it keeps running from where you downloaded it.' }
+    return
+  end
+  r.AddRemoveReaScript(true, 0, target, true)
+  r.AddRemoveReaScript(false, 0, self, true)
+  local removed = os.remove(self)
+  S.msg = { kind = 'ok', text = 'The Script Manager moved itself into REAPER'
+    .. (removed and ', so the downloaded file is gone. ' or '. You can delete the downloaded file. ')
+    .. 'After this install you won\'t need it again: every Cool Reaper Script opens it from its settings window (Scripts and updates).' }
 end
 
 local function RunScript(p)
@@ -1081,7 +1227,8 @@ local function VersionCombo(p, w)
       local text = 'Version ' .. rel.tag .. (j == 1 and ' (newest)' or '') .. (about ~= '' and ('  \194\183  ' .. about) or '')
       if im.Selectable(ctx, text .. '##' .. j, p.choice == j) then p.choice = j end
     end
-    if im.Selectable(ctx, 'Development version' .. (HasValidKey(p) and '' or '  (needs a key)'), p.choice > #p.releases) then
+    if not (p.releasesOnly and #p.releases > 0)
+      and im.Selectable(ctx, 'Development version' .. (HasValidKey(p) and '' or '  (needs a key)'), p.choice > #p.releases) then
       p.choice = #p.releases + 1
     end
     im.EndCombo(ctx)
@@ -1178,7 +1325,7 @@ local function ProductCard(p, x, y, w)
     if Btn('##run' .. p.id, 'Run', rx, cy, 'ghost', rw, busy) then RunScript(p) end
     rx = rx - 16
   end
-  local keyLabel = (p.showKey and 'Hide license' or (HasValidKey(p) and 'License key' or 'Enter key / free trial'))
+  local keyLabel = p.showKey and 'Hide license' or (HasValidKey(p) and 'License' or 'Sign in / free trial')
   local lw = Mono_Caps_W(10, keyLabel, true)
   if Link('##keylink' .. p.id, dl, rx - lw, cy + 9, keyLabel, P.ink2) then
     p.showKey = not p.showKey
@@ -1186,37 +1333,44 @@ local function ProductCard(p, x, y, w)
   end
   cy = cy + BTN_H + 4
 
-  -- license key and free trial
-  if p.showKey then
+  -- sign-in: the license or free trial comes from the person's account on the site
+  if p.showKey or p.link then
     cy = cy + 10
-    Mono_Caps(dl, 10, ix, cy + 9, P.ink3, 'Key')
-    local fw = iw - 70 - Btn_W('Save') - 8
-    im.SetCursorScreenPos(ctx, ix + 70, cy)
-    im.SetNextItemWidth(ctx, fw)
-    im.PushFont(ctx, F_Mono(13))
-    local _, k = im.InputTextWithHint(ctx, '##key' .. p.id, 'xxxxxxxxxxxxxxxx-xxxxxxxx', p.keyInput or '')
-    p.keyInput = k or p.keyInput
-    im.PopFont(ctx)
-    if Btn('##save' .. p.id, 'Save', ix + iw - Btn_W('Save'), cy, 'ghost', nil, S.busy ~= nil) then
-      Busy('Checking your key...', function() SaveKey(p) end)
+    local k = p.link
+    local function Lines(text, c)
+      for _, l in ipairs(Wrap(text, F.body, iw)) do Txt(dl, F.body, 13, ix, cy, c or P.ink2, l); cy = cy + 17 end
     end
-    cy = cy + BTN_H + 10
-    if not HasValidKey(p) then
-      Mono_Caps(dl, 10, ix, cy + 9, P.ink3, 'Email')
-      local tw = Btn_W('Start free trial')
-      im.SetCursorScreenPos(ctx, ix + 70, cy)
-      im.SetNextItemWidth(ctx, iw - 70 - tw - 8)
-      im.PushFont(ctx, F.body)
-      local _, e = im.InputTextWithHint(ctx, '##email' .. p.id, 'you@example.com', S.email or '')
-      S.email = e or S.email
-      im.PopFont(ctx)
-      if Btn('##trial' .. p.id, 'Start free trial', ix + iw - tw, cy, 'ghost', tw, S.busy ~= nil) then
-        Busy('Starting your trial...', function() StartTrial(p) end)
+    if k and k.phase ~= 'starting' then
+      if k.phase == 'nolicense' then
+        Lines('Signed in as ' .. tostring(k.email) .. ', which has no ' .. p.name .. ' license yet. Start the free trial on that page, or buy a license; this updates by itself.')
+      elseif k.phase == 'limit' then
+        Lines(tostring(k.email) .. '\'s license is already on 3 computers. Remove one on your account page and this computer is added by itself.', P.amber)
+      else
+        Lines('Finish signing in in your browser. Your code:')
+        cy = cy + 4
+        Txt(dl, F_Mono(13, true), 20, ix, cy, P.ink, tostring(k.userCode))
+        cy = cy + 30
       end
-      cy = cy + BTN_H + 6
-      for _, l in ipairs(Wrap('30 days, every feature. The key is saved for ' .. p.name .. ' and emailed to you.', F.body, iw - 70)) do
-        Txt(dl, F.body, 13, ix + 70, cy, P.ink3, l); cy = cy + 17
-      end
+      cy = cy + 6
+      local ow, cw = Btn_W('Open page again'), Btn_W('Cancel')
+      if Btn('##open' .. p.id, 'Open page again', ix, cy, 'ghost', ow) then OpenUrl(k.url) end
+      if Btn('##cancel' .. p.id, 'Cancel', ix + ow + 8, cy, 'ghost', cw) then StopLink(p) end
+      cy = cy + BTN_H + 4
+    elseif k then
+      Spinner(dl, ix, cy, 'Opening the sign-in page...')
+      cy = cy + 24
+    elseif HasValidKey(p) then
+      Lines((p.lic.status == 'trial' and 'Free trial' or 'License') .. ((S.email or '') ~= '' and (' for ' .. S.email) or '') .. ', saved for ' .. p.name .. ' on this computer.')
+      cy = cy + 6
+      local bw = Btn_W('Use another account')
+      if Btn('##relink' .. p.id, 'Use another account', ix, cy, 'ghost', bw, busy) then StartLink(p) end
+      cy = cy + BTN_H + 4
+    else
+      Lines('Sign in with the account you bought ' .. p.name .. ' with. No license yet? The same page starts your free 30-day trial. This also activates this computer for ' .. p.name .. ' (3 computers per license).')
+      cy = cy + 6
+      local bw = Btn_W('Sign in with browser')
+      if Btn('##link' .. p.id, 'Sign in with browser', ix, cy, 'go', bw, busy) then StartLink(p) end
+      cy = cy + BTN_H + 4
     end
   end
 
@@ -1326,6 +1480,7 @@ local function Frame()
   elseif S.job then
     if S.job.n < #S.job.queue then InstallNext(S.job) else FinishInstall(S.job) end
   end
+  for _, p in ipairs(S.products) do LinkTick(p) end
 
   im.PushStyleVar(ctx, im.StyleVar_WindowPadding, 0, 0)
   im.PushStyleVar(ctx, im.StyleVar_WindowRounding, 0)
@@ -1375,5 +1530,6 @@ local function Frame()
   if open and not S.close then r.defer(Frame) end
 end
 
+SettleIn()
 Busy('Checking your scripts...', LoadProducts)
 r.defer(Frame)

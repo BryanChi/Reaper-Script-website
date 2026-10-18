@@ -1236,46 +1236,6 @@
 	}
 	
 	setupVideoControls();
-	// Optional: open modal for Privacy/Terms
-	function simpleModal(id, title, contentHtml) {
-		const existing = document.getElementById(id);
-		if (existing) existing.remove();
-		const wrapper = document.createElement('div');
-		wrapper.id = id;
-		wrapper.innerHTML = `
-			<div style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:1000;">
-				<div style="max-width:720px;width:92%;background:#111833;border:1px solid #1f2937;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5);">
-					<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1f2937;">
-						<strong>${title}</strong>
-						<button id="${id}-close" class="btn btn-secondary" style="padding:6px 10px;">Close</button>
-					</div>
-					<div style="padding:16px;max-height:70vh;overflow:auto;color:#e5e7eb;">
-						${contentHtml}
-					</div>
-				</div>
-			</div>`;
-		document.body.appendChild(wrapper);
-		document.getElementById(`${id}-close`).addEventListener('click', function() {
-			wrapper.remove();
-		});
-	}
-
-	const privacyLink = document.getElementById('privacyLink');
-	if (privacyLink) {
-		privacyLink.addEventListener('click', function(e) {
-			e.preventDefault();
-			simpleModal('privacy-modal', 'Privacy Policy', '<p>Add your privacy policy.</p>');
-		});
-	}
-
-	const termsLink = document.getElementById('termsLink');
-	if (termsLink) {
-		termsLink.addEventListener('click', function(e) {
-			e.preventDefault();
-			simpleModal('terms-modal', 'Terms of Use', '<p>Add your terms.</p>');
-		});
-	}
-
 	// Licensing: trial start, activation, status check
 	const apiBase = (document.body && document.body.dataset.apiBase) || '';
 	const licenseStatusEl = document.getElementById('licenseStatus');

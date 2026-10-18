@@ -1,11 +1,12 @@
 -- @description Cool Reaper Script Manager
--- @version 3.3.1
+-- @version 3.3.2
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.3.2: Windows: sign-in no longer opens a console window or taskbar button at all.
 --   3.3.1: installs ReaImGui with its Lua files (imgui.lua), so one restart is enough; fixes a
 --          ReaImGui the 3.3.0 setup left without them. Windows: no console window flashing
 --          while you sign in. "Sign in / free trial" is a full button.
@@ -23,7 +24,7 @@
 
 local r = reaper
 
-local VERSION = '3.3.1'
+local VERSION = '3.3.2'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -49,7 +50,8 @@ local RES = r.GetResourcePath()
 
 local function OpenUrl(url)
   if r.CF_ShellExecute then r.CF_ShellExecute(url) return end
-  if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', -2)
+  -- waited for, so the cmd.exe that hands the link to the browser stays hidden
+  if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', 5000)
   elseif OS:match('OSX') or OS:match('macOS') then os.execute('open "' .. url .. '"')
   else os.execute('xdg-open "' .. url .. '"') end
 end
@@ -251,11 +253,13 @@ local function AsyncPost(url, body)
   local job = { body = TempFile('body.json'), out = TempFile('out.txt'), done = TempFile('done.txt'), started = os.time() }
   if not WriteFile(job.body, JsonEncode(body)) then return nil end
   if IS_WIN then
-    -- cmd /C strips the outer quotes; ExecProcess with -2 returns at once and starts it minimized
-    -- (-1 flashes a console window on every sign-in poll)
+    -- Windows shows a console window (or a taskbar button) for anything started without waiting
+    -- (ExecProcess -1/-2), so wait for curl here instead: a waited-for ExecProcess runs hidden, like
+    -- every other request. A sign-in poll is one quick request, done while the person is in the browser.
     r.ExecProcess(string.format(
-      'cmd.exe /C ""curl" -L -s -S --max-time 15 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" "%s" & echo done>"%s""',
-      job.body, job.out, url, job.done), -2)
+      'curl -L -s -S --max-time 8 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" "%s"',
+      job.body, job.out, url), 10000)
+    WriteFile(job.done, 'done')
   else
     job.sh = TempFile('run.sh')
     if not WriteFile(job.sh, string.format("#!/bin/sh\n/usr/bin/curl -L -s -S --max-time 15 -X POST -H %s --data-binary @%s %s > %s 2>&1\necho done > %s\n",

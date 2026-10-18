@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.3.0
+-- @version 3.3.1
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.3.1: installs ReaImGui with its Lua files (imgui.lua), so one restart is enough; fixes a
+--          ReaImGui the 3.3.0 setup left without them. Windows: no console window flashing
+--          while you sign in.
 --   3.3.0: without ReaImGui the Manager no longer stops with an error: it lists the missing
 --          extensions and installs them in one click, says when only a restart is needed, and
 --          points to ReaPack when a download fails. Flags a ReaImGui too old for Vertical FX List.
@@ -20,7 +23,7 @@
 
 local r = reaper
 
-local VERSION = '3.3.0'
+local VERSION = '3.3.1'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -46,7 +49,7 @@ local RES = r.GetResourcePath()
 
 local function OpenUrl(url)
   if r.CF_ShellExecute then r.CF_ShellExecute(url) return end
-  if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', -1)
+  if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', -2)
   elseif OS:match('OSX') or OS:match('macOS') then os.execute('open "' .. url .. '"')
   else os.execute('xdg-open "' .. url .. '"') end
 end
@@ -248,10 +251,11 @@ local function AsyncPost(url, body)
   local job = { body = TempFile('body.json'), out = TempFile('out.txt'), done = TempFile('done.txt'), started = os.time() }
   if not WriteFile(job.body, JsonEncode(body)) then return nil end
   if IS_WIN then
-    -- cmd /C strips the outer quotes; ExecProcess with -1 returns at once, without a console window
+    -- cmd /C strips the outer quotes; ExecProcess with -2 returns at once and starts it minimized
+    -- (-1 flashes a console window on every sign-in poll)
     r.ExecProcess(string.format(
       'cmd.exe /C ""curl" -L -s -S --max-time 15 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" "%s" & echo done>"%s""',
-      job.body, job.out, url, job.done), -1)
+      job.body, job.out, url, job.done), -2)
   else
     job.sh = TempFile('run.sh')
     if not WriteFile(job.sh, string.format("#!/bin/sh\n/usr/bin/curl -L -s -S --max-time 15 -X POST -H %s --data-binary @%s %s > %s 2>&1\necho done > %s\n",
@@ -326,29 +330,46 @@ local function Platform()
   return { arch = 'x86_64', ext = 'so', names = { 'linux64', 'linux-x86_64', 'linux' } }
 end
 
--- Newest build of a package listed in a ReaPack index (only the extension binary)
-local function FromReaPackIndex(indexUrl, package, plat)
-  local idx = TempFile('index.xml')
-  local ok, err = Get(indexUrl, idx)
-  local xml = ok and ReadFile(idx)
-  os.remove(idx)
-  if not xml then return nil, err end
+-- Newest build of a package listed in a ReaPack index: the extension binary for this computer,
+-- plus the url of each file named in extras (ReaImGui's Lua files, which ReaPack would add)
+local indexCache = {}
+local function FromReaPackIndex(indexUrl, package, plat, extras)
+  local xml = indexCache[indexUrl]
+  if not xml then
+    local idx = TempFile('index.xml')
+    local ok, err = Get(indexUrl, idx)
+    xml = ok and ReadFile(idx)
+    os.remove(idx)
+    if not xml then return nil, err end
+    indexCache[indexUrl] = xml
+  end
   local s = xml:find('<reapack name="' .. package .. '"', 1, true)
   if not s then return nil, package .. ' not listed' end
   local block = xml:sub(s, (xml:find('</reapack>', s, true) or #xml))
   local last
   for v in block:gmatch('<version.-</version>') do last = v end -- versions are listed oldest first
   if not last then return nil, 'no versions of ' .. package end
-  for rank, name in ipairs(plat.names) do
-    for attrs, url in last:gmatch('<source([^>]*)>([^<]+)</source>') do
-      local p = attrs:match('platform="([^"]+)"') or 'all'
-      local file = attrs:match('file="([^"]+)"') or url:match('([^/]+)$')
-      if p == name and file:match('%.' .. plat.ext .. '$') then
-        return { url = url:gsub('&amp;', '&'), file = file:match('([^/\\]+)$') }
-      end
+  local sources = {}
+  for attrs, url in last:gmatch('<source([^>]*)>([^<]+)</source>') do
+    local file = attrs:match('file="([^"]+)"') or url:match('([^/]+)$')
+    sources[#sources + 1] = { platform = attrs:match('platform="([^"]+)"') or 'all',
+      file = file:match('([^/\\]+)$'), url = (url:gsub('&amp;', '&')) }
+  end
+  local found
+  for _, name in ipairs(plat.names) do
+    for _, src in ipairs(sources) do
+      if not found and src.platform == name and src.file:match('%.' .. plat.ext .. '$') then found = src end
     end
   end
-  return nil, 'no build of ' .. package .. ' for this computer'
+  if not found then return nil, 'no build of ' .. package .. ' for this computer' end
+  local res = { url = found.url, file = found.file, extras = {} }
+  for _, want in ipairs(extras or {}) do
+    for _, src in ipairs(sources) do
+      if src.file == want then res.extras[#res.extras + 1] = src end
+    end
+  end
+  if #res.extras < #(extras or {}) then return nil, 'some of ' .. package .. '\'s files aren\'t listed' end
+  return res
 end
 
 -- The scripts' settings windows ("Scripts and updates") run the Manager from here.
@@ -400,7 +421,12 @@ local EXTENSIONS = {
     loaded = function() return r.ImGui_GetBuiltinPath ~= nil end,
     -- Vertical FX List needs 0.10 (Col_InputTextCursor is new in it); the Manager itself 0.9.3
     outdated = function() return r.ImGui_Col_InputTextCursor == nil end,
-    asset = 'https://github.com/cfillion/reaimgui/releases/latest/download/reaper_imgui-%s.%s' },
+    -- scripts load ReaImGui through imgui.lua, which ReaPack puts next to the binary's API docs
+    index = 'https://github.com/ReaTeam/Extensions/raw/master/index.xml', package = 'reaper_imgui.ext',
+    extras = { 'imgui.lua', 'gfx2imgui.lua' },
+    extrasDir = function()
+      return r.ImGui_GetBuiltinPath and r.ImGui_GetBuiltinPath() or (RES .. '/Scripts/ReaTeam Extensions/API')
+    end },
   { name = 'js_ReaScriptAPI', why = 'mouse and window helpers', file = 'reaper_js_ReaScriptAPI',
     loaded = function() return r.JS_Window_Find ~= nil end,
     index = 'https://github.com/ReaTeam/Extensions/raw/master/index.xml', package = 'js_ReaScriptAPI.ext' },
@@ -435,9 +461,18 @@ end
 
 -- 'ok', 'outdated', 'restart' (downloaded, loads after a restart) or 'missing'
 local downloadedNow = {} -- names installed by this run
+-- loaded, but its Lua files are missing (an older Manager downloaded only the binary)
+local function ExtrasMissing(e)
+  if not e.extras then return false end
+  for _, f in ipairs(e.extras) do
+    if not Exists(NativePath(e.extrasDir() .. '/' .. f)) then return true end
+  end
+  return false
+end
+
 local function ExtStatus(e)
   if downloadedNow[e.name] then return 'restart' end
-  if e.loaded() then return (e.outdated and e.outdated()) and 'outdated' or 'ok' end
+  if e.loaded() then return ((e.outdated and e.outdated()) or ExtrasMissing(e)) and 'outdated' or 'ok' end
   return OnDisk(e) and 'restart' or 'missing'
 end
 
@@ -451,41 +486,54 @@ local function MissingExtensions()
   return list
 end
 
--- Installs the given extensions; returns names installed and { name, why } failures
+-- Installs the given extensions; returns names installed, { name, why } failures, and whether
+-- REAPER has to restart to load them (not when only Lua files were missing)
 local function InstallExtensions(list)
   local plat = Platform()
   r.RecursiveCreateDirectory(PLUGINS, 0)
-  local done, failed = {}, {}
+  local done, failed, restart = {}, {}, false
   for _, e in ipairs(list) do
-    local url, file, err
+    local url, file, extras, err
     if e.asset then
       local arch = (plat.arch == 'arm64ec' and not e.hasArm64ec) and plat.fallback or plat.arch
       url = e.asset:format(arch, plat.ext)
       file = url:match('([^/]+)$')
     else
       local found
-      found, err = FromReaPackIndex(e.index, e.package, plat)
-      if found then url, file = found.url, found.file end
+      found, err = FromReaPackIndex(e.index, e.package, plat, e.extras)
+      if found then url, file, extras = found.url, found.file, found.extras end
     end
-    local ok = false
-    if url then ok, err = Get(url, PLUGINS .. SEP .. file) end
+    -- the loaded binary is current: only its Lua files are needed
+    local binary = not (e.loaded() and not (e.outdated and e.outdated()))
+    local ok = url ~= nil
+    if ok and binary then
+      ok, err = Get(url, PLUGINS .. SEP .. file)
+      -- Windows won't let anyone replace an extension REAPER has loaded
+      if not ok and e.loaded() and err and err:find('could not write') then err = 'REAPER is using the old version' end
+    end
+    if ok and extras and #extras > 0 then
+      local dir = NativePath(e.extrasDir())
+      r.RecursiveCreateDirectory(dir, 0)
+      for _, x in ipairs(extras) do
+        if ok then ok, err = Get(x.url, dir .. SEP .. x.file) end
+      end
+    end
     if ok then
       done[#done + 1] = e.name
-      downloadedNow[e.name] = true
+      if binary then downloadedNow[e.name], restart = true, true end
     else
-      -- Windows won't let anyone replace an extension REAPER has loaded
-      if e.loaded() and err and err:find('could not write') then err = 'REAPER is using the old version' end
       failed[#failed + 1] = { name = e.name, why = err or 'download failed' }
     end
   end
-  return done, failed
+  return done, failed, restart
 end
 
 local FIND_MANAGER = 'It\'s in Actions > Show action list: search for "Cool Reaper Script Manager".'
 
-local function ExtensionReport(done, failed)
+local function ExtensionReport(done, failed, restart)
   local msg = ''
-  if #done > 0 then msg = 'Installed ' .. table.concat(done, ', ') .. '.\n\nRestart REAPER, then run the Script Manager again.' end
+  if #done > 0 then msg = 'Installed ' .. table.concat(done, ', ') .. '.'
+    .. (restart and '\n\nRestart REAPER, then run the Script Manager again.' or '') end
   if #failed > 0 then
     local lines = {}
     for _, f in ipairs(failed) do lines[#lines + 1] = f.name .. ': ' .. f.why end
@@ -505,6 +553,7 @@ if imguiOK then
   imguiOK = ok and type(imgui) == 'function' and pcall(imgui, '0.9.3')
 end
 
+-- Returns a note for the window when it can open after all (only ReaImGui's Lua files were missing)
 local function SetupWithoutWindow()
   local box = TITLE .. ': setup'
   local function Bullets(list)
@@ -516,7 +565,7 @@ local function SetupWithoutWindow()
   for _, e in ipairs(EXTENSIONS) do
     if ExtStatus(e) == 'restart' then waiting[#waiting + 1] = e end
   end
-  -- ReaImGui loaded but this REAPER can't use it: download the current one over it
+  -- ReaImGui loaded but scripts can't use it: fetch its files again
   local imgui = EXTENSIONS[2]
   if ExtStatus(imgui) == 'ok' then table.insert(todo, 1, imgui) end
 
@@ -536,8 +585,16 @@ local function SetupWithoutWindow()
   end
   if r.ShowMessageBox(msg, box, 4) ~= 6 then return end
 
-  local done, failed = InstallExtensions(todo)
-  local report = ExtensionReport(done, failed)
+  local done, failed, restart = InstallExtensions(todo)
+  local report = ExtensionReport(done, failed, restart)
+  if r.ImGui_GetBuiltinPath then
+    package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
+    package.loaded.imgui = nil
+    local ok, imgui = pcall(require, 'imgui')
+    if ok and type(imgui) == 'function' and pcall(imgui, '0.9.3') then
+      return { kind = #failed > 0 and 'warn' or 'ok', text = report }
+    end
+  end
   if #done > 0 then report = report .. '\n\n' .. FIND_MANAGER end
   if #failed == 0 then
     r.ShowMessageBox(report, box, 0)
@@ -548,9 +605,10 @@ local function SetupWithoutWindow()
   end
 end
 
+local SETUP_NOTE
 if not imguiOK then
-  SetupWithoutWindow()
-  return
+  SETUP_NOTE = SetupWithoutWindow()
+  if not SETUP_NOTE then return end
 end
 local im = require 'imgui' '0.9.3'
 
@@ -1511,8 +1569,8 @@ local function ExtensionsCard(x, y, w)
       or ((ExtStatus(one) == 'outdated' and 'Update ' or 'Install ') .. one.name)
     if Btn('##extinst', label, ix, cy, 'go', nil, S.busy ~= nil) then
       Busy('Downloading extensions...', function()
-        local done, failed = InstallExtensions(toInstall)
-        S.msg = { kind = #failed > 0 and 'warn' or 'ok', text = ExtensionReport(done, failed) }
+        local done, failed, restart = InstallExtensions(toInstall)
+        S.msg = { kind = #failed > 0 and 'warn' or 'ok', text = ExtensionReport(done, failed, restart) }
       end)
     end
     cy = cy + BTN_H + 6
@@ -1637,7 +1695,7 @@ local function Frame()
   if open and not S.close then r.defer(Frame) end
 end
 
-S.msg = SETTLE_NOTE
+S.msg = SETUP_NOTE or SETTLE_NOTE
 if not S.msg and #MissingExtensions() > 0 then
   S.msg = { kind = 'warn', text = 'Some free extensions the scripts need are missing or too old. Install them at the bottom of this window.' }
 end

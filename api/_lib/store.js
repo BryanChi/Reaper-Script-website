@@ -76,6 +76,27 @@ function generateLicenseKey() {
 	return `${crypto.randomBytes(8).toString('hex')}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
+// A purchase includes this many years of updates: releases published after that still need a new
+// purchase, but the copy already installed keeps working. Buying the same script again with the same
+// email adds the years to that license (same key, same computers) instead of issuing a new one.
+const UPDATE_YEARS = 2;
+
+function addYears(ms, years) {
+	const d = new Date(ms);
+	d.setUTCFullYear(d.getUTCFullYear() + years);
+	return d.getTime();
+}
+
+// When a license's updates end (ms): its updates_until, or purchase date + UPDATE_YEARS for rows
+// that have none (issued before renewals, or added on the admin page)
+function updatesUntil(row) {
+	if (!row) return null;
+	const until = row.updates_until || row.updatesUntil;
+	if (until) return new Date(until).getTime();
+	const created = row.created_at || row.createdAt;
+	return created ? addYears(new Date(created).getTime(), UPDATE_YEARS) : null;
+}
+
 async function memStartTrial(email, product) {
 	const store = getMemoryStore();
 	const normalized = normalizeEmail(email);
@@ -135,7 +156,7 @@ async function memVerifyLicense(licenseKey, deviceId, product) {
 		const isActive = license.status === 'active';
 		const notExpired = !license.expiresAt || now < license.expiresAt;
 		if (isActive && notExpired) {
-			return { ok: true, status: 'active', expiresAt: license.expiresAt || null, licenseKey: licenseKey };
+			return { ok: true, status: 'active', expiresAt: license.expiresAt || null, updatesUntil: updatesUntil(license), licenseKey: licenseKey };
 		}
 		return { ok: false, status: 'expired', reason: 'License expired or inactive' };
 	}
@@ -269,6 +290,10 @@ async function activateLicense(email, providedKey, productInput) {
 
 // The license a paid order gets. The key comes from the order id, so the same order always gets the
 // same key, and an existing row (perhaps revoked after a refund) is returned as it is, never re-activated.
+// When the buyer already has an active license for this script, the order renews it instead: its
+// updates run UPDATE_YEARS longer (from today, or from their current end if that's later) and the
+// buyer keeps their key and computers. The order's own key is then saved as an inactive row that
+// "renews" the license, so a repeated request for the same order doesn't renew it twice.
 async function issuePurchaseLicense(email, licenseKey, productInput) {
 	const normalized = normalizeEmail(email);
 	if (!normalized) return { ok: false, error: 'Email required' };
@@ -279,8 +304,20 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 	if (!supabase) {
 		const store = getMemoryStore();
 		const existing = store.licenses[licenseKey];
-		if (existing) return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expiresAt || null, product: rowProduct(existing), existing: true };
-		return memActivateLicense(email, licenseKey, product);
+		if (existing && existing.renews) {
+			const lic = store.licenses[existing.renews];
+			return { ok: true, licenseKey: existing.renews, email: lic.email, status: lic.status, expiresAt: lic.expiresAt || null, updatesUntil: updatesUntil(lic), product, renewed: true, existing: true };
+		}
+		if (existing) return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expiresAt || null, updatesUntil: updatesUntil(existing), product: rowProduct(existing), existing: true };
+		const current = Object.entries(store.licenses).find(([, l]) => l.email === normalized && l.status === 'active' && rowProduct(l) === product && !l.expiresAt);
+		if (current) {
+			const [currentKey, lic] = current;
+			lic.updatesUntil = iso(addYears(Math.max(Date.now(), updatesUntil(lic) || 0), UPDATE_YEARS));
+			store.licenses[licenseKey] = { email: normalized, product, status: 'inactive', createdAt: iso(Date.now()), expiresAt: Date.now(), renews: currentKey };
+			return { ok: true, licenseKey: currentKey, status: 'active', expiresAt: null, updatesUntil: updatesUntil(lic), product, renewed: true };
+		}
+		const made = await memActivateLicense(email, licenseKey, product);
+		return Object.assign(made, { updatesUntil: updatesUntil(store.licenses[licenseKey]), product });
 	}
 
 	const { data: existing, error: findErr } = await supabase
@@ -289,8 +326,48 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 		.eq('license_key', licenseKey)
 		.maybeSingle();
 	if (findErr) return { ok: false, error: findErr.message || 'Unable to look up license' };
+	if (existing && existing.renews) {
+		const { data: lic } = await supabase.from('licenses').select('*').eq('license_key', existing.renews).maybeSingle();
+		if (lic) return { ok: true, licenseKey: lic.license_key, email: lic.email, status: lic.status, expiresAt: lic.expires_at || null, updatesUntil: updatesUntil(lic), product: rowProduct(lic), renewed: true, existing: true };
+	}
 	if (existing) {
-		return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expires_at || null, product: rowProduct(existing), existing: true };
+		return { ok: true, licenseKey, email: existing.email, status: existing.status, expiresAt: existing.expires_at || null, updatesUntil: updatesUntil(existing), product: rowProduct(existing), existing: true };
+	}
+
+	// The license this order renews: the buyer's newest active one for this script (one that never
+	// expires, so a time-limited key handed out on the admin page isn't the one extended)
+	const { data: currentRows, error: curErr } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', normalized)
+		.eq('product', product)
+		.eq('status', 'active')
+		.is('expires_at', null)
+		.order('created_at', { ascending: false })
+		.limit(1);
+	if (curErr) return { ok: false, error: curErr.message || 'Unable to look up license' };
+	const current = currentRows && currentRows[0];
+	if (current) {
+		const now = Date.now();
+		const until = addYears(Math.max(now, updatesUntil(current) || 0), UPDATE_YEARS);
+		// the order's row first: its key is unique, so two requests for one order can't both renew
+		const { error: markErr } = await supabase
+			.from('licenses')
+			.insert({ license_key: licenseKey, email: normalized, product, status: 'inactive', created_at: iso(now), expires_at: iso(now), renews: current.license_key });
+		if (markErr) {
+			if (markErr.code === '23505') return issuePurchaseLicense(email, licenseKey, product);
+			return { ok: false, error: markErr.message || 'Unable to renew license' };
+		}
+		const { error: updErr } = await supabase
+			.from('licenses')
+			.update({ updates_until: iso(until) })
+			.eq('license_key', current.license_key);
+		if (updErr) {
+			// undo, so asking again for this order renews it
+			await supabase.from('licenses').delete().eq('license_key', licenseKey);
+			return { ok: false, error: updErr.message || 'Unable to renew license' };
+		}
+		return { ok: true, licenseKey: current.license_key, email: current.email, status: 'active', expiresAt: null, updatesUntil: until, product, renewed: true };
 	}
 
 	const now = Date.now();
@@ -299,7 +376,7 @@ async function issuePurchaseLicense(email, licenseKey, productInput) {
 		.from('licenses')
 		.insert({ license_key: licenseKey, email: normalized, product, status: 'active', created_at: iso(now), expires_at: null });
 	if (insErr) return { ok: false, error: insErr.message || 'Unable to issue license' };
-	return { ok: true, licenseKey, status: 'active', expiresAt: null, product };
+	return { ok: true, licenseKey, status: 'active', expiresAt: null, updatesUntil: addYears(now, UPDATE_YEARS), product };
 }
 
 // The email of the site account a Supabase access token belongs to, or null if the token isn't valid
@@ -367,7 +444,7 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 			}
 		}
 
-		return { ok: true, status: 'active', expiresAt: exp, licenseKey: lic.license_key };
+		return { ok: true, status: 'active', expiresAt: exp, updatesUntil: updatesUntil(lic), licenseKey: lic.license_key };
 	}
 
 	// If not found in licenses, check if it's a trial license key
@@ -445,6 +522,7 @@ async function getLicenseOrTrialStatus(email, productInput) {
 					ok: true,
 					status: 'active',
 					expiresAt: lic.expiresAt || null,
+					updatesUntil: updatesUntil(lic),
 					licenseKey: licenseKey
 				};
 			}
@@ -485,6 +563,7 @@ async function getLicenseOrTrialStatus(email, productInput) {
 				ok: true,
 				status: 'active',
 				expiresAt: exp,
+				updatesUntil: updatesUntil(license),
 				licenseKey: license.license_key
 			};
 		}
@@ -537,6 +616,7 @@ async function getLicenseInfo(email, productInput) {
 				licenseKey,
 				status: 'active',
 				expiresAt: lic.expiresAt || null,
+				updatesUntil: updatesUntil(lic),
 				activations: [] // Memory store doesn't support activations
 			};
 		}
@@ -619,6 +699,7 @@ async function getLicenseInfo(email, productInput) {
 			licenseKey,
 			status: 'active',
 			expiresAt: license.expires_at ? new Date(license.expires_at).getTime() : null,
+			updatesUntil: updatesUntil(license),
 			activations: (activations && Array.isArray(activations)) ? activations : []
 		};
 	}
@@ -1059,7 +1140,8 @@ module.exports = {
 	normalizeProduct,
 	DEFAULT_PRODUCT,
 	generateLicenseKey,
-	getMemoryStore
+	getMemoryStore,
+	updatesUntil
 };
 
 

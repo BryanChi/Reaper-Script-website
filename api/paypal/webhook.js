@@ -131,7 +131,7 @@ module.exports = async function handler(req, res) {
 				application_context: { shipping_preference: 'NO_SHIPPING', brand_name: 'Cool Reaper Scripts' },
 				purchase_units: [{
 					amount: { currency_code: 'USD', value: q.json.price },
-					description: `${PRODUCTS[q.product].name} for REAPER - Lifetime License` + (q.discount ? ` (${q.discount.label} ${q.discount.percent}% off)` : ''),
+					description: `${PRODUCTS[q.product].name} for REAPER - License with 2 years of updates` + (q.discount ? ` (${q.discount.label} ${q.discount.percent}% off)` : ''),
 					custom_id: q.product + (q.discount ? `|${q.discount.id}|${discountSig(q.product, q.discount.id)}` : '')
 				}]
 			} });
@@ -220,6 +220,7 @@ module.exports = async function handler(req, res) {
 		return res.status(200).json({
 			ok: true, orderId, email: payerEmail, emailSource, product,
 			licenseKey: licenseResult.licenseKey, status: licenseResult.status, expiresAt: licenseResult.expiresAt || null,
+			updatesUntil: licenseResult.updatesUntil || null, renewed: !!licenseResult.renewed,
 			emailSent: false, emailError: null
 		});
 	}
@@ -253,7 +254,8 @@ module.exports = async function handler(req, res) {
 	if (!emailError) {
 		try {
 			const mail = buildPurchaseEmail({
-				productName, product, licenseKey: licenseResult.licenseKey, email: payerEmail, payerName, orderId
+				productName, product, licenseKey: licenseResult.licenseKey, email: payerEmail, payerName, orderId,
+				updatesUntil: licenseResult.updatesUntil, renewed: !!licenseResult.renewed
 			});
 			const emailResponse = await resend.emails.send({
 				from: fromEmail,
@@ -292,6 +294,8 @@ module.exports = async function handler(req, res) {
 		licenseKey: licenseResult.licenseKey,
 		status: licenseResult.status,
 		expiresAt: licenseResult.expiresAt || null,
+		updatesUntil: licenseResult.updatesUntil || null,
+		renewed: !!licenseResult.renewed,
 		emailSent,
 		emailError: emailError || null
 	});

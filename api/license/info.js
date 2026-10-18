@@ -61,6 +61,7 @@ module.exports = async function handler(req, res) {
 		licenseKey: result.licenseKey,
 		status: result.status,
 		expiresAt: result.expiresAt || null,
+		updatesUntil: result.updatesUntil || null,
 		activations: result.activations || []
 	};
 

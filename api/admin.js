@@ -202,7 +202,8 @@ module.exports = async function handler(req, res) {
 		if (!email) return res.status(400).json({ ok: false, error: 'Email required' });
 		if (!product) return res.status(400).json({ ok: false, error: 'Unknown product' });
 		const mail = buildPurchaseEmail({
-			productName: PRODUCTS[product].name, product, licenseKey: 'SAMPLE-KEY-NOT-A-LICENSE', email, payerName: '', orderId: 'PREVIEW'
+			productName: PRODUCTS[product].name, product, licenseKey: 'SAMPLE-KEY-NOT-A-LICENSE', email, payerName: '', orderId: 'PREVIEW',
+			updatesUntil: new Date().setUTCFullYear(new Date().getUTCFullYear() + 2)
 		});
 		const sent = await sendEmail({ to: email, subject: '[Preview] ' + mail.subject, html: mail.html, text: mail.text });
 		return res.status(sent.ok ? 200 : 502).json(sent);

@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.5.0
+-- @version 3.6.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.6.0: shows until when your license gets updates (2 years per purchase). Newer versions are
+--          marked "renew to get it" and a Renew button appears; Update picks the newest version
+--          your license includes.
 --   3.5.0: FX Devices: skips the layout backgrounds of plugins you don't have (a smaller, quicker
 --          download); FX Devices fetches one if you get that plugin later.
 --   3.4.0: a progress window while the free extensions download (no frozen REAPER on macOS;
@@ -28,7 +31,7 @@
 
 local r = reaper
 
-local VERSION = '3.5.0'
+local VERSION = '3.6.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -821,8 +824,25 @@ local function IsDev(v) return v == 'development version' end
 -- newest release when there is one
 local function Latest(p) return p.releases[1] and p.releases[1].tag or nil end
 
+-- a license includes the releases published until its updates end (2 years per purchase); the
+-- site marks the newer ones included = false
+local function Included(rel) return rel and rel.included ~= false end
+
+-- index of the newest release this license includes (1 for trials and older licenses)
+local function NewestIncluded(p)
+  for i, rel in ipairs(p.releases) do if Included(rel) then return i end end
+  return nil
+end
+
+-- "18 Oct 2028" from the site's milliseconds
+local function DateText(ms) return ms and os.date('%d %b %Y', math.floor(ms / 1000)) or '' end
+
+-- the license's updates ended before the newest release came out
+local function NeedsRenewal(p) return p.releases[1] ~= nil and not Included(p.releases[1]) end
+
 local function UpdateAvailable(p)
-  local inst, latest = p.installed, Latest(p)
+  local i = NewestIncluded(p)
+  local inst, latest = p.installed, i and p.releases[i].tag
   if not inst or not latest or IsDev(inst) or inst == 'installed' then return false end
   return inst ~= latest
 end
@@ -845,7 +865,7 @@ local function CheckLicense(p)
   if p.key == '' then p.lic = { status = 'none' } return end
   local data, err, body = Api(VERIFY_URL, { licenseKey = p.key, product = p.id })
   if data and (data.status == 'active' or data.status == 'trial') then
-    p.lic = { status = data.status, expiresAt = data.expiresAt }
+    p.lic = { status = data.status, expiresAt = data.expiresAt, updatesUntil = data.updatesUntil }
   elseif not data and not body then
     -- offline: what the script last saw
     local st = p.licenseSection and r.GetExtState(p.licenseSection, 'status') or ''
@@ -987,18 +1007,20 @@ local function LoadProducts()
   S.products = {}
   for _, p in ipairs(list.products or {}) do
     local prev = old[p.id]
-    local rel = Api(API, { action = 'releases', product = p.id })
+    if prev then p.keyInput, p.showKey, p.link = prev.keyInput, prev.showKey, prev.link end
+    CheckLicense(p)
+    -- with the key, the site says which releases the license includes
+    local rel = Api(API, { action = 'releases', product = p.id, licenseKey = Owned(p) and p.key or nil })
     p.releases = {}
     for _, x in ipairs(rel and rel.releases or {}) do
       -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
       if not x.prerelease and tostring(x.tag):match('^%a*%d') then p.releases[#p.releases + 1] = x end
     end
     p.branch = rel and rel.branch or 'main'
-    p.choice = 1 -- newest release, or the development version when there are none
+    -- newest release the license includes, or the development version when there are none
+    p.choice = NewestIncluded(p) or #p.releases + 1
     p.installed = InstalledVersion(p)
     if p.installed and IsDev(p.installed) then p.choice = #p.releases + 1 end
-    if prev then p.keyInput, p.showKey, p.link = prev.keyInput, prev.showKey, prev.link end
-    CheckLicense(p)
     -- a script with no releases needs a key; show where to put it
     if #p.releases == 0 and not HasValidKey(p) and p.showKey == nil then p.showKey = true end
     S.products[#S.products + 1] = p
@@ -1546,7 +1568,7 @@ local function Header(dl, x, y, w)
     local label = 'Update all (' .. #pending .. ')'
     local bw = Btn_W(label)
     if Btn('##updall', label, rx - bw, y + (HEADER_H - BTN_H) / 2, 'go', bw) then
-      for _, p in ipairs(pending) do p.choice = 1 end
+      for _, p in ipairs(pending) do p.choice = NewestIncluded(p) or 1 end
       S.updateAll = pending
       Busy('Getting the file list...', function() StartInstall(table.remove(S.updateAll, 1)) end)
     end
@@ -1574,6 +1596,10 @@ local function VersionLine(p)
   local latest = Latest(p)
   if latest then parts[#parts + 1] = 'Latest \194\183 v' .. latest:gsub('^[vV]', '')
   else parts[#parts + 1] = 'No release yet' end
+  local upto = Owned(p) and p.lic.updatesUntil
+  if upto then
+    parts[#parts + 1] = (upto < os.time() * 1000 and 'Updates ended ' or 'Updates until ') .. DateText(upto)
+  end
   return table.concat(parts, '     ')
 end
 
@@ -1588,6 +1614,7 @@ local function VersionCombo(p, w)
       if about:match('^%a*%d[%d%.]*$') then about = '' end -- just the version again
       if #about > 40 then about = about:sub(1, 38) .. '...' end
       local text = 'Version ' .. rel.tag .. (j == 1 and ' (newest)' or '') .. (about ~= '' and ('  \194\183  ' .. about) or '')
+        .. (Included(rel) and '' or '  (renew to get it)')
       if im.Selectable(ctx, text .. '##' .. j, p.choice == j) then p.choice = j end
     end
     if not (p.releasesOnly and #p.releases > 0)
@@ -1624,10 +1651,10 @@ local function ProductCard(p, x, y, w)
   local bx = ix + iw
   local primary, kind
   if not p.installed then primary, kind = 'Install', 'go'
-  elseif UpdateAvailable(p) and p.choice == 1 then primary, kind = 'Update', 'go'
+  elseif UpdateAvailable(p) and p.choice == NewestIncluded(p) then primary, kind = 'Update', 'go'
   elseif IsDev(p.installed) and p.choice > #p.releases then primary, kind = 'Update', 'ghost'
   else primary, kind = 'Reinstall', 'ghost' end
-  if p.installed and p.choice ~= 1 and p.releases[p.choice] and p.releases[p.choice].tag ~= p.installed then
+  if p.installed and p.choice ~= NewestIncluded(p) and p.releases[p.choice] and p.releases[p.choice].tag ~= p.installed then
     primary, kind = 'Install this version', 'ghost'
   end
   local pw = Btn_W(primary)
@@ -1635,10 +1662,12 @@ local function ProductCard(p, x, y, w)
   if Btn('##prim' .. p.id, primary, bx, cy, kind, pw, busy) then
     Busy('Getting the file list...', function() StartInstall(p) end)
   end
-  if not Owned(p) then
-    local bw = Btn_W('Buy')
+  if not Owned(p) or NeedsRenewal(p) then
+    -- buying again with the same email renews the updates on the same key
+    local buy = Owned(p) and 'Renew' or 'Buy'
+    local bw = Btn_W(buy)
     bx = bx - 8 - bw
-    if Btn('##buy' .. p.id, 'Buy', bx, cy, 'buy', bw) then OpenUrl(p.buyUrl or (SITE .. '/#pricing')) end
+    if Btn('##buy' .. p.id, buy, bx, cy, 'buy', bw) then OpenUrl(p.buyUrl or (SITE .. '/#pricing')) end
   end
   cy = cy + 36
 

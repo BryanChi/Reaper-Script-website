@@ -55,11 +55,23 @@ function inlineHtml(s) {
 }
 const inlineText = s => s.replace(/\{(?:b|code):([^}]*)\}/g, '$1');
 
-function buildPurchaseEmail({ productName, product, licenseKey, email, payerName, orderId }) {
+// "18 October 2028"
+function longDate(ms) {
+	return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+// The line about updates: a purchase includes 2 years of them, and buying again renews the same license
+function updatesLine(productName, updatesUntil, renewed) {
+	const until = updatesUntil ? ` until ${longDate(updatesUntil)}` : '';
+	if (renewed) return `Thank you for renewing ${productName}. Your updates now run${until}, on the same key and computers as before.`;
+	return `Thank you for buying ${productName}. Your license includes 2 years of updates${until}, through the Script Manager.`;
+}
+
+function buildPurchaseEmail({ productName, product, licenseKey, email, payerName, orderId, updatesUntil, renewed }) {
 	const info = SCRIPT_INFO[product] || SCRIPT_INFO['vertical-fx-list'];
 	const steps = setupSteps(productName, product, email);
 	const hi = payerName ? `Hi ${payerName},` : 'Hi there,';
-	const subject = `Your ${productName} license, and how to set it up`;
+	const subject = renewed ? `Your ${productName} updates are renewed` : `Your ${productName} license, and how to set it up`;
 
 	const kicker = (num, label) => `
 		<div style="font-family:${F.mono};font-size:11px;line-height:1;letter-spacing:3px;text-transform:uppercase;color:${C.ink2};">
@@ -109,7 +121,7 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 		<tr><td style="padding:40px 28px 8px;">
 			${kicker('01', 'Payment received')}
 			<h1 style="margin:18px 0 0;font-family:${F.display};font-weight:400;font-size:44px;line-height:1;text-transform:uppercase;letter-spacing:0.5px;color:${C.ink};">${esc(productName)} is yours.<br><span style="color:${C.acc};">Let's get it running.</span></h1>
-			<p style="margin:22px 0 0;font-family:${F.ui};font-size:16px;line-height:1.6;color:${C.ink2};">${esc(hi)} thank you for buying ${esc(productName)}. Your license is lifetime, with updates through the Script Manager. Here's everything you need to set it up.</p>
+			<p style="margin:22px 0 0;font-family:${F.ui};font-size:16px;line-height:1.6;color:${C.ink2};">${esc(hi)} ${esc(updatesLine(productName, updatesUntil, renewed).replace(/^T/, 't'))} Here's everything you need to set it up.</p>
 		</td></tr>
 
 		<!-- the email to sign in with -->
@@ -166,7 +178,7 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 	const text = [
 		`${hi}`,
 		'',
-		`Thank you for buying ${productName}. Your license is lifetime, with updates through the Script Manager.`,
+		updatesLine(productName, updatesUntil, renewed),
 		'',
 		'ACTIVATE WITH THIS EMAIL',
 		email,

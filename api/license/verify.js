@@ -43,6 +43,7 @@ module.exports = async function handler(req, res) {
 		ok: result.ok !== false,
 		status: result.status,
 		expiresAt: result.expiresAt || null,
+		updatesUntil: result.updatesUntil || null,
 		reason: result.reason || null,
 		licenseKey: result.licenseKey || null
 	});

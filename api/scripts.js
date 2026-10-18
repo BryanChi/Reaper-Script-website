@@ -9,6 +9,9 @@
 // repos can be private and each copy can be traced: the main script of every download carries a
 // code naming the key it was downloaded with (downloadStamp; the admin page traces it back).
 // Only published releases and the product's main branch are served, never other branches.
+// A license includes the releases published until its updates end (2 years per purchase): newer
+// ones answer 403 with updatesEnded, and once updates end the main branch isn't served either.
+// action=releases with a licenseKey also says which releases the license includes.
 //
 // Files are read from GitHub on the server. Set GITHUB_TOKEN (a fine-grained token with read-only
 // "Contents" access to the script repos) so this keeps working when the repos are private.
@@ -137,25 +140,45 @@ module.exports = async function handler(req, res) {
 			return res.status(404).json({ ok: false, error: 'Install the newest release; the development version isn\'t available for ' + product.name + '.' });
 		}
 		// files and downloads are for license and trial holders (device activation isn't needed to download)
-		let key = '';
+		const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
+		// when this license's updates end (ms), null for trials
+		let until = null;
 		if (action !== 'releases') {
-			key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
 			if (!key) return res.status(401).json({ ok: false, error: 'License key required. Start a free trial or enter your license key.' });
 			const lic = await verifyLicense(key, null, input.product);
 			if (!lic || !lic.ok) {
 				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
 			}
+			if (lic.status === 'active') until = lic.updatesUntil || null;
+			const rel = releases.find(r => r.tag_name === ref);
+			const ended = until && (rel ? new Date(rel.published_at).getTime() > until : Date.now() > until);
+			if (ended) {
+				const newest = releases.find(r => !r.prerelease && new Date(r.published_at).getTime() <= until);
+				const date = new Date(until).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+				return res.status(403).json({
+					ok: false, updatesEnded: true, updatesUntil: until, newestIncluded: newest ? newest.tag_name : null, buyUrl: product.buyUrl,
+					error: `Your ${product.name} updates ended on ${date}, before this version came out. Buy ${product.name} again to renew them for 2 years` +
+						(newest ? `, or install ${newest.tag_name}.` : '.')
+				});
+			}
 		}
 
 		if (action === 'releases') {
+			// a key is optional here: with one, each release says whether the license includes it
+			if (key) {
+				const lic = await verifyLicense(key, null, input.product);
+				if (lic && lic.ok && lic.status === 'active') until = lic.updatesUntil || null;
+			}
 			return res.status(200).json({
 				ok: true,
 				branch: product.branch,
+				updatesUntil: until,
 				releases: releases.map(r => ({
 					tag: r.tag_name,
 					name: r.name || r.tag_name,
 					publishedAt: r.published_at,
 					prerelease: !!r.prerelease,
+					included: !until || new Date(r.published_at).getTime() <= until,
 					notes: (r.body || '').slice(0, 4000)
 				}))
 			});

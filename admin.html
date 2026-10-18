@@ -642,7 +642,10 @@
 
 			tbody.innerHTML = licenses.map(lic => {
 				const created = lic.created_at ? new Date(lic.created_at).toLocaleString() : 'N/A';
-				const expires = lic.expires_at ? new Date(lic.expires_at).toLocaleString() : 'Lifetime';
+				// renewal orders get their own inactive row naming the license they renewed (2 more years of updates)
+				const upd = lic.updates_until || (lic.created_at ? new Date(new Date(lic.created_at).setUTCFullYear(new Date(lic.created_at).getUTCFullYear() + 2)) : null);
+				const expires = lic.renews ? `Renewal of ${escapeHtml(lic.renews)}`
+					: (lic.expires_at ? new Date(lic.expires_at).toLocaleString() : 'Never') + (upd ? ` · updates until ${new Date(upd).toLocaleDateString()}` : '');
 				const status = lic.status || 'inactive';
 				// Escape license key and email for use in JavaScript strings
 				const licenseKeyEscaped = escapeJsString(lic.license_key || '');

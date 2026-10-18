@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.2.0
+-- @version 3.3.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.3.0: without ReaImGui the Manager no longer stops with an error: it lists the missing
+--          extensions and installs them in one click, says when only a restart is needed, and
+--          points to ReaPack when a download fails. Flags a ReaImGui too old for Vertical FX List.
 --   3.2.0: "Sign in with browser" replaces the key box and the email trial (the same sign-in the
 --          scripts use, and it activates this computer for the script too). Run from Downloads,
 --          the Manager moves itself into REAPER's Scripts folder and its Actions list.
@@ -17,7 +20,7 @@
 
 local r = reaper
 
-local VERSION = '3.2.0'
+local VERSION = '3.3.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -348,25 +351,102 @@ local function FromReaPackIndex(indexUrl, package, plat)
   return nil, 'no build of ' .. package .. ' for this computer'
 end
 
+-- The scripts' settings windows ("Scripts and updates") run the Manager from here.
+local function ManagerPath() return NativePath(RES .. '/' .. MANAGER_DIR .. '/' .. MANAGER_FILE) end
+
+-- Run from Downloads (or anywhere outside REAPER's Scripts folder), the Manager copies itself to
+-- Scripts/CoolReaperScripts, puts that copy in the Actions list instead, and removes the download.
+-- Returns a note for the window, if there's something to say.
+local function SettleIn()
+  local _, self = r.get_action_context()
+  if not self or self == '' then
+    local src = debug.getinfo(1, 'S').source or ''
+    self = src:sub(1, 1) == '@' and src:sub(2) or nil
+  end
+  if not self or not Exists(self) then return end
+  local function Norm(path)
+    path = path:gsub('\\', '/'):gsub('/+', '/')
+    return IS_WIN and path:lower() or path
+  end
+  local scripts = Norm(RES .. '/Scripts/')
+  if Norm(self):sub(1, #scripts) == scripts then
+    -- kept somewhere else in Scripts: still put a copy where the scripts look for it
+    if Norm(self) ~= Norm(ManagerPath()) and not Exists(ManagerPath()) then
+      local data = ReadFile(self)
+      r.RecursiveCreateDirectory(DirOf(ManagerPath()), 0)
+      if data then WriteFile(ManagerPath(), data) end
+    end
+    return
+  end
+  local target = ManagerPath()
+  local data = ReadFile(self)
+  r.RecursiveCreateDirectory(DirOf(target), 0)
+  if not data or not WriteFile(target, data) then
+    return { kind = 'warn', text = 'Couldn\'t copy the Script Manager into REAPER\'s Scripts folder, so it keeps running from where you downloaded it.' }
+  end
+  r.AddRemoveReaScript(true, 0, target, true)
+  r.AddRemoveReaScript(false, 0, self, true)
+  local removed = os.remove(self)
+  return { kind = 'ok', text = 'The Script Manager moved itself into REAPER'
+    .. (removed and ', so the downloaded file is gone. ' or '. You can delete the downloaded file. ')
+    .. 'After this install you won\'t need it again: every Cool Reaper Script opens it from its settings window (Scripts and updates).' }
+end
+
 local EXTENSIONS = {
-  { name = 'ReaPack', why = 'installs and updates REAPER add-ons',
+  { name = 'ReaPack', why = 'installs and updates REAPER add-ons', file = 'reaper_reapack',
     loaded = function() return r.ReaPack_BrowsePackages ~= nil end,
     asset = 'https://github.com/cfillion/reapack/releases/latest/download/reaper_reapack-%s.%s', hasArm64ec = true },
-  { name = 'ReaImGui', why = 'draws the scripts\' windows',
+  { name = 'ReaImGui', why = 'draws the scripts\' windows', file = 'reaper_imgui',
     loaded = function() return r.ImGui_GetBuiltinPath ~= nil end,
+    -- Vertical FX List needs 0.10 (Col_InputTextCursor is new in it); the Manager itself 0.9.3
+    outdated = function() return r.ImGui_Col_InputTextCursor == nil end,
     asset = 'https://github.com/cfillion/reaimgui/releases/latest/download/reaper_imgui-%s.%s' },
-  { name = 'js_ReaScriptAPI', why = 'mouse and window helpers',
+  { name = 'js_ReaScriptAPI', why = 'mouse and window helpers', file = 'reaper_js_ReaScriptAPI',
     loaded = function() return r.JS_Window_Find ~= nil end,
     index = 'https://github.com/ReaTeam/Extensions/raw/master/index.xml', package = 'js_ReaScriptAPI.ext' },
-  { name = 'SWS Extension', why = 'extra track and send functions',
+  { name = 'SWS Extension', why = 'extra track and send functions', file = 'reaper_sws',
     loaded = function() return r.CF_ShellExecute ~= nil or r.BR_GetSetTrackSendInfo ~= nil end,
     asset = 'https://github.com/reaper-oss/sws/releases/latest/download/reaper_sws-%s.%s' },
 }
 
+local PLUGINS = RES .. SEP .. 'UserPlugins'
+
+-- Is the extension's file in UserPlugins already? (downloaded, but REAPER hasn't loaded it yet)
+local onDisk
+local function OnDisk(e)
+  if not onDisk then
+    onDisk = {}
+    local ext = '%.' .. Platform().ext .. '$'
+    r.EnumerateFiles(PLUGINS, -1) -- re-read the folder
+    local i = 0
+    while true do
+      local f = r.EnumerateFiles(PLUGINS, i)
+      if not f then break end
+      if f:match(ext) then onDisk[#onDisk + 1] = f:lower() end
+      i = i + 1
+    end
+  end
+  local prefix = e.file:lower()
+  for _, f in ipairs(onDisk) do
+    if f:sub(1, #prefix) == prefix then return true end
+  end
+  return false
+end
+
+-- 'ok', 'outdated', 'restart' (downloaded, loads after a restart) or 'missing'
+local downloadedNow = {} -- names installed by this run
+local function ExtStatus(e)
+  if downloadedNow[e.name] then return 'restart' end
+  if e.loaded() then return (e.outdated and e.outdated()) and 'outdated' or 'ok' end
+  return OnDisk(e) and 'restart' or 'missing'
+end
+
+-- the ones to download: missing or too old
 local function MissingExtensions()
   local list = {}
   for _, e in ipairs(EXTENSIONS) do
-    if not e.loaded() then list[#list + 1] = e end
+    local st = ExtStatus(e)
+    if st == 'missing' or st == 'outdated' then list[#list + 1] = e end
   end
   return list
 end
@@ -374,8 +454,7 @@ end
 -- Installs the given extensions; returns names installed and { name, why } failures
 local function InstallExtensions(list)
   local plat = Platform()
-  local dir = RES .. SEP .. 'UserPlugins'
-  r.RecursiveCreateDirectory(dir, 0)
+  r.RecursiveCreateDirectory(PLUGINS, 0)
   local done, failed = {}, {}
   for _, e in ipairs(list) do
     local url, file, err
@@ -389,11 +468,20 @@ local function InstallExtensions(list)
       if found then url, file = found.url, found.file end
     end
     local ok = false
-    if url then ok, err = Get(url, dir .. SEP .. file) end
-    if ok then done[#done + 1] = e.name else failed[#failed + 1] = { name = e.name, why = err or 'download failed' } end
+    if url then ok, err = Get(url, PLUGINS .. SEP .. file) end
+    if ok then
+      done[#done + 1] = e.name
+      downloadedNow[e.name] = true
+    else
+      -- Windows won't let anyone replace an extension REAPER has loaded
+      if e.loaded() and err and err:find('could not write') then err = 'REAPER is using the old version' end
+      failed[#failed + 1] = { name = e.name, why = err or 'download failed' }
+    end
   end
   return done, failed
 end
+
+local FIND_MANAGER = 'It\'s in Actions > Show action list: search for "Cool Reaper Script Manager".'
 
 local function ExtensionReport(done, failed)
   local msg = ''
@@ -402,11 +490,68 @@ local function ExtensionReport(done, failed)
     local lines = {}
     for _, f in ipairs(failed) do lines[#lines + 1] = f.name .. ': ' .. f.why end
     msg = msg .. (msg ~= '' and '\n\n' or '') .. 'Could not install:\n' .. table.concat(lines, '\n')
-      .. '\n\nYou can install them with ReaPack (reapack.com) instead.'
+      .. (r.ReaPack_BrowsePackages and '\n\nYou can install them with ReaPack instead: Extensions > ReaPack > Browse packages.'
+        or '\n\nYou can install them with ReaPack (reapack.com) instead.')
   end
   return msg
 end
-package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
+
+-- The window needs ReaImGui. Without it (or with one too old), setup happens in message boxes.
+local SETTLE_NOTE = SettleIn()
+local imguiOK = r.ImGui_GetBuiltinPath ~= nil
+if imguiOK then
+  package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
+  local ok, imgui = pcall(require, 'imgui')
+  imguiOK = ok and type(imgui) == 'function' and pcall(imgui, '0.9.3')
+end
+
+local function SetupWithoutWindow()
+  local box = TITLE .. ': setup'
+  local function Bullets(list)
+    local t = {}
+    for _, e in ipairs(list) do t[#t + 1] = '  \u{2022} ' .. e.name .. ' (' .. e.why .. ')' end
+    return table.concat(t, '\n')
+  end
+  local todo, waiting = MissingExtensions(), {}
+  for _, e in ipairs(EXTENSIONS) do
+    if ExtStatus(e) == 'restart' then waiting[#waiting + 1] = e end
+  end
+  -- ReaImGui loaded but this REAPER can't use it: download the current one over it
+  local imgui = EXTENSIONS[2]
+  if ExtStatus(imgui) == 'ok' then table.insert(todo, 1, imgui) end
+
+  local msg
+  if #todo == 0 then
+    msg = 'These free extensions are downloaded and load the next time REAPER starts:\n\n' .. Bullets(waiting)
+      .. '\n\nRestart REAPER, then run the Script Manager again.\n\n'
+      .. 'Already restarted and still seeing this? Choose Yes to download them again.'
+    todo = waiting
+  else
+    local old = ExtStatus(imgui) == 'outdated' or ExtStatus(imgui) == 'ok'
+    msg = 'Cool Reaper Scripts need a few free REAPER extensions'
+      .. (old and ' (ReaImGui needs an update)' or '') .. ':\n\n' .. Bullets(todo)
+      .. (#waiting > 0 and ('\n\nAlready downloaded, loads after a restart:\n' .. Bullets(waiting)) or '')
+      .. '\n\nInstall them now? It takes a few seconds. They come straight from their authors\' '
+      .. 'official download pages and go into REAPER\'s UserPlugins folder.'
+  end
+  if r.ShowMessageBox(msg, box, 4) ~= 6 then return end
+
+  local done, failed = InstallExtensions(todo)
+  local report = ExtensionReport(done, failed)
+  if #done > 0 then report = report .. '\n\n' .. FIND_MANAGER end
+  if #failed == 0 then
+    r.ShowMessageBox(report, box, 0)
+  elseif r.ReaPack_BrowsePackages then
+    if r.ShowMessageBox(report .. '\n\nOpen ReaPack now?', box, 4) == 6 then r.ReaPack_BrowsePackages(failed[1].name) end
+  else
+    if r.ShowMessageBox(report .. '\n\nOpen reapack.com now?', box, 4) == 6 then OpenUrl('https://reapack.com') end
+  end
+end
+
+if not imguiOK then
+  SetupWithoutWindow()
+  return
+end
 local im = require 'imgui' '0.9.3'
 
 ---------------------------------------------------------------------------------------------------
@@ -441,7 +586,6 @@ local S = {
   busy = nil,                -- { label, fn, frames }: one blocking request, after its label drew
   products = {},             -- from the site, plus releases, choice, installed, key, lic, ...
   job = nil,                 -- the install in progress
-  extInstalled = {},         -- extensions downloaded this run (loaded after a restart)
   loaded = false,
 }
 
@@ -818,47 +962,6 @@ local function FinishInstall(job)
   S.job = nil
   -- next one of "Update all"
   if S.updateAll and #S.updateAll > 0 then StartInstall(table.remove(S.updateAll, 1)) end
-end
-
--- The scripts' settings windows ("Scripts and updates") run the Manager from here.
-local function ManagerPath() return NativePath(RES .. '/' .. MANAGER_DIR .. '/' .. MANAGER_FILE) end
-
--- Run from Downloads (or anywhere outside REAPER's Scripts folder), the Manager copies itself to
--- Scripts/CoolReaperScripts, puts that copy in the Actions list instead, and removes the download.
-local function SettleIn()
-  local _, self = r.get_action_context()
-  if not self or self == '' then
-    local src = debug.getinfo(1, 'S').source or ''
-    self = src:sub(1, 1) == '@' and src:sub(2) or nil
-  end
-  if not self or not Exists(self) then return end
-  local function Norm(path)
-    path = path:gsub('\\', '/'):gsub('/+', '/')
-    return IS_WIN and path:lower() or path
-  end
-  local scripts = Norm(RES .. '/Scripts/')
-  if Norm(self):sub(1, #scripts) == scripts then
-    -- kept somewhere else in Scripts: still put a copy where the scripts look for it
-    if Norm(self) ~= Norm(ManagerPath()) and not Exists(ManagerPath()) then
-      local data = ReadFile(self)
-      r.RecursiveCreateDirectory(DirOf(ManagerPath()), 0)
-      if data then WriteFile(ManagerPath(), data) end
-    end
-    return
-  end
-  local target = ManagerPath()
-  local data = ReadFile(self)
-  r.RecursiveCreateDirectory(DirOf(target), 0)
-  if not data or not WriteFile(target, data) then
-    S.msg = { kind = 'warn', text = 'Couldn\'t copy the Script Manager into REAPER\'s Scripts folder, so it keeps running from where you downloaded it.' }
-    return
-  end
-  r.AddRemoveReaScript(true, 0, target, true)
-  r.AddRemoveReaScript(false, 0, self, true)
-  local removed = os.remove(self)
-  S.msg = { kind = 'ok', text = 'The Script Manager moved itself into REAPER'
-    .. (removed and ', so the downloaded file is gone. ' or '. You can delete the downloaded file. ')
-    .. 'After this install you won\'t need it again: every Cool Reaper Script opens it from its settings window (Scripts and updates).' }
 end
 
 local function RunScript(p)
@@ -1388,23 +1491,27 @@ local function ExtensionsCard(x, y, w)
   local toInstall = {}
   for i, e in ipairs(EXTENSIONS) do
     if i > 1 then im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1) end
-    local ok, pending = e.loaded(), S.extInstalled[e.name]
+    local st = ExtStatus(e)
     local ry = cy + 10
     Txt(dl, F.bodyB, 13, ix, ry + 3, P.ink, e.name)
-    Txt(dl, F.body, 13, ix + 130, ry + 3, P.ink2, pending and 'Restart REAPER to load it' or e.why)
+    Txt(dl, F.body, 13, ix + 130, ry + 3, P.ink2, st == 'restart' and 'Restart REAPER to load it'
+      or st == 'outdated' and 'Too old for Vertical FX List: update to the current version' or e.why)
     local label, clr = 'OK', P.acc
-    if pending then label, clr = 'New', P.blue elseif not ok then label, clr = 'Missing', P.amber end
+    if st == 'restart' then label, clr = 'Restart', P.blue
+    elseif st == 'outdated' then label, clr = 'Update', P.amber
+    elseif st == 'missing' then label, clr = 'Missing', P.amber end
     Badge(dl, ix + iw - Badge_W(label), ry, label, clr)
-    if not ok and not pending then toInstall[#toInstall + 1] = e end
+    if st == 'missing' or st == 'outdated' then toInstall[#toInstall + 1] = e end
     cy = ry + BADGE_H + 10
   end
   if #toInstall > 0 then
     cy = cy + 4
-    local label = #toInstall == 1 and ('Install ' .. toInstall[1].name) or ('Install the ' .. #toInstall .. ' missing extensions')
+    local one = toInstall[1]
+    local label = #toInstall > 1 and ('Install the ' .. #toInstall .. ' missing extensions')
+      or ((ExtStatus(one) == 'outdated' and 'Update ' or 'Install ') .. one.name)
     if Btn('##extinst', label, ix, cy, 'go', nil, S.busy ~= nil) then
       Busy('Downloading extensions...', function()
         local done, failed = InstallExtensions(toInstall)
-        for _, name in ipairs(done) do S.extInstalled[name] = true end
         S.msg = { kind = #failed > 0 and 'warn' or 'ok', text = ExtensionReport(done, failed) }
       end)
     end
@@ -1530,6 +1637,9 @@ local function Frame()
   if open and not S.close then r.defer(Frame) end
 end
 
-SettleIn()
+S.msg = SETTLE_NOTE
+if not S.msg and #MissingExtensions() > 0 then
+  S.msg = { kind = 'warn', text = 'Some free extensions the scripts need are missing or too old. Install them at the bottom of this window.' }
+end
 Busy('Checking your scripts...', LoadProducts)
 r.defer(Frame)

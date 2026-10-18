@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.3.2
+-- @version 3.4.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.4.0: a progress window while the free extensions download (no frozen REAPER on macOS;
+--          on Windows it moves file by file). Also installs ReaDrum Machine, which FX Devices'
+--          drum machine uses.
 --   3.3.2: Windows: sign-in no longer opens a console window or taskbar button at all.
 --   3.3.1: installs ReaImGui with its Lua files (imgui.lua), so one restart is enough; fixes a
 --          ReaImGui the 3.3.0 setup left without them. Windows: no console window flashing
@@ -24,7 +27,7 @@
 
 local r = reaper
 
-local VERSION = '3.3.2'
+local VERSION = '3.4.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -286,6 +289,21 @@ end
 -- release pages into UserPlugins; REAPER loads them after a restart.
 ---------------------------------------------------------------------------------------------------
 
+-- A finished download in tmp: move it to path when it's a non-empty file that came with HTTP 200
+local function GetFinish(tmp, path, code)
+  local f = io.open(tmp, 'rb')
+  local size = f and f:seek('end') or 0
+  if f then f:close() end
+  if code == 200 and size > 0 then
+    os.remove(path)
+    if os.rename(tmp, path) then return true end
+    os.remove(tmp)
+    return false, 'could not write ' .. path .. ' (is REAPER using it?)'
+  end
+  os.remove(tmp)
+  return false, (code == 200 and 'empty download') or (code and ('HTTP ' .. code)) or 'no connection'
+end
+
 -- Download url to path (follows redirects); true when it got a non-empty file with HTTP 200
 local function Get(url, path)
   local tmp = path .. '.download'
@@ -302,17 +320,35 @@ local function Get(url, path)
     code = tonumber((ReadFile(codeFile) or ''):match('(%d%d%d)'))
     os.remove(codeFile) os.remove(sh)
   end
-  local f = io.open(tmp, 'rb')
+  return GetFinish(tmp, path, code)
+end
+
+-- Size of a file so far (a download in progress), in bytes
+local function FileSize(p)
+  local f = io.open(p, 'rb')
   local size = f and f:seek('end') or 0
   if f then f:close() end
-  if code == 200 and size > 0 then
-    os.remove(path)
-    if os.rename(tmp, path) then return true end
-    os.remove(tmp)
-    return false, 'could not write ' .. path .. ' (is REAPER using it?)'
-  end
-  os.remove(tmp)
-  return false, (code == 200 and 'empty download') or (code and ('HTTP ' .. code)) or 'no connection'
+  return size
+end
+
+-- Download url to path in the background (macOS, Linux); poll with GetPoll. Windows shows a console
+-- window for anything it doesn't wait for, so there GetStart returns nil and callers use Get.
+local function GetStart(url, path)
+  if IS_WIN then return nil end
+  local h = { path = path, tmp = path .. '.download', code = TempFile('code.txt'), done = TempFile('done.txt'), sh = TempFile('get.sh') }
+  os.remove(h.tmp)
+  if not WriteFile(h.sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --max-time 300 -o %s -w '%%{http_code}' %s > %s 2>/dev/null\necho done > %s\n",
+    ShellQuote(h.tmp), ShellQuote(url), ShellQuote(h.code), ShellQuote(h.done))) then return nil end
+  os.execute('/bin/sh ' .. ShellQuote(h.sh) .. ' >/dev/null 2>&1 &')
+  return h
+end
+
+-- nil while downloading; then true, or false + why
+local function GetPoll(h)
+  if not Exists(h.done) then return nil end
+  local code = tonumber((ReadFile(h.code) or ''):match('(%d%d%d)'))
+  os.remove(h.code) os.remove(h.done) os.remove(h.sh)
+  return GetFinish(h.tmp, h.path, code)
 end
 
 -- This REAPER's build: asset suffix used by ReaPack, ReaImGui and SWS releases, and ReaPack's
@@ -335,7 +371,8 @@ local function Platform()
 end
 
 -- Newest build of a package listed in a ReaPack index: the extension binary for this computer,
--- plus the url of each file named in extras (ReaImGui's Lua files, which ReaPack would add)
+-- plus the url of each file named in extras (ReaImGui's Lua files, which ReaPack would add).
+-- extras = 'all': a script package, every file with the path ReaPack would give it
 local indexCache = {}
 local function FromReaPackIndex(indexUrl, package, plat, extras)
   local xml = indexCache[indexUrl]
@@ -358,6 +395,21 @@ local function FromReaPackIndex(indexUrl, package, plat, extras)
     local file = attrs:match('file="([^"]+)"') or url:match('([^/]+)$')
     sources[#sources + 1] = { platform = attrs:match('platform="([^"]+)"') or 'all',
       file = file:match('([^/\\]+)$'), url = (url:gsub('&amp;', '&')) }
+  end
+  -- a script package: all of its files, where ReaPack puts them
+  if extras == 'all' then
+    local index = xml:match('<index[^>]-name="([^"]+)"') or 'ReaPack'
+    local category = xml:sub(1, s):match('.*<category name="([^"]+)"') or 'Other'
+    local kind = block:match('^<reapack[^>]-type="([^"]+)"') or 'script'
+    local files = {}
+    for attrs, url in last:gmatch('<source([^>]*)>([^<]+)</source>') do
+      local file = attrs:match('file="([^"]+)"') or package
+      local t = attrs:match('type="([^"]+)"') or kind
+      local top = (t == 'effect' and 'Effects') or (t == 'data' and 'Data') or 'Scripts'
+      local dest = t == 'data' and (top .. '/' .. file) or (top .. '/' .. index .. '/' .. category .. '/' .. file)
+      files[#files + 1] = { url = (url:gsub('&amp;', '&')), dest = dest }
+    end
+    return { files = files }
   end
   local found
   for _, name in ipairs(plat.names) do
@@ -437,6 +489,11 @@ local EXTENSIONS = {
   { name = 'SWS Extension', why = 'extra track and send functions', file = 'reaper_sws',
     loaded = function() return r.CF_ShellExecute ~= nil or r.BR_GetSetTrackSendInfo ~= nil end,
     asset = 'https://github.com/reaper-oss/sws/releases/latest/download/reaper_sws-%s.%s' },
+  -- a script, not an extension: works right away, no restart
+  { name = 'ReaDrum Machine', why = 'the drum machine in FX Devices', script = true,
+    loaded = function() return Exists(NativePath(RES .. '/Scripts/Suzuki Scripts/ReaDrum Machine/Modules/Pad Actions.lua')) end,
+    index = 'https://github.com/Suzuki-Re/Suzuki-Scripts/raw/master/index.xml',
+    package = 'Suzuki_ReaDrum_Machine_Instruments_Rack.lua', extras = 'all' },
 }
 
 local PLUGINS = RES .. SEP .. 'UserPlugins'
@@ -467,7 +524,7 @@ end
 local downloadedNow = {} -- names installed by this run
 -- loaded, but its Lua files are missing (an older Manager downloaded only the binary)
 local function ExtrasMissing(e)
-  if not e.extras then return false end
+  if type(e.extras) ~= 'table' then return false end
   for _, f in ipairs(e.extras) do
     if not Exists(NativePath(e.extrasDir() .. '/' .. f)) then return true end
   end
@@ -475,62 +532,119 @@ local function ExtrasMissing(e)
 end
 
 local function ExtStatus(e)
+  if e.script then return e.loaded() and 'ok' or 'missing' end
   if downloadedNow[e.name] then return 'restart' end
   if e.loaded() then return ((e.outdated and e.outdated()) or ExtrasMissing(e)) and 'outdated' or 'ok' end
   return OnDisk(e) and 'restart' or 'missing'
 end
 
+local function Needed(e) return not e.needed or e.needed() or e.loaded() end
+
 -- the ones to download: missing or too old
 local function MissingExtensions()
   local list = {}
   for _, e in ipairs(EXTENSIONS) do
-    local st = ExtStatus(e)
-    if st == 'missing' or st == 'outdated' then list[#list + 1] = e end
+    if Needed(e) then
+      local st = ExtStatus(e)
+      if st == 'missing' or st == 'outdated' then list[#list + 1] = e end
+    end
   end
   return list
 end
 
--- Installs the given extensions; returns names installed, { name, why } failures, and whether
--- REAPER has to restart to load them (not when only Lua files were missing)
-local function InstallExtensions(list)
+-- Installing extensions is a job of single file downloads, one per InstallTick, so a window can
+-- show progress in between: in the background on macOS and Linux, and on Windows one file at a
+-- time (only a waited-for download runs without a console window there).
+local function InstallJob(list)
+  return { list = list, steps = nil, n = 0, bad = {}, binary = {}, label = 'Getting ready...' }
+end
+
+-- the files to download, per extension; looking them up reads the ReaPack index (a small download)
+local function PlanInstall(job)
   local plat = Platform()
-  r.RecursiveCreateDirectory(PLUGINS, 0)
-  local done, failed, restart = {}, {}, false
-  for _, e in ipairs(list) do
-    local url, file, extras, err
+  job.steps = {}
+  for _, e in ipairs(job.list) do
+    local url, file, extras, found, err
     if e.asset then
       local arch = (plat.arch == 'arm64ec' and not e.hasArm64ec) and plat.fallback or plat.arch
       url = e.asset:format(arch, plat.ext)
       file = url:match('([^/]+)$')
     else
-      local found
       found, err = FromReaPackIndex(e.index, e.package, plat, e.extras)
       if found then url, file, extras = found.url, found.file, found.extras end
     end
-    -- the loaded binary is current: only its Lua files are needed
-    local binary = not (e.loaded() and not (e.outdated and e.outdated()))
-    local ok = url ~= nil
-    if ok and binary then
-      ok, err = Get(url, PLUGINS .. SEP .. file)
-      -- Windows won't let anyone replace an extension REAPER has loaded
-      if not ok and e.loaded() and err and err:find('could not write') then err = 'REAPER is using the old version' end
-    end
-    if ok and extras and #extras > 0 then
-      local dir = NativePath(e.extrasDir())
-      r.RecursiveCreateDirectory(dir, 0)
-      for _, x in ipairs(extras) do
-        if ok then ok, err = Get(x.url, dir .. SEP .. x.file) end
+    if e.script then
+      for _, f in ipairs(found and found.files or {}) do
+        job.steps[#job.steps + 1] = { e = e, url = f.url, path = NativePath(RES .. '/' .. f.dest) }
+      end
+    else
+      -- the loaded binary is current: only its Lua files are needed
+      local binary = not (e.loaded() and not (e.outdated and e.outdated()))
+      if url and binary then
+        job.steps[#job.steps + 1] = { e = e, url = url, path = PLUGINS .. SEP .. file, binary = true }
+      end
+      for _, x in ipairs(extras or {}) do
+        job.steps[#job.steps + 1] = { e = e, url = x.url, path = NativePath(e.extrasDir() .. '/' .. x.file) }
       end
     end
-    if ok then
-      done[#done + 1] = e.name
-      if binary then downloadedNow[e.name], restart = true, true end
-    else
-      failed[#failed + 1] = { name = e.name, why = err or 'download failed' }
-    end
+    if not found and not url then job.bad[e.name] = err or 'not found' end
   end
-  return done, failed, restart
 end
+
+local function StepLabel(job, st)
+  return 'Downloading ' .. st.e.name .. '  (' .. (job.n + 1) .. ' of ' .. #job.steps .. ')'
+end
+
+local function FinishStep(job, st, ok, err)
+  if ok then
+    if st.binary then job.binary[st.e.name] = true end
+  elseif not job.bad[st.e.name] then
+    -- Windows won't let anyone replace an extension REAPER has loaded
+    if st.binary and st.e.loaded() and err and err:find('could not write') then err = 'REAPER is using the old version' end
+    job.bad[st.e.name] = err or 'download failed'
+  end
+  job.n, job.get = job.n + 1, nil
+end
+
+-- Moves the job along; true once everything is downloaded (job.done, job.failed, job.restart)
+local function InstallTick(job)
+  if job.finished then return true end
+  if not job.steps then
+    PlanInstall(job)
+    r.RecursiveCreateDirectory(PLUGINS, 0)
+  elseif job.get then
+    local ok, err = GetPoll(job.get)
+    if ok ~= nil then FinishStep(job, job.steps[job.n + 1], ok, err) end
+  elseif job.n < #job.steps then
+    local st = job.steps[job.n + 1]
+    if job.bad[st.e.name] then
+      job.n = job.n + 1 -- one of its files already failed
+    else
+      r.RecursiveCreateDirectory(DirOf(st.path), 0)
+      job.get = GetStart(st.url, st.path)
+      if not job.get then FinishStep(job, st, Get(st.url, st.path)) end
+    end
+  else
+    job.done, job.failed, job.restart = {}, {}, false
+    for _, e in ipairs(job.list) do
+      if job.bad[e.name] then
+        job.failed[#job.failed + 1] = { name = e.name, why = job.bad[e.name] }
+      else
+        job.done[#job.done + 1] = e.name
+        if job.binary[e.name] then downloadedNow[e.name], job.restart = true, true end
+      end
+    end
+    job.finished = true
+    return true
+  end
+  local st = job.steps and job.steps[job.n + 1]
+  job.label = st and StepLabel(job, st) or 'Finishing...'
+  job.frac = job.steps and #job.steps > 0 and (job.n / #job.steps) or 0
+  job.bytes = job.get and FileSize(job.get.tmp) or nil
+  return false
+end
+
+local function MB(bytes) return string.format('%.1f MB', bytes / 1048576) end
 
 local FIND_MANAGER = 'It\'s in Actions > Show action list: search for "Cool Reaper Script Manager".'
 
@@ -557,7 +671,8 @@ if imguiOK then
   imguiOK = ok and type(imgui) == 'function' and pcall(imgui, '0.9.3')
 end
 
--- Returns a note for the window when it can open after all (only ReaImGui's Lua files were missing)
+-- Message boxes and a small progress window; the Manager's own window opens afterwards when only
+-- ReaImGui's Lua files were missing
 local function SetupWithoutWindow()
   local box = TITLE .. ': setup'
   local function Bullets(list)
@@ -589,30 +704,67 @@ local function SetupWithoutWindow()
   end
   if r.ShowMessageBox(msg, box, 4) ~= 6 then return end
 
-  local done, failed, restart = InstallExtensions(todo)
-  local report = ExtensionReport(done, failed, restart)
-  if r.ImGui_GetBuiltinPath then
-    package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
-    package.loaded.imgui = nil
-    local ok, imgui = pcall(require, 'imgui')
-    if ok and type(imgui) == 'function' and pcall(imgui, '0.9.3') then
-      return { kind = #failed > 0 and 'warn' or 'ok', text = report }
+  -- a small window shows the downloads (REAPER's own drawing: ReaImGui isn't there yet)
+  local job = InstallJob(todo)
+  local W, H = 480, 140
+  local l, t, rr, bb = r.my_getViewport(0, 0, 0, 0, 0, 0, 0, 0, true)
+  gfx.init(box, W, H, 0, math.floor((l + rr - W) / 2), math.floor((t + bb - H) / 2))
+  local frames = 0
+  local function Draw()
+    gfx.set(0.043, 0.047, 0.059) gfx.rect(0, 0, gfx.w, gfx.h, 1)
+    gfx.setfont(1, 'Arial', 18, string.byte('b'))
+    gfx.set(0.9, 0.91, 0.92) gfx.x, gfx.y = 20, 18 gfx.drawstr('Installing the free extensions')
+    gfx.setfont(2, 'Arial', 15)
+    gfx.set(0.66, 0.69, 0.72) gfx.x, gfx.y = 20, 50
+    gfx.drawstr(job.label .. (job.bytes and job.bytes > 0 and ('   ' .. MB(job.bytes)) or ''))
+    local bw = gfx.w - 40
+    gfx.set(1, 1, 1, 0.1) gfx.rect(20, 82, bw, 6, 1)
+    gfx.set(0.29, 0.8, 0.52, 1) gfx.rect(20, 82, math.max(6, math.floor(bw * (job.frac or 0))), 6, 1)
+    gfx.set(0.43, 0.46, 0.5) gfx.x, gfx.y = 20, 104
+    gfx.drawstr('From the authors\' official download pages. Keep REAPER open.')
+    gfx.update()
+  end
+  local function Done()
+    gfx.quit()
+    local report = ExtensionReport(job.done, job.failed, job.restart)
+    if r.ImGui_GetBuiltinPath then
+      package.path = r.ImGui_GetBuiltinPath() .. '/?.lua'
+      package.loaded.imgui = nil
+      local ok, imgui = pcall(require, 'imgui')
+      if ok and type(imgui) == 'function' and pcall(imgui, '0.9.3') then
+        -- only ReaImGui's Lua files were missing: open the Manager's window right away
+        local _, self = r.get_action_context()
+        local path = Exists(ManagerPath()) and ManagerPath() or self
+        if path and Exists(path) then dofile(path) return end
+      end
+    end
+    if #job.done > 0 and job.restart then report = report .. '\n\n' .. FIND_MANAGER end
+    if #job.failed == 0 then
+      r.ShowMessageBox(report, box, 0)
+    elseif r.ReaPack_BrowsePackages then
+      if r.ShowMessageBox(report .. '\n\nOpen ReaPack now?', box, 4) == 6 then r.ReaPack_BrowsePackages(job.failed[1].name) end
+    else
+      if r.ShowMessageBox(report .. '\n\nOpen reapack.com now?', box, 4) == 6 then OpenUrl('https://reapack.com') end
     end
   end
-  if #done > 0 then report = report .. '\n\n' .. FIND_MANAGER end
-  if #failed == 0 then
-    r.ShowMessageBox(report, box, 0)
-  elseif r.ReaPack_BrowsePackages then
-    if r.ShowMessageBox(report .. '\n\nOpen ReaPack now?', box, 4) == 6 then r.ReaPack_BrowsePackages(failed[1].name) end
-  else
-    if r.ShowMessageBox(report .. '\n\nOpen reapack.com now?', box, 4) == 6 then OpenUrl('https://reapack.com') end
+  local function Loop()
+    frames = frames + 1
+    Draw()
+    -- closing the window cancels what's left (a file that's downloading still finishes)
+    if gfx.getchar() < 0 then return end
+    -- draw twice before the first (possibly waited-for) download, so the window is up
+    if frames > 2 and InstallTick(job) then
+      Draw()
+      return r.defer(Done)
+    end
+    r.defer(Loop)
   end
+  r.defer(Loop)
 end
 
-local SETUP_NOTE
 if not imguiOK then
-  SETUP_NOTE = SetupWithoutWindow()
-  if not SETUP_NOTE then return end
+  SetupWithoutWindow()
+  return
 end
 local im = require 'imgui' '0.9.3'
 
@@ -1554,8 +1706,10 @@ local function ExtensionsCard(x, y, w)
   local ix, iw = x + CARD_PX, w - CARD_PX * 2
   local cy = y + CARD_PY - 4
   local toInstall = {}
-  for i, e in ipairs(EXTENSIONS) do
-    if i > 1 then im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1) end
+  local first = true
+  for _, e in ipairs(EXTENSIONS) do if Needed(e) then
+    if not first then im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1) end
+    first = false
     local st = ExtStatus(e)
     local ry = cy + 10
     Txt(dl, F.bodyB, 13, ix, ry + 3, P.ink, e.name)
@@ -1568,17 +1722,23 @@ local function ExtensionsCard(x, y, w)
     Badge(dl, ix + iw - Badge_W(label), ry, label, clr)
     if st == 'missing' or st == 'outdated' then toInstall[#toInstall + 1] = e end
     cy = ry + BADGE_H + 10
-  end
-  if #toInstall > 0 then
+  end end
+  local job = S.extJob
+  if job then
+    -- downloading: what, and how far
+    cy = cy + 4
+    Mono_Caps(dl, 10, ix, cy, P.ink2, job.label .. (job.bytes and job.bytes > 0 and ('   ' .. MB(job.bytes)) or ''))
+    cy = cy + 18
+    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw, cy + 2, P.soft)
+    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw * (job.frac or 0), cy + 2, P.acc)
+    cy = cy + 12
+  elseif #toInstall > 0 then
     cy = cy + 4
     local one = toInstall[1]
     local label = #toInstall > 1 and ('Install the ' .. #toInstall .. ' missing extensions')
       or ((ExtStatus(one) == 'outdated' and 'Update ' or 'Install ') .. one.name)
     if Btn('##extinst', label, ix, cy, 'go', nil, S.busy ~= nil) then
-      Busy('Downloading extensions...', function()
-        local done, failed, restart = InstallExtensions(toInstall)
-        S.msg = { kind = #failed > 0 and 'warn' or 'ok', text = ExtensionReport(done, failed, restart) }
-      end)
+      S.extJob, S.extFrames = InstallJob(toInstall), 0
     end
     cy = cy + BTN_H + 6
   end
@@ -1653,6 +1813,15 @@ local function Frame()
     if S.job.n < #S.job.queue then InstallNext(S.job) else FinishInstall(S.job) end
   end
   for _, p in ipairs(S.products) do LinkTick(p) end
+  -- extension downloads: one file per frame, after the progress line has drawn once
+  if S.extJob and not S.busy then
+    S.extFrames = S.extFrames + 1
+    if S.extFrames > 2 and InstallTick(S.extJob) then
+      local job = S.extJob
+      S.extJob = nil
+      S.msg = { kind = #job.failed > 0 and 'warn' or 'ok', text = ExtensionReport(job.done, job.failed, job.restart) }
+    end
+  end
 
   im.PushStyleVar(ctx, im.StyleVar_WindowPadding, 0, 0)
   im.PushStyleVar(ctx, im.StyleVar_WindowRounding, 0)
@@ -1702,7 +1871,7 @@ local function Frame()
   if open and not S.close then r.defer(Frame) end
 end
 
-S.msg = SETUP_NOTE or SETTLE_NOTE
+S.msg = SETTLE_NOTE
 if not S.msg and #MissingExtensions() > 0 then
   S.msg = { kind = 'warn', text = 'Some free extensions the scripts need are missing or too old. Install them at the bottom of this window.' }
 end

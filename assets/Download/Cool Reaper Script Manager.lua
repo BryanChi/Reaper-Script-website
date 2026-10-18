@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.4.0
+-- @version 3.5.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.5.0: FX Devices: skips the layout backgrounds of plugins you don't have (a smaller, quicker
+--          download); FX Devices fetches one if you get that plugin later.
 --   3.4.0: a progress window while the free extensions download (no frozen REAPER on macOS;
 --          on Windows it moves file by file).
 --   3.3.2: Windows: sign-in no longer opens a console window or taskbar button at all.
@@ -26,7 +28,7 @@
 
 local r = reaper
 
-local VERSION = '3.4.0'
+local VERSION = '3.5.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -1067,6 +1069,74 @@ local function DevCheckoutIn(p)
   end
 end
 
+-- Layout images: only the ones the layouts of installed plugins use. A layout is "<FX name>.ini" (the
+-- FX name without its "VST3: " prefix); its backgrounds and attached drawings are left out when no
+-- installed plugin has that name, and the script downloads one when a layout first needs it. Knobs,
+-- switches and the other images always come: they're choices in the layout editor.
+local LAYOUT_IMAGES = {
+  ['fx-devices'] = {
+    layouts = 'BryanChi_FX_Devices/src/FX Layouts',
+    images = { 'BryanChi_FX_Devices/src/Images/Backgrounds/', 'BryanChi_FX_Devices/src/Images/Attached Drawings/' },
+  },
+}
+
+local function IsLayoutImage(spec, path)
+  for _, d in ipairs(spec.images) do
+    if StartsWith(path, d) and not path:sub(#d + 1):find('/') then return true end
+  end
+  return false
+end
+
+-- installed FX by layout name (lowercase), nil when REAPER can't list them
+local function InstalledFxNames()
+  if not r.EnumInstalledFX then return nil end
+  local names, i = {}, 0
+  while true do
+    local ok, name = r.EnumInstalledFX(i)
+    if not ok then break end
+    name = name:gsub('^%w+:%s*', ''):gsub('[%:%[%]%/]', '_')
+    names[name:lower()] = true
+    i = i + 1
+  end
+  return i > 0 and names or nil
+end
+
+-- Runs once the layouts are in: queues the held-back layout images the installed plugins need (and
+-- every one already on disk, so those stay up to date)
+local function QueueLayoutImages(job)
+  local held, spec = job.images, LAYOUT_IMAGES[job.p.id]
+  job.images, job.skipped = nil, 0
+  local installed = InstalledFxNames()
+  -- image name (lowercase) -> true when a layout to keep uses it, false when only skipped layouts do
+  local used = {}
+  if installed then
+    local dir = TargetFor(job.p, spec.layouts)
+    r.EnumerateFiles(dir, -1) -- re-read the folder
+    local i = 0
+    while true do
+      local f = r.EnumerateFiles(dir, i)
+      if not f then break end
+      local name = f:match('^(.*)%.ini$')
+      if name then
+        -- only "Plugin (Vendor)" layouts are for plugins; FX Devices' own JSFX and the rest always keep theirs
+        local keep = not name:match('%(.+%)$') or StartsWith(name, 'FXD') or installed[name:lower()] == true
+        for img in (ReadFile(dir .. SEP .. f) or ''):gmatch('Image_?Path%s*=%s*([^\r\n]+)') do
+          local base = img:gsub('%s+$', ''):match('([^/\\]+)$')
+          if base then used[base:lower()] = used[base:lower()] or keep end
+        end
+      end
+      i = i + 1
+    end
+  end
+  for _, item in ipairs(held) do
+    if used[item.path:match('([^/]+)$'):lower()] == false and not Exists(item.target) then
+      job.skipped = job.skipped + 1
+    else
+      job.queue[#job.queue + 1] = item
+    end
+  end
+end
+
 local function StartInstall(p)
   local dev = DevCheckoutIn(p)
   if dev then
@@ -1082,16 +1152,19 @@ local function StartInstall(p)
   end
   local list, err = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = ref })
   if not list then p.msg = { kind = 'err', text = Friendly(err) } return end
-  local queue = {}
+  local queue, spec = {}, LAYOUT_IMAGES[p.id]
+  -- layout images wait until the layouts are in (QueueLayoutImages)
+  local images = spec and {} or nil
   for _, f in ipairs(list.files or {}) do
     local target = TargetFor(p, f.path)
     if not (IsUserData(p, f.path) and Exists(target)) then
-      queue[#queue + 1] = { path = f.path, target = target, size = f.size }
+      local item = { path = f.path, target = target, size = f.size }
+      if images and IsLayoutImage(spec, f.path) then images[#images + 1] = item else queue[#queue + 1] = item end
     end
   end
   if #queue == 0 then p.msg = { kind = 'err', text = 'Nothing to install.' } return end
   p.msg = nil
-  S.job = { p = p, ref = ref, label = label, queue = queue, n = 0, failed = {} }
+  S.job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {} }
 end
 
 local function InstallNext(job)
@@ -1117,6 +1190,10 @@ local function InstallNext(job)
 end
 
 local function FinishInstall(job)
+  if job.images then
+    QueueLayoutImages(job)
+    if job.n < #job.queue then return end
+  end
   local p = job.p
   local main = MainScriptPath(p)
   if main and Exists(main) then r.AddRemoveReaScript(true, 0, main, true) end
@@ -1137,7 +1214,9 @@ local function FinishInstall(job)
     if i > 4 then lines[#lines + 1] = '...' break end
     lines[#lines + 1] = f.path .. ': ' .. tostring(f.why):sub(1, 100)
   end
-  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files). To update it or get other scripts later, open '
+  local skipped = (job.skipped or 0) > 0
+    and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
+  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files' .. skipped .. '). To update it or get other scripts later, open '
       .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.' }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil

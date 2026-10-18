@@ -8,7 +8,7 @@
 -- @changelog
 --   3.3.1: installs ReaImGui with its Lua files (imgui.lua), so one restart is enough; fixes a
 --          ReaImGui the 3.3.0 setup left without them. Windows: no console window flashing
---          while you sign in.
+--          while you sign in. "Sign in / free trial" is a full button.
 --   3.3.0: without ReaImGui the Manager no longer stops with an error: it lists the missing
 --          extensions and installs them in one click, says when only a restart is needed, and
 --          points to ReaPack when a download fails. Flags a ReaImGui too old for Vertical FX List.
@@ -1475,23 +1475,26 @@ local function ProductCard(p, x, y, w)
   im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1)
   cy = cy + 12
   Mono_Caps(dl, 10, ix, cy + 9, P.ink3, 'Version')
-  im.SetCursorScreenPos(ctx, ix + 70, cy)
-  if busy then im.BeginDisabled(ctx) end
-  VersionCombo(p, math.min(260, iw - 260))
-  if busy then im.EndDisabled(ctx) end
   local rx = ix + iw
   if p.installed and p.mainScript then
     local rw = Btn_W('Run')
     rx = rx - rw
     if Btn('##run' .. p.id, 'Run', rx, cy, 'ghost', rw, busy) then RunScript(p) end
-    rx = rx - 16
+    rx = rx - 8
   end
-  local keyLabel = p.showKey and 'Hide license' or (HasValidKey(p) and 'License' or 'Sign in / free trial')
-  local lw = Mono_Caps_W(10, keyLabel, true)
-  if Link('##keylink' .. p.id, dl, rx - lw, cy + 9, keyLabel, P.ink2) then
+  -- without a license, signing in is the next step: a full button, filled
+  local licensed = HasValidKey(p)
+  local keyLabel = p.showKey and 'Hide license' or (licensed and 'License' or 'Sign in / free trial')
+  local kw = Btn_W(keyLabel)
+  rx = rx - kw
+  if Btn('##keylink' .. p.id, keyLabel, rx, cy, (licensed or p.showKey) and 'ghost' or 'go', kw) then
     p.showKey = not p.showKey
     p.msg = nil
   end
+  im.SetCursorScreenPos(ctx, ix + 70, cy)
+  if busy then im.BeginDisabled(ctx) end
+  VersionCombo(p, math.max(120, math.min(260, rx - 16 - (ix + 70))))
+  if busy then im.EndDisabled(ctx) end
   cy = cy + BTN_H + 4
 
   -- sign-in: the license or free trial comes from the person's account on the site

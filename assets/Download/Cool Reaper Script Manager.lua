@@ -1227,7 +1227,8 @@ local function VersionCombo(p, w)
       local text = 'Version ' .. rel.tag .. (j == 1 and ' (newest)' or '') .. (about ~= '' and ('  \194\183  ' .. about) or '')
       if im.Selectable(ctx, text .. '##' .. j, p.choice == j) then p.choice = j end
     end
-    if im.Selectable(ctx, 'Development version' .. (HasValidKey(p) and '' or '  (needs a key)'), p.choice > #p.releases) then
+    if not (p.releasesOnly and #p.releases > 0)
+      and im.Selectable(ctx, 'Development version' .. (HasValidKey(p) and '' or '  (needs a key)'), p.choice > #p.releases) then
       p.choice = #p.releases + 1
     end
     im.EndCombo(ctx)

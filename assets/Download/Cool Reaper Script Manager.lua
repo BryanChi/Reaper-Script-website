@@ -7,8 +7,7 @@
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
 --   3.4.0: a progress window while the free extensions download (no frozen REAPER on macOS;
---          on Windows it moves file by file). Also installs ReaDrum Machine, which FX Devices'
---          drum machine uses.
+--          on Windows it moves file by file).
 --   3.3.2: Windows: sign-in no longer opens a console window or taskbar button at all.
 --   3.3.1: installs ReaImGui with its Lua files (imgui.lua), so one restart is enough; fixes a
 --          ReaImGui the 3.3.0 setup left without them. Windows: no console window flashing
@@ -371,8 +370,7 @@ local function Platform()
 end
 
 -- Newest build of a package listed in a ReaPack index: the extension binary for this computer,
--- plus the url of each file named in extras (ReaImGui's Lua files, which ReaPack would add).
--- extras = 'all': a script package, every file with the path ReaPack would give it
+-- plus the url of each file named in extras (ReaImGui's Lua files, which ReaPack would add)
 local indexCache = {}
 local function FromReaPackIndex(indexUrl, package, plat, extras)
   local xml = indexCache[indexUrl]
@@ -395,21 +393,6 @@ local function FromReaPackIndex(indexUrl, package, plat, extras)
     local file = attrs:match('file="([^"]+)"') or url:match('([^/]+)$')
     sources[#sources + 1] = { platform = attrs:match('platform="([^"]+)"') or 'all',
       file = file:match('([^/\\]+)$'), url = (url:gsub('&amp;', '&')) }
-  end
-  -- a script package: all of its files, where ReaPack puts them
-  if extras == 'all' then
-    local index = xml:match('<index[^>]-name="([^"]+)"') or 'ReaPack'
-    local category = xml:sub(1, s):match('.*<category name="([^"]+)"') or 'Other'
-    local kind = block:match('^<reapack[^>]-type="([^"]+)"') or 'script'
-    local files = {}
-    for attrs, url in last:gmatch('<source([^>]*)>([^<]+)</source>') do
-      local file = attrs:match('file="([^"]+)"') or package
-      local t = attrs:match('type="([^"]+)"') or kind
-      local top = (t == 'effect' and 'Effects') or (t == 'data' and 'Data') or 'Scripts'
-      local dest = t == 'data' and (top .. '/' .. file) or (top .. '/' .. index .. '/' .. category .. '/' .. file)
-      files[#files + 1] = { url = (url:gsub('&amp;', '&')), dest = dest }
-    end
-    return { files = files }
   end
   local found
   for _, name in ipairs(plat.names) do
@@ -489,11 +472,6 @@ local EXTENSIONS = {
   { name = 'SWS Extension', why = 'extra track and send functions', file = 'reaper_sws',
     loaded = function() return r.CF_ShellExecute ~= nil or r.BR_GetSetTrackSendInfo ~= nil end,
     asset = 'https://github.com/reaper-oss/sws/releases/latest/download/reaper_sws-%s.%s' },
-  -- a script, not an extension: works right away, no restart
-  { name = 'ReaDrum Machine', why = 'the drum machine in FX Devices', script = true,
-    loaded = function() return Exists(NativePath(RES .. '/Scripts/Suzuki Scripts/ReaDrum Machine/Modules/Pad Actions.lua')) end,
-    index = 'https://github.com/Suzuki-Re/Suzuki-Scripts/raw/master/index.xml',
-    package = 'Suzuki_ReaDrum_Machine_Instruments_Rack.lua', extras = 'all' },
 }
 
 local PLUGINS = RES .. SEP .. 'UserPlugins'
@@ -524,7 +502,7 @@ end
 local downloadedNow = {} -- names installed by this run
 -- loaded, but its Lua files are missing (an older Manager downloaded only the binary)
 local function ExtrasMissing(e)
-  if type(e.extras) ~= 'table' then return false end
+  if not e.extras then return false end
   for _, f in ipairs(e.extras) do
     if not Exists(NativePath(e.extrasDir() .. '/' .. f)) then return true end
   end
@@ -532,22 +510,17 @@ local function ExtrasMissing(e)
 end
 
 local function ExtStatus(e)
-  if e.script then return e.loaded() and 'ok' or 'missing' end
   if downloadedNow[e.name] then return 'restart' end
   if e.loaded() then return ((e.outdated and e.outdated()) or ExtrasMissing(e)) and 'outdated' or 'ok' end
   return OnDisk(e) and 'restart' or 'missing'
 end
 
-local function Needed(e) return not e.needed or e.needed() or e.loaded() end
-
 -- the ones to download: missing or too old
 local function MissingExtensions()
   local list = {}
   for _, e in ipairs(EXTENSIONS) do
-    if Needed(e) then
-      local st = ExtStatus(e)
-      if st == 'missing' or st == 'outdated' then list[#list + 1] = e end
-    end
+    local st = ExtStatus(e)
+    if st == 'missing' or st == 'outdated' then list[#list + 1] = e end
   end
   return list
 end
@@ -573,19 +546,13 @@ local function PlanInstall(job)
       found, err = FromReaPackIndex(e.index, e.package, plat, e.extras)
       if found then url, file, extras = found.url, found.file, found.extras end
     end
-    if e.script then
-      for _, f in ipairs(found and found.files or {}) do
-        job.steps[#job.steps + 1] = { e = e, url = f.url, path = NativePath(RES .. '/' .. f.dest) }
-      end
-    else
-      -- the loaded binary is current: only its Lua files are needed
-      local binary = not (e.loaded() and not (e.outdated and e.outdated()))
-      if url and binary then
-        job.steps[#job.steps + 1] = { e = e, url = url, path = PLUGINS .. SEP .. file, binary = true }
-      end
-      for _, x in ipairs(extras or {}) do
-        job.steps[#job.steps + 1] = { e = e, url = x.url, path = NativePath(e.extrasDir() .. '/' .. x.file) }
-      end
+    -- the loaded binary is current: only its Lua files are needed
+    local binary = not (e.loaded() and not (e.outdated and e.outdated()))
+    if url and binary then
+      job.steps[#job.steps + 1] = { e = e, url = url, path = PLUGINS .. SEP .. file, binary = true }
+    end
+    for _, x in ipairs(extras or {}) do
+      job.steps[#job.steps + 1] = { e = e, url = x.url, path = NativePath(e.extrasDir() .. '/' .. x.file) }
     end
     if not found and not url then job.bad[e.name] = err or 'not found' end
   end
@@ -1706,10 +1673,8 @@ local function ExtensionsCard(x, y, w)
   local ix, iw = x + CARD_PX, w - CARD_PX * 2
   local cy = y + CARD_PY - 4
   local toInstall = {}
-  local first = true
-  for _, e in ipairs(EXTENSIONS) do if Needed(e) then
-    if not first then im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1) end
-    first = false
+  for i, e in ipairs(EXTENSIONS) do
+    if i > 1 then im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1) end
     local st = ExtStatus(e)
     local ry = cy + 10
     Txt(dl, F.bodyB, 13, ix, ry + 3, P.ink, e.name)
@@ -1722,7 +1687,7 @@ local function ExtensionsCard(x, y, w)
     Badge(dl, ix + iw - Badge_W(label), ry, label, clr)
     if st == 'missing' or st == 'outdated' then toInstall[#toInstall + 1] = e end
     cy = ry + BADGE_H + 10
-  end end
+  end
   local job = S.extJob
   if job then
     -- downloading: what, and how far

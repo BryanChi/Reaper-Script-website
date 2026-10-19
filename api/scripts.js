@@ -73,7 +73,10 @@ async function fetchReleases(product) {
 	if (hit && Date.now() - hit.at < RELEASE_TTL) return hit.list;
 	const resp = await fetch(`${GH}/repos/${product.owner}/${product.repo}/releases?per_page=30`, { headers: ghHeaders() });
 	if (!resp.ok) return null;
-	const list = (await resp.json()).filter(r => !r.draft);
+	// newest first by publish date: GitHub orders by the tagged commit's date, so a release of an
+	// older commit (a merge made earlier) would otherwise sort below the previous release
+	const list = (await resp.json()).filter(r => !r.draft)
+		.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
 	releaseCache.set(product.repo, { at: Date.now(), list });
 	return list;
 }

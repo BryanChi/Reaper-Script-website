@@ -10,7 +10,7 @@
   const IMG = {
     'chain-mastering': [3520, 580], proq4: [1440, 580], proc3: [920, 580], prol2: [1520, 580], pror2: [2000, 600],
     'wave-shifter': [1000, 580], kaleido: [1124, 544], 'clash-finder': [1524, 544], 'midi-devices': [4756, 544],
-    'reaper-stock': [2960, 544], modulators: [2524, 670], 'lfo-editor': [2524, 1160], 'mod-panel': [1520, 935],
+    'reaper-stock': [2960, 544], modulators: [2524, 670], 'lfo-editor': [2524, 1160], 'mod-panel': [841, 644, 600],
     'mod-targets': [1120, 960], 'container-mods': [2400, 636], 'band-split': [2580, 636], 'mid-side-transient': [1880, 636],
     'parallel-tabs': [2124, 644],
   };
@@ -30,10 +30,14 @@
       [26, 6.5, 'Add FX search', 'Press Ctrl+F from anywhere and type a few letters.'],
     ],
     'mod-panel': [
-      [15.6, 28, 'Hover any knob', 'Its mod panel opens with every modulator on it.'],
-      [34.2, 64.2, 'One row per modulator', 'Each with its own amount, direction and curve.'],
-      [56.6, 50.9, 'Warns before it clips', 'The red end shows where the range runs past the limit.'],
-      [47.4, 85, 'Choose how they combine', 'Add them together, or let a macro scale the others.'],
+      [28.5, 16.3, 'One badge per modulator', 'Hover a knob and a badge appears for each modulator on it, showing how it combines with the others.'],
+      [95.8, 49.4, 'Warns before it clips', 'The bar shows where the knob sits and how far the modulators take it. The red end is where the range runs past the limit.'],
+      [19.6, 74.7, 'In the plugin\'s own units', 'Each row shows the range that modulator covers on this knob, here in Hz.'],
+      [36.3, 61.8, 'Add or scale', 'Choose how each modulator combines with the rest.'],
+      [43.6, 72.2, 'One way or both', 'Push the knob up, down, or both ways around where it sits.'],
+      [49.9, 82.3, 'A curve per link', 'Bend how the modulator maps onto this knob.'],
+      [64.2, 62.1, 'Drag the amount', 'Set how far each modulator moves the knob, shown in % on the right.'],
+      [52.3, 94.1, 'The maths, spelled out', 'How the modulators combine on this knob, written out in full.'],
     ],
     'lfo-editor': [
       [17.25, 19, 'Draw the shape', 'Double-click to add a point. Drag a line to bend it.'],
@@ -64,12 +68,12 @@
   };
 
   function fillShot(shot, name, alt, opts = {}) {
-    const [w, hh] = IMG[name];
+    const [w, hh, maxW] = IMG[name];
     const wide = !opts.contain && w / hh > 2.2;
     const img = h('img', { src: '/fx-devices/img/' + name + '.webp', width: w, height: hh, alt: alt || '', decoding: 'async', draggable: 'false' });
     const inner = h('div', { class: 'shot-in' + (wide ? ' wide' : '') + (opts.fade ? ' fade' : '') }, img);
     // tall shots: cap their height so a panel never fills more than a screen
-    if (!opts.contain && w / hh < 2.4) inner.style.maxWidth = Math.round(620 * w / hh) + 'px';
+    if (!opts.contain && w / hh < 2.4) inner.style.maxWidth = (maxW || Math.round(620 * w / hh)) + 'px';
     for (const [i, hs] of (HOT[name] || []).entries()) inner.append(hotspot(inner, hs, i));
     shot.replaceChildren(inner);
     const frame = shot.closest('.frame');
@@ -114,8 +118,8 @@
   /* ------------------------------------------------------------ tabs */
   const TABS = {
     mod: [
-      { img: 'mod-panel', label: 'Mod panel', cap: '<b>Hover a knob</b> and its mod panel shows every modulator on it, with values in the plugin\'s own units.' },
       { guide: true, label: 'The modulators', cap: '<b>Every kind of modulator</b> in FX Devices. The less obvious ones show what they do, live.' },
+      { img: 'mod-panel', label: 'Mod panel', cap: '<b>Hover a knob</b> and its mod panel shows every modulator on it, with values in the plugin\'s own units.' },
       { img: 'mod-targets', label: 'Targets', cap: '<b>Everything one modulator drives,</b> in one list, with a curve for each link.' },
     ],
     chain: [

@@ -1,5 +1,6 @@
-/* FX Devices marketing page: "The modulators" guide, one short introduction per modulator type with a live scope of
-   what it outputs. Every scope is a pure function of the beat, so it draws the same whether the clock runs or not. */
+/* FX Devices marketing page: "The modulators", a card per modulator type with an icon and a line or two on what it does.
+   The less obvious ones get a small live picture. Every picture is a pure function of the beat, so it draws the same
+   whether the clock runs or not. */
 (function () {
   'use strict';
   const { h, s, clamp, lerp } = FXD;
@@ -8,7 +9,7 @@
   const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const noteName = m => NOTE[m % 12] + (Math.floor(m / 12) - 1);
 
-  /* ------------------------------------------------------------ made-up input the scopes react to (one 4-beat bar, looping) */
+  /* ------------------------------------------------------------ made-up input the pictures react to (one 4-beat bar, looping) */
   // played notes: [on, off, velocity, key]
   const NOTES = [[0, .6, .95, 48], [1, 1.35, .55, 55], [1.5, 1.85, .75, 60], [2.5, 3.6, 1, 52], [3.5, 3.8, .4, 64]];
   // drum hits for the audio modulators: [beat, level]
@@ -32,28 +33,27 @@
     return out;
   }
   const audioIn = b => clamp(recent(HITS, b).reduce((a, [t, [, v]]) => a + v * Math.exp(-t * 10), 0));
-  const noteOn = b => { const n = last(NOTES, b); const off = n.at + n.ev[1] - n.ev[0]; return { ...n, t: b - n.at, off, held: b < off }; };
+  const noteOn = b => { const n = last(NOTES, b); return { ...n, t: b - n.at }; };
   const held = (v, t) => v * smooth(clamp(t / .03));
 
-  // a curve drawn from points, bent like the LFO editor's lines
-  const drawn = pts => p => {
-    for (let i = 1; i < pts.length; i++) if (p <= pts[i][0]) {
-      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
-      return lerp(y0, y1, smooth((p - x0) / (x1 - x0)));
-    }
-    return pts[pts.length - 1][1];
+  /* ------------------------------------------------------------ icons: 24px line drawings in the modulator's colour */
+  const ICON = {
+    macro: '<circle cx="12" cy="13" r="7"/><path d="M12 13 15.5 8.5"/><path d="M4.5 19.5l1.4-1.4M19.5 19.5l-1.4-1.4"/>',
+    xy: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M12 3.5v17M3.5 12h17" opacity=".35"/><path d="M6 17c3-1 4-6 9-8" stroke-dasharray="1.5 2"/><circle cx="15.5" cy="8.7" r="2" fill="currentColor"/>',
+    lfo: '<path d="M2.5 12c2.4-8 4.8-8 7.2 0s4.8 8 7.2 0 3.6-6 4.6-4"/>',
+    step: '<path d="M3 19V9h4v10M7 19v-6h4v6M11 19V5h4v14M15 19v-9h4v9M2.5 19h19"/>',
+    random: '<path d="M2.5 15h3.5V7h3.5v10h3.5V5h3.5v8h4.5"/>',
+    envelope: '<path d="M2.5 19h2l2-14c1 6 3 10.5 7 12.5 2 1 4 1.5 8 1.5"/>',
+    adsr: '<path d="M2.5 19 7 5l3 6h7l4 8"/><circle cx="7" cy="5" r="1.4" fill="currentColor"/><circle cx="10" cy="11" r="1.4" fill="currentColor"/><circle cx="17" cy="11" r="1.4" fill="currentColor"/>',
+    follower: '<path d="M3 12v0M5 9.5v5M7 6.5v11M9 9v6M11 11v2M13 8v8M15 5v14M17 9v6M19 11v2M21 12v0" opacity=".45"/><path d="M3 11c2-1 3-5 4-5s2 3 4 4 2-4 4-5 3 4 6 6"/>',
+    transient: '<path d="M13.5 2.5 6 13.5h5.5l-1.5 8 8-11.5h-5.5z"/>',
+    pitch: '<path d="M9 17.5V5l9-2v12"/><circle cx="6.8" cy="17.5" r="2.4"/><circle cx="15.8" cy="15" r="2.4"/><path d="M20.5 9l1.5-2 1.5 2" transform="translate(-2 -4)"/>',
+    velocity: '<path d="M5 3.5h6v17H5z"/><path d="M17 4v11M14 12l3 3.5 3-3.5"/><path d="M14.5 20.5h5"/>',
+    'midi-random': '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.3" fill="currentColor"/>',
+    keytrack: '<path d="M2.5 13.5h19v7h-19zM7.25 13.5v7M12 13.5v7M16.75 13.5v7"/><path d="M3 10.5 21 3.5"/><circle cx="21" cy="3.5" r="1.3" fill="currentColor"/>',
+    cc: '<path d="M7 3.5v17M17 3.5v17"/><rect x="4" y="12" width="6" height="4" rx="1" fill="currentColor"/><rect x="14" y="6" width="6" height="4" rx="1" fill="currentColor"/>',
   };
-  const LFO_SHAPE = drawn([[0, .12], [.22, .92], [.36, .58], [.55, .78], [1, .12]]);
-  const STEPS = [.9, .2, .55, .2, .72, .3, 1, .15, .82, .42, .62, .22, .95, .5, .3, .66];
-
-  // a new note starts its attack from wherever the last one's release had got to
-  function adsr(b, depth) {
-    const n = noteOn(b), A = .1, H = .05, D = .3, S = .5, R = .4, vel = .4 + .6 * n.ev[2];
-    const from = depth ? adsr(n.at - 1e-4, depth - 1) : 0;
-    const lvl = t => t < A ? lerp(from, vel, Math.pow(t / A, .6)) : vel * (t < A + H ? 1 : S + (1 - S) * Math.pow(1 - clamp((t - A - H) / D), 2));
-    if (n.held) return lvl(n.t);
-    return lvl(n.off - n.at) * Math.pow(1 - clamp((b - n.off) / R), 2);
-  }
+  const icon = k => { const e = s('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }); e.innerHTML = ICON[k]; return e; };
 
   /* ------------------------------------------------------------ the modulators */
   const C = i => FXD.modBright(i);
@@ -65,203 +65,111 @@
     { name: 'From the audio', mods: ['follower', 'transient', 'pitch'] },
     { name: 'From MIDI', mods: ['velocity', 'midi-random', 'keytrack', 'cc'] },
   ];
+  // pic: a small live picture for the ones that aren't obvious from the name
   const MODS = {
-    macro: {
-      name: 'Macro', color: C(1), tag: 'A knob you turn or automate',
-      text: 'A plain knob that can move as many parameters as you like, each by its own amount and in its own direction. Turn it by hand, or show its automation lane and draw the moves in REAPER. Every track starts with two.',
-      ctl: [['Name', 'Rename it to say what it does, like "Brightness" or "Space".'], ['Automation', 'Show or hide its envelope lane in REAPER from the right-click menu.'], ['Scale', 'Set a macro to scale the other modulators on a knob instead of adding to them.']],
-      out: b => clamp(.55 + .28 * Math.sin(b * .55) + .1 * Math.sin(b * 1.7 + 1)),
-    },
-    xy: {
-      name: 'XY', color: C(8), tag: 'Two values from one pad',
-      text: 'Drag a dot around a pad to move two things at once, one on each axis. Sweep a filter\'s cutoff and resonance together, or blend two effects with one hand. A fading trail shows where you have been.',
-      ctl: [['Assign X', 'Right-click the pad, then right-drag a knob.'], ['Assign Y', 'Double right-click the pad, then right-drag a knob.'], ['X and Y fields', 'Type or drag an exact value for each axis.']],
-      out: b => clamp(.5 + .38 * Math.sin(b * .8)), out2: b => clamp(.5 + .32 * Math.sin(b * 1.25 + 1.4)),
-      read: b => '<b>X</b> ' + Math.round(MODS.xy.out(b) * 127) + ' · <b class="y">Y</b> ' + Math.round(MODS.xy.out2(b) * 127),
-    },
-    lfo: {
-      name: 'LFO', color: C(2), tag: 'Loops a shape you draw',
-      text: 'Draw any shape and it loops in time with the song. It follows the playhead rather than a free-running clock, so it stays in phase when you jump around, loop a section or change the tempo.',
-      ctl: [['Shape', 'Double-click to add a point, Alt-click to delete one, drag a line to bend it.'], ['Rate', 'From 2 bars down to 1/128, even, triplet or dotted. Or run it free, from 10 ms to 20 s.'], ['Length and phase', 'Stretch one cycle over up to 8 steps, and offset it so two LFOs move apart.'], ['Retrigger', 'Restart the shape on every note instead of following the playhead.'], ['Shape library', 'Save shapes for every project, for this project, or for this track. Hover one to preview it.']],
-      out: b => LFO_SHAPE((b / 2) % 1), img: 'lfo-editor',
-    },
-    step: {
-      name: 'Step', color: C(7), tag: 'A step sequencer',
-      text: 'Up to 64 steps locked to the beat. Drag across the steps to draw a pattern and right-drag to clear them. Add glide and it slides from one step to the next instead of jumping.',
-      ctl: [['Length', '2 to 64 steps, with buttons to halve or double it.'], ['Rate', 'From 2 bars per step down to 1/64.'], ['Glide', 'From off up to a whole step.'], ['Pattern tools', 'Random, invert, shift left or right, ramp, reverse and clear.']],
-      out: b => {
-        const x = (b * 4) % 16, i = Math.floor(x), f = x - i, v = STEPS[i], p = STEPS[(i + 15) % 16];
-        return f < .18 ? lerp(p, v, smooth(f / .18)) : v;
-      },
-    },
-    random: {
-      name: 'Random', color: C(6), tag: 'New random values over time',
-      text: 'Picks a new value on a timer, either free in milliseconds or locked to the grid. Smooth it out for a slow drift, or keep it sharp for classic sample and hold.',
-      ctl: [['Timing', 'Free from 1 to 500 ms, or synced from 1/64 up to a bar.'], ['Smooth', 'Glide to each new value over 3 ms up to 1.5 s.'], ['Chance', 'How likely it is to pick a new value each time, so it can skip a beat.']],
-      out: b => {
-        const k = Math.floor(b * 2), pick = n => { while (hash(n + 50) > .75 && n > k - 6) n--; return hash(n); };
-        return lerp(pick(k - 1), pick(k), smooth(clamp((b * 2 - k) / .45)));
-      },
-    },
-    envelope: {
-      name: 'Envelope', color: C(3), tag: 'Plays a shape you draw, once per note',
-      text: 'The same drawing tools and shape library as the LFO, but the shape plays once each time a note starts. Use it for a pluck on a filter, a swell on a reverb, or a pitch drop on a kick.',
-      ctl: [['Shape', 'Draw it point by point, or pick one from the envelope shape library.'], ['Notes', 'Only react to a range of keys.'], ['Legato', 'Only the first note of a phrase restarts it.'], ['Velocity', 'Make softer notes play a smaller shape.'], ['Release', 'Latch plays the whole shape. Jump and Glide hold until you let go, then move to the release point.']],
-      notes: true,
-      out: b => {
-        const n = noteOn(b), u = n.t / .9;
-        if (u > 1) return 0;
-        const v = u < .05 ? u / .05 : Math.exp(-4 * (u - .05)) * Math.pow(1 - u, .35);
-        return v * (.35 + .65 * n.ev[2]);
-      },
-    },
-    adsr: {
-      name: 'ADSR', color: C(4), tag: 'Attack, hold, decay, sustain, release',
-      text: 'The classic synth envelope, started by each note and released when you let go. Drag the points on the graph to set the times, and drag a segment to bend its curve.',
-      ctl: [['Attack and decay', '1 ms to 2 s each.'], ['Hold', 'Stay at the top for up to 2 s before decaying.'], ['Sustain', 'The level it holds while the note is down.'], ['Release', '1 ms to 2 s after the note ends.'], ['Velocity', 'Make softer notes reach a lower peak.']],
-      notes: true,
-      out: b => adsr(b, 1),
-    },
-    follower: {
-      name: 'Follower', color: C(5), tag: 'Follows the audio level',
-      text: 'Turns how loud the track is into movement. Open a filter as the drums get louder, or listen to a sidechain and duck a pad under the vocal. Add a filter and it only follows one part of the sound.',
-      ctl: [['Attack', '0.1 to 500 ms.'], ['Release', '1 to 2000 ms.'], ['Gain', 'Up to 400%, for quiet sources.'], ['Input', 'The track itself on 1/2, or a sidechain on 3/4.'], ['Filter', 'Low, band or high pass, from 20 Hz to 20 kHz.']],
-      audio: true,
-      out: b => clamp(recent(HITS, b).reduce((a, [t, [, v]]) => a + v * (1 - Math.exp(-t / .04)) * Math.exp(-t * 2.4), 0) * .95),
-    },
-    transient: {
-      name: 'Transient', color: C(9), tag: 'Fires an envelope on hits in the audio',
-      text: 'Listens for hits and fires a short attack and decay on each one, so a kick can pump a compressor or every snare can throw up a delay. Quieter hits below the sensitivity are ignored, and the tile flashes on each one it catches.',
-      ctl: [['Sensitivity', 'How hard a hit has to be to fire it.'], ['Attack', '0.1 to 200 ms.'], ['Decay', '10 ms to 3 s.'], ['Input', 'The track itself, or a sidechain.'], ['Filter', 'React to just the kick, or just the snare.']],
-      audio: true,
-      out: b => clamp(recent(HITS, b).filter(([, [, v]]) => v > .45).reduce((a, [t]) => Math.max(a, t < .025 ? t / .025 : Math.exp(-(t - .025) * 5.5)), 0)),
-    },
-    pitch: {
-      name: 'Pitch', color: C(11), tag: 'Follows the pitch of the audio',
-      text: 'Hears the note being sung or played and turns it into a value between the lowest and highest note you set. Made for one note at a time, like a vocal, a bass or a lead. Between notes it holds the last pitch.',
-      ctl: [['Range', 'Lowest and highest note, anywhere from C0 to C8.'], ['Smooth', 'Up to 500 ms, so it glides instead of jumping.'], ['Input', 'The track itself, or a sidechain.'], ['Filter', 'Keep other sounds out of the way.']],
-      out: b => {
-        const n = last(MELODY, b), map = m => (m - 50) / 20;
-        return lerp(map(n.prev[1]), map(n.ev[1]), 1 - Math.exp(-(b - n.at) * 16));
-      },
-      raw: b => (last(MELODY, b).ev[1] - 50) / 20,
-      read: b => noteName(last(MELODY, b).ev[1]),
-    },
-    velocity: {
-      name: 'Velocity', color: M.Velocity, tag: 'How hard each note is played', midi: true,
-      text: 'Each note\'s velocity becomes a value, so harder hits can open a filter or add drive. Draw a response curve to choose how it reacts.',
-      ctl: [['Response curve', 'Input left to right, output up. Draw any curve.'], ['Notes from', 'Notes played into the track, or from an FX Devices note device.']],
-      notes: true, out: b => { const n = noteOn(b); return held(Math.pow(n.ev[2], .8), n.t); },
-    },
-    'midi-random': {
-      name: 'Random', color: M.Random, tag: 'A new value on every note', midi: true,
-      text: 'Rolls a fresh value each time a note starts, so no two hits sound quite the same. Use up to three, each with its own response curve.',
-      ctl: [['Response curve', 'Shape the spread of values it picks.'], ['Notes from', 'Notes played into the track, or from an FX Devices note device.']],
-      notes: true, out: b => { const n = noteOn(b); return held(.1 + .85 * hash(n.idx * 3.7 + 9), n.t); },
-    },
-    keytrack: {
-      name: 'KeyTrack', color: M.KeyTrack, tag: 'Follows the key you play', midi: true,
-      text: 'Turns the note number into a value, so higher notes can be brighter, or a filter can follow the melody. Use up to three, each with its own response curve.',
-      ctl: [['Response curve', 'Choose which part of the keyboard moves it, and how much.'], ['Notes from', 'Notes played into the track, or from an FX Devices note device.']],
-      notes: true, out: b => { const n = noteOn(b); return held((n.ev[3] - 36) / 36, n.t); },
-      read: b => noteName(noteOn(b).ev[3]),
-    },
-    cc: {
-      name: 'CC', color: M.CC, tag: 'Any knob on your controller', midi: true,
-      text: 'Use the mod wheel, an expression pedal or any knob or fader on a MIDI controller. Type the CC number, or press Learn and move the control.',
-      ctl: [['CC number', 'Type it in, or press Learn and move the control.'], ['Recent CCs', 'The tile lists the controllers it has seen lately, so you can pick one.'], ['Response curve', 'Bend how the controller maps onto the knob.']],
-      out: b => Math.round(clamp(.45 + .32 * Math.sin(b * .9) + .14 * Math.sin(b * 2.3 + 1)) * 127) / 127,
-      read: b => 'CC 1 · ' + Math.round(MODS.cc.out(b) * 127),
-    },
+    macro: { name: 'Macro', color: C(1), text: 'A knob you turn or automate. Point it at as many parameters as you like, each with its own amount.' },
+    xy: { name: 'XY', color: C(8), pic: 'pad', text: 'Drag a dot around a pad to move two things at once, one on each axis.',
+      x: b => clamp(.5 + .36 * Math.sin(b * 1.1)), y: b => clamp(.5 + .32 * Math.sin(b * 1.7 + 1.4)) },
+    lfo: { name: 'LFO', color: C(2), text: 'Loops a shape you draw, locked to the song so it stays in phase when you jump around. Draw it in the shape editor below.' },
+    step: { name: 'Step', color: C(7), text: 'A step sequencer of up to 64 steps. Drag across them to draw a pattern, with glide if you want it smooth.' },
+    random: { name: 'Random', color: C(6), text: 'New random values over time, free or synced to the grid. Smooth it into a drift or keep it as sample and hold.' },
+    envelope: { name: 'Envelope', color: C(3), text: 'Plays a shape you draw once per note, with the same drawing tools and library as the LFO.' },
+    adsr: { name: 'ADSR', color: C(4), text: 'The classic attack, hold, decay, sustain and release, started by each note. Drag the points to set it.' },
+    follower: { name: 'Follower', color: C(5), pic: 'audio', text: 'Follows how loud the audio is. Listen to the track or a sidechain, and filter it to follow just the lows or highs.',
+      out: b => clamp(recent(HITS, b).reduce((a, [t, [, v]]) => a + v * (1 - Math.exp(-t / .04)) * Math.exp(-t * 2.4), 0) * .95) },
+    transient: { name: 'Transient', color: C(9), pic: 'audio', text: 'Fires a short envelope on every hit in the audio and ignores the quiet bits. Make a kick pump anything.',
+      out: b => clamp(recent(HITS, b).filter(([, [, v]]) => v > .45).reduce((a, [t]) => Math.max(a, t < .025 ? t / .025 : Math.exp(-(t - .025) * 5.5)), 0)) },
+    pitch: { name: 'Pitch', color: C(11), pic: 'line', text: 'Hears the note being sung or played and turns it into a value between a lowest and highest note.',
+      out: b => { const n = last(MELODY, b), map = m => (m - 50) / 20; return lerp(map(n.prev[1]), map(n.ev[1]), 1 - Math.exp(-(b - n.at) * 16)); },
+      read: b => noteName(last(MELODY, b).ev[1]) },
+    velocity: { name: 'Velocity', color: M.Velocity, midi: true, text: 'How hard each note is played, through a response curve you draw.' },
+    'midi-random': { name: 'Random', color: M.Random, midi: true, pic: 'notes', text: 'A new random value each time a note starts, so no two hits sound quite the same.',
+      out: b => { const n = noteOn(b); return held(.1 + .85 * hash(n.idx * 3.7 + 9), n.t); } },
+    keytrack: { name: 'KeyTrack', color: M.KeyTrack, midi: true, pic: 'notes', text: 'Turns which key you play into a value, so higher notes can be brighter.',
+      out: b => { const n = noteOn(b); return held((n.ev[3] - 36) / 36, n.t); }, read: b => noteName(noteOn(b).ev[3]) },
+    cc: { name: 'CC', color: M.CC, midi: true, text: 'The mod wheel, a pedal or any knob on your MIDI controller. Press Learn and move it.' },
   };
-  const ORDER = GROUPS.flatMap(g => g.mods);
 
-  /* ------------------------------------------------------------ the scope */
-  const W = 600, HT = 150, SPAN = 4, N = 240;
-  const yOf = v => (HT - 10 - v * (HT - 24)).toFixed(1);
+  /* ------------------------------------------------------------ live pictures */
+  const W = 400, HT = 90, SPAN = 4, N = 160;
+  const yOf = v => HT - 8 - v * (HT - 18);
   function path(f, b0) {
     let d = '';
-    for (let i = 0; i <= N; i++) d += (i ? 'L' : 'M') + (i / N * W).toFixed(1) + ' ' + yOf(f(b0 + i / N * SPAN));
+    for (let i = 0; i <= N; i++) d += (i ? 'L' : 'M') + (i / N * W).toFixed(1) + ' ' + yOf(f(b0 + i / N * SPAN)).toFixed(1);
     return d;
   }
-  function scope() {
-    const grid = s('g', { class: 'mg-grid' });
-    for (let i = 1; i < SPAN; i++) grid.append(s('line', { x1: i / SPAN * W, x2: i / SPAN * W, y1: 0, y2: HT }));
-    const input = s('path', { class: 'mg-in' }), notes = s('g', { class: 'mg-notes' }), raw = s('path', { class: 'mg-raw' });
-    const fill = s('path', { class: 'mg-fill' }), line = s('path', { class: 'mg-line' }), line2 = s('path', { class: 'mg-line2' });
-    const svg = s('svg', { viewBox: `0 0 ${W} ${HT}`, preserveAspectRatio: 'none', 'aria-hidden': 'true' }, grid, input, notes, raw, fill, line2, line);
-    const dot = h('i', { class: 'mg-dot' }), dot2 = h('i', { class: 'mg-dot mg-dot2' }), read = h('span', { class: 'mg-read' });
-    const el = h('div', { class: 'mg-scope' }, svg, dot, dot2, read);
-    let m = null;
-    function draw() {
-      if (!m || !el.isConnected) return;
-      const b = FXD.clock.beat, b0 = b - SPAN;
-      const d = path(m.out, b0);
+  // a scrolling line of what the modulator outputs, over what it listens to
+  function scope(m) {
+    const input = s('path', { class: 'mc-in' }), notes = s('g', { class: 'mc-notes' }), fill = s('path', { class: 'mc-fill' }), line = s('path', { class: 'mc-line' });
+    const svg = s('svg', { viewBox: `0 0 ${W} ${HT}`, preserveAspectRatio: 'none' }, input, notes, fill, line);
+    const dot = h('i', { class: 'mc-dot' }), read = m.read ? h('span', { class: 'mc-read' }) : null;
+    const el = h('div', { class: 'mc-pic', 'aria-hidden': 'true' }, svg, dot, read);
+    const draw = () => {
+      const b = FXD.clock.beat, b0 = b - SPAN, d = path(m.out, b0);
       line.setAttribute('d', d);
       fill.setAttribute('d', d + `L${W} ${HT}L0 ${HT}Z`);
-      line2.setAttribute('d', m.out2 ? path(m.out2, b0) : '');
-      raw.setAttribute('d', m.raw ? path(m.raw, b0) : '');
-      if (m.audio) {
+      if (m.pic === 'audio') {
         let top = '', bot = '';
         for (let i = 0; i <= N; i++) {
-          const x = (i / N * W).toFixed(1), bb = b0 + i / N * SPAN, a = audioIn(bb) * (.55 + .45 * Math.abs(Math.sin(bb * 173))) * (HT / 2 - 8);
+          const x = (i / N * W).toFixed(1), bb = b0 + i / N * SPAN, a = audioIn(bb) * (.55 + .45 * Math.abs(Math.sin(bb * 173))) * (HT / 2 - 6);
           top += (i ? 'L' : 'M') + x + ' ' + (HT / 2 - a).toFixed(1); bot = 'L' + x + ' ' + (HT / 2 + a).toFixed(1) + bot;
         }
         input.setAttribute('d', top + bot + 'Z');
-      } else input.setAttribute('d', '');
-      notes.replaceChildren();
-      if (m.notes) for (let k = Math.floor(b0 / 4); k <= Math.floor(b / 4); k++) for (const [on, off, vel] of NOTES) {
-        const x0 = (k * 4 + on - b0) / SPAN * W, x1 = (k * 4 + off - b0) / SPAN * W;
-        if (x1 < 0 || x0 > W) continue;
-        notes.append(s('rect', { x: x0.toFixed(1), y: HT - 6, width: Math.max(2, x1 - x0).toFixed(1), height: 4, opacity: (.35 + .65 * vel).toFixed(2) }));
       }
-      const v = m.out(b);
-      dot.style.top = (yOf(v) / HT * 100) + '%';
-      dot2.hidden = !m.out2;
-      if (m.out2) dot2.style.top = (yOf(m.out2(b)) / HT * 100) + '%';
-      read.innerHTML = m.read ? m.read(b) : Math.round(v * 100) + '%';
-    }
-    return { el, draw, set(mod) { m = mod; el.style.setProperty('--c', mod.color); draw(); } };
+      if (m.pic === 'line') input.setAttribute('d', path(bb => (last(MELODY, bb).ev[1] - 50) / 20, b0));
+      if (m.pic === 'notes') {
+        notes.replaceChildren();
+        for (let k = Math.floor(b0 / 4); k <= Math.floor(b / 4); k++) for (const [on, off] of NOTES) {
+          const x0 = (k * 4 + on - b0) / SPAN * W, x1 = (k * 4 + off - b0) / SPAN * W;
+          if (x1 > 0 && x0 < W) notes.append(s('rect', { x: x0.toFixed(1), y: HT - 4, width: Math.max(2, x1 - x0).toFixed(1), height: 3 }));
+        }
+      }
+      dot.style.top = (yOf(m.out(b)) / HT * 100) + '%';
+      if (read) read.textContent = m.read(b);
+    };
+    return { el, draw };
+  }
+  // XY: the dot moving round the pad, with a fading trail
+  function pad(m) {
+    const trail = s('g', { class: 'mc-trail' }), dot = s('circle', { r: 5, class: 'mc-pdot' });
+    const hx = s('line', { class: 'mc-cross', y1: 0, y2: 100 }), hy = s('line', { class: 'mc-cross', x1: 0, x2: 100 });
+    const svg = s('svg', { viewBox: '0 0 100 100' }, hx, hy, trail, dot);
+    const el = h('div', { class: 'mc-pic mc-pad', 'aria-hidden': 'true' }, svg);
+    const draw = () => {
+      const b = FXD.clock.beat, X = t => 6 + m.x(t) * 88, Y = t => 94 - m.y(t) * 88;
+      trail.replaceChildren();
+      for (let i = 24; i > 0; i--) { const t0 = b - i * .06, t1 = t0 + .06; trail.append(s('line', { x1: X(t0), y1: Y(t0), x2: X(t1), y2: Y(t1), 'stroke-opacity': (1 - i / 24) * .8 })); }
+      const x = X(b), y = Y(b);
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+      hx.setAttribute('x1', x); hx.setAttribute('x2', x); hy.setAttribute('y1', y); hy.setAttribute('y2', y);
+    };
+    return { el, draw };
   }
 
-  /* ------------------------------------------------------------ the guide */
+  /* ------------------------------------------------------------ the cards */
   FXD.modGuide = function (host, { fillShot } = {}) {
-    const sc = scope();
-    const btns = {};
-    const nav = h('nav', { class: 'mg-nav', 'aria-label': 'Modulator types' },
-      GROUPS.map(g => h('div', { class: 'mg-group' }, h('p', null, g.name), g.mods.map(k => {
-        const m = MODS[k];
-        return (btns[k] = h('button', { class: 'mg-pick', type: 'button', 'aria-pressed': 'false', style: '--c:' + m.color, onclick: () => select(k) }, h('i'), m.name, m.midi ? h('small', null, 'MIDI') : null));
-      }))));
-    const kick = h('p', { class: 'mg-kick' }), name = h('h3', { class: 'mg-name' }), tag = h('p', { class: 'mg-tag' }), text = h('p', { class: 'mg-text' });
-    const ctl = h('dl', { class: 'mg-ctl' }), extra = h('div', { class: 'mg-extra' });
-    const body = h('div', { class: 'mg-body', 'aria-live': 'polite' }, h('div', { class: 'mg-top' }, h('div', null, kick, name, tag), h('p', { class: 'mg-hint' }, 'Live output')), sc.el, text, ctl, extra);
-    host.replaceChildren(h('div', { class: 'mg' }, nav, body));
-    let cur = null;
-    function select(k) {
-      if (!MODS[k]) return;
-      if (cur) btns[cur].setAttribute('aria-pressed', 'false');
-      cur = k;
+    const cards = {}, pics = [];
+    const groups = GROUPS.map(g => h('section', { class: 'mc-group' }, h('p', { class: 'mc-gname' }, g.name), h('div', { class: 'mc-grid' }, g.mods.map(k => {
       const m = MODS[k];
-      btns[k].setAttribute('aria-pressed', 'true');
-      kick.textContent = GROUPS.find(g => g.mods.includes(k)).name;
-      name.textContent = m.name;
-      tag.textContent = m.tag;
-      text.textContent = m.text;
-      ctl.replaceChildren(...m.ctl.flatMap(([a, b]) => [h('dt', null, a), h('dd', null, b)]));
-      extra.replaceChildren();
-      if (m.img && fillShot) {
-        const shot = h('div', { class: 'shot' });
-        extra.append(h('p', { class: 'mg-sub' }, 'The shape editor'), h('div', { class: 'frame' }, shot));
-        fillShot(shot, m.img, 'The LFO shape editor in FX Devices', { contain: true });
-      }
-      body.style.setProperty('--c', m.color);
-      sc.set(m);
+      const pic = m.pic ? (m.pic === 'pad' ? pad(m) : scope(m)) : null;
+      if (pic) pics.push(pic);
+      return (cards[k] = h('article', { class: 'mc' + (pic ? ' has-pic' : ''), id: 'mod-' + k, style: '--c:' + m.color },
+        h('div', { class: 'mc-head' }, h('span', { class: 'mc-icon' }, icon(k)), h('h4', null, m.name), m.midi ? h('small', null, 'MIDI') : null),
+        h('p', null, m.text), pic && pic.el));
+    }))));
+    const editor = h('div', { class: 'mc-editor' }, h('p', { class: 'mc-gname' }, 'The shape editor, for LFO and Envelope'), h('div', { class: 'frame' }, h('div', { class: 'shot' })));
+    host.replaceChildren(h('div', { class: 'mcs' }, groups, editor));
+    if (fillShot) fillShot(editor.querySelector('.shot'), 'lfo-editor', 'The LFO shape editor in FX Devices', { contain: true });
+    FXD.onFrame(() => { if (host.isConnected) pics.forEach(p => p.draw()); });
+    pics.forEach(p => p.draw());
+    // bring a card into view and make it glow for a moment
+    function select(k) {
+      const c = cards[k];
+      if (!c) return;
+      c.scrollIntoView({ behavior: FXD.reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
     }
-    const off = FXD.onFrame(sc.draw);
-    select('lfo');
-    return { select, off };
+    return { select };
   };
-  FXD.modGuide.order = ORDER;
   FXD.modGuide.mods = MODS;
 })();

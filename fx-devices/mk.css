@@ -571,63 +571,46 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .mod-kinds a.midi::after { content: "MIDI"; font-size: 8.5px; color: var(--ink-3); letter-spacing: .1em; }
 .mod-kinds a:hover, .mod-kinds a:focus-visible { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
 
-/* ------------------------------------------------ the modulator guide (a tab under the modulation demo) */
-.mg { display: grid; grid-template-columns: 220px minmax(0, 1fr); border: 1px solid rgba(255, 255, 255, .2); background: #070707; }
-.mg-nav { position: relative; border-right: 1px solid rgba(255, 255, 255, .12); padding: 18px 0 14px; }
-.mg-group + .mg-group { margin-top: 14px; }
-.mg-group p { margin: 0 0 4px; padding: 0 20px; font: 500 10px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
-.mg-pick { --c: var(--acc); display: flex; align-items: center; gap: 10px; width: 100%; height: 32px; padding: 0 20px; border: 0; background: transparent; color: var(--ink-2);
-  font: 500 13.5px var(--f-ui); text-align: left; cursor: pointer; position: relative; }
-.mg-pick i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); opacity: .55; flex: none; }
-.mg-pick small { margin-left: auto; font: 500 9px var(--f-mono); letter-spacing: .1em; color: var(--ink-3); }
-.mg-pick:hover { color: #fff; background: rgba(255, 255, 255, .04); }
-.mg-pick[aria-pressed="true"] { color: #fff; background: color-mix(in srgb, var(--c) 13%, transparent); }
-.mg-pick[aria-pressed="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--c); }
-.mg-pick[aria-pressed="true"] i { opacity: 1; box-shadow: 0 0 10px var(--c); }
-.mg-body { --c: var(--acc); padding: 26px 30px 30px; min-width: 0; }
-.mg-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.mg-kick { margin: 0; font: 500 10.5px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--c); }
-.mg-name { margin: 10px 0 6px; font: 400 clamp(34px, 4vw, 54px)/.92 var(--f-display); text-transform: uppercase; letter-spacing: .01em; }
-.mg-tag { margin: 0; color: var(--ink-2); font-size: 16px; }
-.mg-hint { margin: 4px 0 0; display: flex; align-items: center; gap: 7px; font: 500 10px var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
-.mg-hint::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); animation: mgblink 1.6s ease-in-out infinite; }
-@keyframes mgblink { 50% { opacity: .25; } }
-.mg-scope { --c: var(--acc); position: relative; height: 150px; margin: 22px 0 22px; border: 1px solid rgba(255, 255, 255, .1); background: #030303; }
-.mg-scope svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.mg-grid line { stroke: rgba(255, 255, 255, .06); vector-effect: non-scaling-stroke; }
-.mg-in { fill: rgba(255, 255, 255, .09); }
-.mg-notes rect { fill: rgba(255, 255, 255, .55); }
-.mg-raw { fill: none; stroke: rgba(255, 255, 255, .28); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-.mg-fill { fill: color-mix(in srgb, var(--c) 16%, transparent); }
-.mg-line { fill: none; stroke: var(--c); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.mg-line2 { fill: none; stroke: #fff; stroke-opacity: .7; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.mg-dot { position: absolute; right: -5px; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 45%, transparent); }
-.mg-dot2 { background: var(--c); box-shadow: 0 0 0 3px rgba(255, 255, 255, .3); }
-.mg-read { position: absolute; left: 10px; top: 8px; font: 500 11px var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
-.mg-text { margin: 0; max-width: 68ch; color: var(--ink); font-size: 16px; line-height: 1.65; }
-.mg-ctl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 22px; margin: 22px 0 0; border-top: 1px solid var(--line); }
-.mg-ctl dt, .mg-ctl dd { padding: 10px 0; border-bottom: 1px solid var(--line); margin: 0; }
-.mg-ctl dt { font: 500 11px/1.9 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--c); }
-.mg-ctl dd { color: var(--ink-2); font-size: 14.5px; line-height: 1.55; }
-.mg-sub { margin: 30px 0 12px; font: 500 10.5px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
-.mg-extra:empty { display: none; }
-@media (max-width: 760px) {
-  .mg { grid-template-columns: minmax(0, 1fr); }
-  /* phones: every modulator as a wrapped row of chips, so none hide off to the side */
-  .mg-nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .12); }
-  .mg-group { display: contents; }
-  .mg-group p { display: none; }
-  .mg-pick { width: auto; height: 30px; padding: 0 10px; gap: 7px; border: 1px solid rgba(255, 255, 255, .14); font-size: 12.5px; }
-  .mg-pick[aria-pressed="true"] { border-color: var(--c); }
-  .mg-pick[aria-pressed="true"]::before { display: none; }
-  .mg-pick small { margin-left: 0; }
-  .mg-body { padding: 20px 16px 22px; }
-  .mg-hint { display: none; }
-  .mg-scope { height: 120px; }
-  .mg-ctl { grid-template-columns: minmax(0, 1fr); }
-  .mg-ctl dt { padding-bottom: 0; border-bottom: 0; }
-  .mg-ctl dd { padding-top: 2px; }
+/* ------------------------------------------------ the modulators: a card per type (a tab under the modulation demo) */
+.mcs { border: 1px solid rgba(255, 255, 255, .2); background: #070707; padding: 26px 26px 30px; }
+.mc-group + .mc-group, .mc-editor { margin-top: 26px; }
+.mc-gname { margin: 0 0 10px; font: 500 10.5px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
+.mc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.mc { --c: var(--acc); position: relative; display: flex; flex-direction: column; padding: 16px 16px 16px; border: 1px solid rgba(255, 255, 255, .1);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 9%, transparent), transparent 55%); scroll-margin: 90px; transition: border-color .3s, box-shadow .3s; }
+.mc.has-pic { grid-column: span 2; }
+.mc:hover { border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+.mc.flash { animation: mcflash 1.6s ease-out; }
+@keyframes mcflash { 0%, 35% { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 34px color-mix(in srgb, var(--c) 35%, transparent); } }
+.mc-head { display: flex; align-items: center; gap: 12px; }
+.mc-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  background: color-mix(in srgb, var(--c) 12%, transparent); box-shadow: inset 0 0 14px color-mix(in srgb, var(--c) 16%, transparent); }
+.mc-icon svg { width: 24px; height: 24px; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 60%, transparent)); }
+.mc h4 { margin: 0; font: 400 24px/1 var(--f-display); text-transform: uppercase; letter-spacing: .02em; }
+.mc-head small { margin-left: auto; font: 500 9.5px var(--f-mono); letter-spacing: .12em; color: var(--ink-3); border: 1px solid var(--line-2); padding: 3px 6px; }
+.mc p { margin: 12px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
+.mc-pic { position: relative; height: 90px; margin-top: auto; border: 1px solid rgba(255, 255, 255, .08); background: #030303; }
+.mc.has-pic p { margin-bottom: 14px; }
+.mc-pic svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mc-in { fill: rgba(255, 255, 255, .1); }
+.mc[id="mod-pitch"] .mc-in { fill: none; stroke: rgba(255, 255, 255, .3); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.mc-notes rect { fill: rgba(255, 255, 255, .5); }
+.mc-fill { fill: color-mix(in srgb, var(--c) 15%, transparent); }
+.mc-line { fill: none; stroke: var(--c); stroke-width: 1.8; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.mc-dot { position: absolute; right: -4px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 45%, transparent); }
+.mc-read { position: absolute; left: 8px; top: 6px; font: 500 10.5px var(--f-mono); color: var(--ink-2); }
+.mc-pad { height: 90px; width: 90px; align-self: flex-start; margin-top: auto; }
+.mc[id="mod-xy"] { grid-column: span 2; display: grid; grid-template-columns: minmax(0, 1fr) 90px; column-gap: 16px; }
+.mc[id="mod-xy"] .mc-head, .mc[id="mod-xy"] p { grid-column: 1; }
+.mc[id="mod-xy"] .mc-pad { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+.mc[id="mod-xy"] p { margin-bottom: 0; }
+.mc-cross { stroke: rgba(255, 255, 255, .14); stroke-width: .6; }
+.mc-trail line { stroke: var(--c); stroke-width: 2; stroke-linecap: round; }
+.mc-pdot { fill: #fff; stroke: var(--c); stroke-width: 2.5; }
+@media (max-width: 1100px) { .mc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .mcs { padding: 18px 14px 20px; }
+  .mc-grid { grid-template-columns: minmax(0, 1fr); }
+  .mc.has-pic, .mc[id="mod-xy"] { grid-column: auto; }
 }
-@media (prefers-reduced-motion: reduce) { .mg-hint::before { animation: none; } }
-.mg-read b { color: var(--c); font-weight: 600; }
-.mg-read b.y { color: #fff; }
+@media (prefers-reduced-motion: reduce) { .mc.flash { animation: none; } }

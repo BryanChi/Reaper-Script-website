@@ -115,7 +115,7 @@
   const TABS = {
     mod: [
       { img: 'mod-panel', label: 'Mod panel', cap: '<b>Hover a knob</b> and its mod panel shows every modulator on it, with values in the plugin\'s own units.' },
-      { guide: true, label: 'The modulators', cap: '<b>Pick a modulator</b> to see what it does. The scope draws what it would send to a knob right now.' },
+      { guide: true, label: 'The modulators', cap: '<b>Every kind of modulator</b> in FX Devices. The less obvious ones show what they do, live.' },
       { img: 'mod-targets', label: 'Targets', cap: '<b>Everything one modulator drives,</b> in one list, with a curve for each link.' },
     ],
     chain: [
@@ -182,7 +182,6 @@
     function open(key) {
       selectTab(tabIndex, true);
       guide.select(key);
-      $('[data-tabs="mod"]').scrollIntoView({ behavior: FXD.reducedMotion ? 'auto' : 'smooth', block: 'start' });
     }
     $$('[data-mod]').forEach(a => { const m = FXD.modGuide.mods[a.dataset.mod]; if (m) a.style.setProperty('--c', m.color); });
     $$('[data-mod]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null, '', '#mod-' + a.dataset.mod); open(a.dataset.mod); }));

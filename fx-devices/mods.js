@@ -71,12 +71,16 @@
     xy: { name: 'XY', color: C(8), pic: 'pad', text: 'Drag a dot around a pad to move two things at once, one on each axis.',
       x: b => clamp(.5 + .36 * Math.sin(b * 1.1)), y: b => clamp(.5 + .32 * Math.sin(b * 1.7 + 1.4)) },
     lfo: { name: 'LFO', color: C(2), text: 'Loops a shape you draw, locked to the song so it stays in phase when you jump around.',
-      editor: ['editor-lfo', 1550, 948, 'Draw the shape point by point, set the rate and cycle, and keep favourites in the shape library.'] },
-    step: { name: 'Step', color: C(7), text: 'A step sequencer of up to 64 steps. Drag across them to draw a pattern, with glide if you want it smooth.' },
-    random: { name: 'Random', color: C(6), text: 'New random values over time, free or synced to the grid. Smooth it into a drift or keep it as sample and hold.' },
-    envelope: { name: 'Envelope', color: C(3), text: 'Plays a shape you draw once per note, with the same drawing tools and library as the LFO.' },
+      editor: ['editor-lfo', 1552, 958, 'Draw the shape point by point, set the rate and cycle, and keep favourites in the shape library.'] },
+    step: { name: 'Step', color: C(7), text: 'A step sequencer of up to 64 steps. Drag across them to draw a pattern, with glide if you want it smooth.',
+      editor: ['editor-step', 984, 428, 'Drag across the steps to draw, right-drag to clear. Set the rate, length and glide.'] },
+    random: { name: 'Random', color: C(6), text: 'New random values over time, free or synced to the grid. Smooth it into a drift or keep it as sample and hold.',
+      editor: ['editor-random', 510, 392, 'Pick the timing, then how smooth it is and how often it changes.'] },
+    envelope: { name: 'Envelope', color: C(3), text: 'Plays a shape you draw once per note, with the same drawing tools and library as the LFO.',
+      editor: ['editor-envelope', 1556, 910, 'Draw the shape, choose which notes trigger it, and what happens when you let go.'] },
     adsr: { name: 'ADSR', color: C(4), text: 'The classic attack, hold, decay, sustain and release, started by each note. Drag the points to set it.' },
     follower: { name: 'Follower', color: C(5), pic: 'audio', text: 'Follows how loud the audio is. Listen to the track or a sidechain, and filter it to follow just the lows or highs.',
+      editor: ['editor-follower', 668, 446, 'Attack, release and gain, the input to listen to, and a filter.'],
       out: b => clamp(recent(HITS, b).reduce((a, [t, [, v]]) => a + v * (1 - Math.exp(-t / .04)) * Math.exp(-t * 2.4), 0) * .95) },
     transient: { name: 'Transient', color: C(9), pic: 'audio', text: 'Fires a short envelope on every hit in the audio and ignores the quiet bits. Make a kick pump anything.',
       out: b => clamp(recent(HITS, b).filter(([, [, v]]) => v > .45).reduce((a, [t]) => Math.max(a, t < .025 ? t / .025 : Math.exp(-(t - .025) * 5.5)), 0)) },
@@ -169,6 +173,9 @@
       const open = () => {
         dlg.querySelector('h3').textContent = m.name + ' editor';
         dlg.querySelector('.live-hint').textContent = cap;
+        // the shots are from a retina screen: show them at half size so they stay sharp, small ones a little bigger
+        const cw = Math.round(Math.max(w / 2, Math.min(w, 420)));
+        dlg.style.setProperty('--w', cw + 'px');
         dlg.querySelector('.mc-dlg-body').replaceChildren(h('img', { src: '/fx-devices/img/' + img + '.webp', width: w, height: hh, alt: 'The ' + m.name + ' editor in FX Devices' }));
         if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
       };

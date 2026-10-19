@@ -617,7 +617,10 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .mc.can-open { cursor: pointer; }
 .mc-open { margin-top: auto; padding-top: 14px; font: 500 10.5px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--c); }
 .mc.can-open:hover .mc-open { text-decoration: underline; text-underline-offset: 3px; }
-.mc-dlg { width: min(1100px, calc(100vw - 32px)); }
+.mc-dlg { width: min(var(--w, 600px), calc(100vw - 32px)); min-width: min(360px, calc(100vw - 32px)); }
+.mc-dlg .live-head { flex-wrap: wrap; row-gap: 4px; }
+.mc-dlg .live-hint { order: 3; flex-basis: 100%; }
 .mc-dlg .live-hint { text-transform: none; letter-spacing: 0; font: 400 13px var(--f-ui); color: var(--ink-2); white-space: normal; }
 .mc-dlg-body { padding: 0; background: #000; }
 .mc-dlg-body img { display: block; width: 100%; height: auto; }
+.mc-dlg .live-head h3 { margin-right: auto; }

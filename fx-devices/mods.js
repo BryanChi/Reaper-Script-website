@@ -70,7 +70,8 @@
     macro: { name: 'Macro', color: C(1), text: 'A knob you turn or automate. Point it at as many parameters as you like, each with its own amount.' },
     xy: { name: 'XY', color: C(8), pic: 'pad', text: 'Drag a dot around a pad to move two things at once, one on each axis.',
       x: b => clamp(.5 + .36 * Math.sin(b * 1.1)), y: b => clamp(.5 + .32 * Math.sin(b * 1.7 + 1.4)) },
-    lfo: { name: 'LFO', color: C(2), text: 'Loops a shape you draw, locked to the song so it stays in phase when you jump around. Draw it in the shape editor below.' },
+    lfo: { name: 'LFO', color: C(2), text: 'Loops a shape you draw, locked to the song so it stays in phase when you jump around.',
+      editor: ['editor-lfo', 1550, 948, 'Draw the shape point by point, set the rate and cycle, and keep favourites in the shape library.'] },
     step: { name: 'Step', color: C(7), text: 'A step sequencer of up to 64 steps. Drag across them to draw a pattern, with glide if you want it smooth.' },
     random: { name: 'Random', color: C(6), text: 'New random values over time, free or synced to the grid. Smooth it into a drift or keep it as sample and hold.' },
     envelope: { name: 'Envelope', color: C(3), text: 'Plays a shape you draw once per note, with the same drawing tools and library as the LFO.' },
@@ -155,11 +156,28 @@
       if (pic) pics.push(pic);
       return (cards[k] = h('article', { class: 'mc' + (pic ? ' has-pic' : ''), id: 'mod-' + k, style: '--c:' + m.color },
         h('div', { class: 'mc-head' }, h('span', { class: 'mc-icon' }, icon(k)), h('h4', null, m.name), m.midi ? h('small', null, 'MIDI') : null),
-        h('p', null, m.text), pic && pic.el));
+        h('p', null, m.text), pic && pic.el, m.editor ? h('span', { class: 'mc-open' }, 'See its editor ↗') : null));
     }))));
-    const editor = h('div', { class: 'mc-editor' }, h('p', { class: 'mc-gname' }, 'The shape editor, for LFO and Envelope'), h('div', { class: 'frame' }, h('div', { class: 'shot' })));
-    host.replaceChildren(h('div', { class: 'mcs' }, groups, editor));
-    if (fillShot) fillShot(editor.querySelector('.shot'), 'lfo-editor', 'The LFO shape editor in FX Devices', { contain: true });
+    host.replaceChildren(h('div', { class: 'mcs' }, groups));
+    // cards with a screenshot of their editor open it in a dialog
+    const dlg = document.getElementById('mc-dlg');
+    if (dlg) dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+    for (const [k, c] of Object.entries(cards)) {
+      const m = MODS[k];
+      if (!m.editor || !dlg) continue;
+      const [img, w, hh, cap] = m.editor;
+      const open = () => {
+        dlg.querySelector('h3').textContent = m.name + ' editor';
+        dlg.querySelector('.live-hint').textContent = cap;
+        dlg.querySelector('.mc-dlg-body').replaceChildren(h('img', { src: '/fx-devices/img/' + img + '.webp', width: w, height: hh, alt: 'The ' + m.name + ' editor in FX Devices' }));
+        if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+      };
+      c.classList.add('can-open');
+      c.setAttribute('role', 'button'); c.tabIndex = 0;
+      c.setAttribute('aria-label', 'Open the ' + m.name + ' editor');
+      c.addEventListener('click', open);
+      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    }
     FXD.onFrame(() => { if (host.isConnected) pics.forEach(p => p.draw()); });
     pics.forEach(p => p.draw());
     // bring a card into view and make it glow for a moment

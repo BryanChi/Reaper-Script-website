@@ -115,7 +115,7 @@
   const TABS = {
     mod: [
       { img: 'mod-panel', label: 'Mod panel', cap: '<b>Hover a knob</b> and its mod panel shows every modulator on it, with values in the plugin\'s own units.' },
-      { img: 'lfo-editor', label: 'Shape editor', cap: '<b>The LFO editor:</b> draw the curve, set the rate and sync, and save shapes to the library.' },
+      { guide: true, label: 'The modulators', cap: '<b>Pick a modulator</b> to see what it does. The scope draws what it would send to a knob right now.' },
       { img: 'mod-targets', label: 'Targets', cap: '<b>Everything one modulator drives,</b> in one list, with a curve for each link.' },
     ],
     chain: [
@@ -159,11 +159,38 @@
       onSelect(items[i], fade);
     }
     select(0, false);
+    return select;
   }
-  ['mod', 'chain', 'split'].forEach(key => {
+  ['chain', 'split'].forEach(key => {
     const shot = $(`[data-tabbed="${key}"]`), cap = $(`[data-cap="${key}"]`);
     mountTabs(key, (it, fade) => { fillShot(shot, it.img, it.label, { fade }); cap.innerHTML = it.cap; });
   });
+
+  /* ------------------------------------------------------------ modulation tabs, one of them the guide to every modulator type */
+  (function modTabs() {
+    const shot = $('[data-tabbed="mod"]'), frame = shot.closest('.frame'), cap = $('[data-cap="mod"]');
+    const guideHost = h('div', { class: 'mg-host', id: 'modulators' });
+    const guide = FXD.modGuide(guideHost, { fillShot });
+    const tabIndex = TABS.mod.findIndex(t => t.guide);
+    const selectTab = mountTabs('mod', (it, fade) => {
+      cap.innerHTML = it.cap;
+      if (it.guide) { frame.hidden = true; frame.after(guideHost); return; }
+      guideHost.remove(); frame.hidden = false;
+      fillShot(shot, it.img, it.label, { fade });
+    });
+    // the modulator names under the demo, and links like #mod-lfo, open that modulator in the guide
+    function open(key) {
+      selectTab(tabIndex, true);
+      guide.select(key);
+      $('[data-tabs="mod"]').scrollIntoView({ behavior: FXD.reducedMotion ? 'auto' : 'smooth', block: 'start' });
+    }
+    $$('[data-mod]').forEach(a => { const m = FXD.modGuide.mods[a.dataset.mod]; if (m) a.style.setProperty('--c', m.color); });
+    $$('[data-mod]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null, '', '#mod-' + a.dataset.mod); open(a.dataset.mod); }));
+    const fromHash = () => { const m = location.hash.match(/^#mod-([\w-]+)$/); if (m && FXD.modGuide.mods[m[1]]) open(m[1]); };
+    window.addEventListener('hashchange', fromHash);
+    // wait for the screenshots above to take their height, or the scroll lands short
+    if (document.readyState === 'complete') fromHash(); else window.addEventListener('load', fromHash);
+  })();
   let curDev = null;
   mountTabs('dev', (it, fade) => {
     curDev = it;

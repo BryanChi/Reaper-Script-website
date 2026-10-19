@@ -172,7 +172,22 @@
       </div>
     </div>
     <div class="wrap points">
-      <div class="point"><span class="pi">∿</span><h3>13 kinds of modulator</h3><p>LFO, envelope, ADSR, steps, random, follower, transient, pitch, macros, XY pad, and MIDI velocity, key track and CC.</p></div>
+      <div class="point"><span class="pi">∿</span><h3>14 kinds of modulator</h3><p class="mod-kinds">
+        <a href="#mod-macro" data-mod="macro">Macro</a>
+        <a href="#mod-xy" data-mod="xy">XY</a>
+        <a href="#mod-lfo" data-mod="lfo">LFO</a>
+        <a href="#mod-step" data-mod="step">Step</a>
+        <a href="#mod-random" data-mod="random">Random</a>
+        <a href="#mod-envelope" data-mod="envelope">Envelope</a>
+        <a href="#mod-adsr" data-mod="adsr">ADSR</a>
+        <a href="#mod-follower" data-mod="follower">Follower</a>
+        <a href="#mod-transient" data-mod="transient">Transient</a>
+        <a href="#mod-pitch" data-mod="pitch">Pitch</a>
+        <a href="#mod-velocity" data-mod="velocity" class="midi">Velocity</a>
+        <a href="#mod-midi-random" data-mod="midi-random" class="midi">Random</a>
+        <a href="#mod-keytrack" data-mod="keytrack" class="midi">KeyTrack</a>
+        <a href="#mod-cc" data-mod="cc" class="midi">CC</a>
+      </p></div>
       <div class="point"><span class="pi">◌</span><h3>Your value stays put</h3><p>Modulation rides on top of the knob, so you can still turn it while it moves.</p></div>
       <div class="point"><span class="pi">✎</span><h3>Draw your own shapes</h3><p>Edit LFO curves point by point, bend the lines, and keep favourites in a shape library.</p></div>
       <div class="point"><span class="pi">⊕</span><h3>Stack and combine</h3><p>Several modulators on one knob, each with its own amount and curve. Add them, or let a macro scale the rest.</p></div>
@@ -255,7 +270,7 @@
   <!-- ======================================================== stats -->
   <section class="wrap stats" aria-label="In numbers">
     <div class="stat"><b data-count="121">121</b><span>ready-made layouts</span></div>
-    <div class="stat"><b data-count="13">13</b><span>kinds of modulator</span></div>
+    <div class="stat"><b data-count="14">14</b><span>kinds of modulator</span></div>
     <div class="stat"><b>2</b><span>moves to modulate any knob</span></div>
     <div class="stat"><b data-count="32">32</b><span>bands in Clash Finder</span></div>
   </section>
@@ -417,6 +432,7 @@
 <script src="/fx-devices/core.js"></script>
 <script src="/fx-devices/dev-fabfilter.js"></script>
 <script src="/fx-devices/dev-fxd.js"></script>
+<script src="/fx-devices/mods.js"></script>
 <script src="/fx-devices/mk.js"></script>
 <script src="/fx-devices/buy.js"></script>
 </body>

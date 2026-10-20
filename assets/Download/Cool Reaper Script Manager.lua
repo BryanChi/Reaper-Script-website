@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.7.0
+-- @version 3.8.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.8.0: faster installs and updates: 8 downloads at a time, and an update only downloads the
+--          files that changed since the installed version.
 --   3.7.0: after an install, shows the folders it went to (script, and FX Devices' JSFX in
 --          Effects) with a button to open each in Finder / Explorer, and the action's name.
 --   3.6.0: shows until when your license gets updates (2 years per purchase). Newer versions are
@@ -33,7 +35,7 @@
 
 local r = reaper
 
-local VERSION = '3.7.0'
+local VERSION = '3.8.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -1184,6 +1186,64 @@ local function QueueLayoutImages(job)
   end
 end
 
+-- What the last install put where: "<git sha>\t<repo path>" per line, so an update downloads only the
+-- files that changed (the file list from the site carries each file's git sha)
+local function ManifestPath(p) return InstallPath(p, '.crs_manifest') end
+
+local function ReadManifest(p)
+  local m = {}
+  for sha, path in (ReadFile(ManifestPath(p)) or ''):gmatch('(%x+)\t([^\r\n]+)') do m[path] = sha end
+  return m
+end
+
+local function WriteManifest(job)
+  local m = job.manifest or {}
+  for _, item in ipairs(job.queue) do m[item.path] = item.sha end
+  for _, f in ipairs(job.failed) do m[f.path] = nil end
+  local lines = {}
+  for path, sha in pairs(m) do lines[#lines + 1] = sha .. '\t' .. path end
+  table.sort(lines)
+  WriteFile(ManifestPath(job.p), table.concat(lines, '\n') .. '\n')
+end
+
+-- Git blob shas of files already on disk that the manifest doesn't vouch for (installs before 3.8,
+-- ReaPack copies), so their first update skips the unchanged ones too. macOS and Linux only: one
+-- shell run for all of them (a few seconds for FX Devices); Windows relies on the manifest.
+local function HashFiles(items, manifest)
+  local out = {}
+  if IS_WIN then return out end
+  local paths = {}
+  for _, item in ipairs(items) do
+    -- a different size is a different file: no need to hash it
+    if item.sha and manifest[item.path] ~= item.sha and Exists(item.target) and FileSize(item.target) == item.size then
+      paths[#paths + 1] = item.target
+    end
+  end
+  if #paths == 0 then return out end
+  local list, res, sh = TempFile('list.txt'), TempFile('hashes.txt'), TempFile('hash.sh')
+  WriteFile(list, table.concat(paths, '\n') .. '\n')
+  WriteFile(sh, [[#!/bin/sh
+if command -v sha1sum >/dev/null 2>&1; then H='sha1sum'; elif command -v openssl >/dev/null 2>&1; then H='openssl sha1'; else H='shasum'; fi
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  s=$(wc -c < "$f" | tr -d ' ')
+  h=$( { printf 'blob %s\000' "$s"; cat "$f"; } | $H | sed 's/.*\([0-9a-f]\{40\}\).*/\1/')
+  printf '%s\t%s\n' "$h" "$f"
+done < "$1" > "$2"
+]])
+  os.execute('/bin/sh ' .. ShellQuote(sh) .. ' ' .. ShellQuote(list) .. ' ' .. ShellQuote(res))
+  for sha, path in (ReadFile(res) or ''):gmatch('(%x+)\t([^\r\n]+)') do out[path] = sha end
+  os.remove(list) os.remove(res) os.remove(sh)
+  return out
+end
+
+-- true when the file on disk already is this version's
+local function Unchanged(job, item)
+  if job.full or not item.sha or IsUserData(job.p, item.path) then return false end
+  if job.manifest[item.path] == item.sha and FileSize(item.target) == item.size and Exists(item.target) then return true end
+  return job.hashes[item.target] == item.sha
+end
+
 local function StartInstall(p)
   local dev = DevCheckoutIn(p)
   if dev then
@@ -1205,22 +1265,25 @@ local function StartInstall(p)
   for _, f in ipairs(list.files or {}) do
     local target = TargetFor(p, f.path)
     if not (IsUserData(p, f.path) and Exists(target)) then
-      local item = { path = f.path, target = target, size = f.size }
+      local item = { path = f.path, target = target, size = f.size, sha = f.sha }
       if images and IsLayoutImage(spec, f.path) then images[#images + 1] = item else queue[#queue + 1] = item end
     end
   end
   if #queue == 0 then p.msg = { kind = 'err', text = 'Nothing to install.' } return end
   p.msg = nil
-  S.job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {} }
+  -- reinstalling the installed release downloads everything (a repair); otherwise files already on
+  -- disk as they are in this version stay
+  local full = ref ~= p.branch and ref == p.installed
+  local all = {}
+  for _, item in ipairs(queue) do all[#all + 1] = item end
+  for _, item in ipairs(images or {}) do all[#all + 1] = item end
+  S.job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {}, unchanged = 0,
+    manifest = ReadManifest(p), hashes = not full and HashFiles(all, ReadManifest(p)) or {}, full = full }
 end
 
-local function InstallNext(job)
-  local item = job.queue[job.n + 1]
-  job.n = job.n + 1
-  r.RecursiveCreateDirectory(DirOf(item.target), 0)
+-- A finished download of one queue item (in item.target .. '.download'): put it in place or note why not
+local function PlaceDownload(job, item, code, err)
   local tmp = item.target .. '.download'
-  os.remove(tmp)
-  local code, _, err = Post(API, { action = 'download', product = job.p.id, licenseKey = job.p.key, path = item.path, ref = job.ref }, tmp)
   local data = ReadFile(tmp)
   if code == 200 and data and (#data > 0 or (item.size or 0) == 0) then
     os.remove(item.target)
@@ -1236,12 +1299,101 @@ local function InstallNext(job)
   job.failed[#job.failed + 1] = { path = item.path, why = why }
 end
 
+-- one file, one request (curl without --parallel, older than 7.66)
+local function InstallOne(job, item)
+  r.RecursiveCreateDirectory(DirOf(item.target), 0)
+  os.remove(item.target .. '.download')
+  local code, _, err = Post(API, { action = 'download', product = job.p.id, licenseKey = job.p.key, path = item.path, ref = job.ref }, item.target .. '.download')
+  PlaceDownload(job, item, code, err)
+end
+
+-- Each request waits on the site (license check, then GitHub) for most of a second, so files come
+-- PARALLEL at a time, BATCH per curl run: one curl config with a transfer per file. macOS and Linux
+-- run it in the background (the window keeps drawing); Windows waits for it, since anything started
+-- without waiting opens a console window.
+local PARALLEL, BATCH = 8, 32
+
+local function CurlQuote(v) return '"' .. tostring(v):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"' end
+
+local function StartBatch(job, items)
+  local b = { items = items, cfg = TempFile('batch.cfg'), out = TempFile('codes.txt'), done = TempFile('done.txt'), started = os.time() }
+  local lines = { 'parallel', 'parallel-max = ' .. PARALLEL }
+  for i, item in ipairs(items) do
+    r.RecursiveCreateDirectory(DirOf(item.target), 0)
+    os.remove(item.target .. '.download')
+    if i > 1 then lines[#lines + 1] = 'next' end
+    local body = JsonEncode({ action = 'download', product = job.p.id, licenseKey = job.p.key, path = item.path, ref = job.ref })
+    lines[#lines + 1] = 'url = ' .. CurlQuote(API)
+    lines[#lines + 1] = 'request = "POST"'
+    lines[#lines + 1] = 'header = "Content-Type: application/json"'
+    lines[#lines + 1] = 'data-binary = ' .. CurlQuote(body)
+    lines[#lines + 1] = 'output = ' .. CurlQuote(item.target .. '.download')
+    lines[#lines + 1] = 'location'
+    lines[#lines + 1] = 'silent'
+    lines[#lines + 1] = 'max-time = 120'
+    lines[#lines + 1] = 'write-out = "%{http_code}\\t%{filename_effective}\\n"'
+  end
+  if not WriteFile(b.cfg, table.concat(lines, '\n') .. '\n') then return nil end
+  if IS_WIN then
+    local res = r.ExecProcess(string.format('curl -K "%s"', b.cfg), 600000) or ''
+    WriteFile(b.out, (res:gsub('^%-?%d+\n', '')))
+    WriteFile(b.done, 'done')
+  else
+    b.sh = TempFile('batch.sh')
+    WriteFile(b.sh, string.format('#!/bin/sh\n/usr/bin/curl -K %s > %s 2>/dev/null\necho done > %s\n', ShellQuote(b.cfg), ShellQuote(b.out), ShellQuote(b.done)))
+    os.execute('/bin/sh ' .. ShellQuote(b.sh) .. ' >/dev/null 2>&1 &')
+  end
+  return b
+end
+
+-- nil while the batch runs; then places its files (true), or false when this curl can't do it
+local function PollBatch(job, b)
+  if not Exists(b.done) and os.time() - b.started < 900 then return nil end
+  local codes = {}
+  for code, file in (ReadFile(b.out) or ''):gmatch('(%d%d%d)\t([^\r\n]+)') do codes[file] = tonumber(code) end
+  for _, f in ipairs({ b.cfg, b.out, b.done, b.sh }) do if f then os.remove(f) end end
+  if next(codes) == nil then
+    for _, item in ipairs(b.items) do os.remove(item.target .. '.download') end
+    return false
+  end
+  for _, item in ipairs(b.items) do
+    local code = codes[item.target .. '.download']
+    PlaceDownload(job, item, code ~= 0 and code or nil, code == nil and 'no answer' or nil)
+  end
+  return true
+end
+
+-- One step of an install, once per frame: skip what's already there, run a batch or wait on it
+local function InstallNext(job)
+  if job.batch then
+    local ok = PollBatch(job, job.batch)
+    if ok == nil then return end
+    if ok == false then job.noBatch, job.redo = true, job.batch.items end -- redo those one by one
+    job.batch = nil
+    return
+  end
+  if job.redo and #job.redo > 0 then InstallOne(job, table.remove(job.redo, 1)) return end
+  local items = {}
+  while job.n < #job.queue and #items < (job.noBatch and 1 or BATCH) do
+    local item = job.queue[job.n + 1]
+    job.n = job.n + 1
+    if Unchanged(job, item) then job.unchanged = job.unchanged + 1 else items[#items + 1] = item end
+  end
+  if #items == 0 then return end
+  if job.noBatch then InstallOne(job, items[1]) return end
+  job.batch = StartBatch(job, items)
+  if not job.batch then job.noBatch, job.redo = true, items end
+end
+
+local function InstallBusy(job) return job.n < #job.queue or job.batch ~= nil or (job.redo ~= nil and #job.redo > 0) end
+
 local function FinishInstall(job)
   if job.images then
     QueueLayoutImages(job)
     if job.n < #job.queue then return end
   end
   local p = job.p
+  WriteManifest(job)
   local main = MainScriptPath(p)
   if main and Exists(main) then r.AddRemoveReaScript(true, 0, main, true) end
   -- the scripts' own updaters read the installed release from version.txt
@@ -1264,7 +1416,8 @@ local function FinishInstall(job)
   local skipped = (job.skipped or 0) > 0
     and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
   local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
-  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files' .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
+  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
+      or (#job.queue .. ' files')) .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
       .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.', folders = InstallFolders(p) }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil
@@ -1924,7 +2077,7 @@ local function Frame()
       fn()
     end
   elseif S.job then
-    if S.job.n < #S.job.queue then InstallNext(S.job) else FinishInstall(S.job) end
+    if InstallBusy(S.job) then InstallNext(S.job) else FinishInstall(S.job) end
   end
   for _, p in ipairs(S.products) do LinkTick(p) end
   -- extension downloads: one file per frame, after the progress line has drawn once

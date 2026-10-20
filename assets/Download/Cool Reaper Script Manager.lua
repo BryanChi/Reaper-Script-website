@@ -1,11 +1,12 @@
 -- @description Cool Reaper Script Manager
--- @version 3.8.0
+-- @version 3.8.1
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.8.1: Windows: no long freeze while downloading (8 files per step instead of 32).
 --   3.8.0: faster installs and updates: 8 downloads at a time, and an update only downloads the
 --          files that changed since the installed version.
 --   3.7.0: after an install, shows the folders it went to (script, and FX Devices' JSFX in
@@ -35,7 +36,7 @@
 
 local r = reaper
 
-local VERSION = '3.8.0'
+local VERSION = '3.8.1'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -1310,14 +1311,16 @@ end
 -- Each request waits on the site (license check, then GitHub) for most of a second, so files come
 -- PARALLEL at a time, BATCH per curl run: one curl config with a transfer per file. macOS and Linux
 -- run it in the background (the window keeps drawing); Windows waits for it, since anything started
--- without waiting opens a console window.
-local PARALLEL, BATCH = 8, 32
+-- without waiting opens a console window, so there a batch is one round of PARALLEL files (a second
+-- or two, like one file used to take) and REAPER never waits long.
+local PARALLEL = 8
+local BATCH = IS_WIN and PARALLEL or 32
 
 local function CurlQuote(v) return '"' .. tostring(v):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"' end
 
 local function StartBatch(job, items)
   local b = { items = items, cfg = TempFile('batch.cfg'), out = TempFile('codes.txt'), done = TempFile('done.txt'), started = os.time() }
-  local lines = { 'parallel', 'parallel-max = ' .. PARALLEL }
+  local lines = { 'parallel', 'parallel-max = ' .. PARALLEL, 'silent' }
   for i, item in ipairs(items) do
     r.RecursiveCreateDirectory(DirOf(item.target), 0)
     os.remove(item.target .. '.download')
@@ -1330,12 +1333,13 @@ local function StartBatch(job, items)
     lines[#lines + 1] = 'output = ' .. CurlQuote(item.target .. '.download')
     lines[#lines + 1] = 'location'
     lines[#lines + 1] = 'silent'
-    lines[#lines + 1] = 'max-time = 120'
+    lines[#lines + 1] = 'connect-timeout = 15'
+    lines[#lines + 1] = 'max-time = ' .. (IS_WIN and 60 or 120)
     lines[#lines + 1] = 'write-out = "%{http_code}\\t%{filename_effective}\\n"'
   end
   if not WriteFile(b.cfg, table.concat(lines, '\n') .. '\n') then return nil end
   if IS_WIN then
-    local res = r.ExecProcess(string.format('curl -K "%s"', b.cfg), 600000) or ''
+    local res = r.ExecProcess(string.format('curl -K "%s"', b.cfg), 75000) or ''
     WriteFile(b.out, (res:gsub('^%-?%d+\n', '')))
     WriteFile(b.done, 'done')
   else

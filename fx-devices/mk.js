@@ -218,7 +218,7 @@
   /* ------------------------------------------------------------ marquee */
   const NAMES = [['Pro-Q 4', 'FabFilter'], ['Pro-C 3', 'FabFilter'], ['Pro-L 2', 'FabFilter'], ['Pro-R 2', 'FabFilter'], ['Wave Shifter', 'Minimal Audio'],
     ['VELA', 'Sonic Digital'], ['Love 2', 'Dawesome'], ['ReaComp'], ['ReaEQ'], ['ReaDelay'], ['ReaVerbate'], ['ReaSynth'], ['Kaleido Chorus'],
-    ['Clash Finder'], ['Step Engine'], ['Note Generator'], ['121 community layouts', null, true]];
+    /* ['Clash Finder'], hidden */ ['Step Engine'], ['Note Generator'], ['121 community layouts', null, true]];
   const row = $('#marquee');
   for (let k = 0; k < 2; k++) for (const [n, v, hl] of NAMES) row.append(h('span', { class: hl ? 'hl' : null, 'aria-hidden': k ? 'true' : null }, n, v ? h('small', null, v) : null));
 

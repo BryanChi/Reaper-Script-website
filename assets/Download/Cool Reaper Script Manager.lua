@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.6.0
+-- @version 3.7.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.7.0: after an install, shows the folders it went to (script, and FX Devices' JSFX in
+--          Effects) with a button to open each in Finder / Explorer, and the action's name.
 --   3.6.0: shows until when your license gets updates (2 years per purchase). Newer versions are
 --          marked "renew to get it" and a Renew button appears; Update picks the newest version
 --          your license includes.
@@ -31,7 +33,7 @@
 
 local r = reaper
 
-local VERSION = '3.6.0'
+local VERSION = '3.7.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -61,6 +63,17 @@ local function OpenUrl(url)
   if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', 5000)
   elseif OS:match('OSX') or OS:match('macOS') then os.execute('open "' .. url .. '"')
   else os.execute('xdg-open "' .. url .. '"') end
+end
+
+local IS_MAC = OS:match('OSX') ~= nil or OS:match('macOS') ~= nil
+local REVEAL_LABEL = IS_WIN and 'Show in Explorer' or IS_MAC and 'Show in Finder' or 'Open folder'
+
+-- opens a folder in Finder / Explorer / the file manager
+local function RevealFolder(dir)
+  if r.CF_ShellExecute then r.CF_ShellExecute(dir) return end
+  if IS_WIN then r.ExecProcess('explorer.exe "' .. dir .. '"', -1)
+  elseif IS_MAC then os.execute("open '" .. dir:gsub("'", "'\\''") .. "'")
+  else os.execute("xdg-open '" .. dir:gsub("'", "'\\''") .. "'") end
 end
 
 
@@ -1040,6 +1053,18 @@ end
 
 local function StartsWith(s, prefix) return s:sub(1, #prefix) == prefix end
 
+-- the folders an install puts files in: the main script's folder, then routed ones (FX Devices'
+-- JSFX go to Effects)
+local function InstallFolders(p)
+  local main = MainScriptPath(p)
+  local list = { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } }
+  for _, rt in ipairs(p.routes or {}) do
+    local dir = NativePath(RES .. '/' .. rt.to:gsub('/+$', ''))
+    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or 'Files', dir = dir }
+  end
+  return list
+end
+
 -- where a repo file goes: the main script under its installed name, routed folders (JSFX into
 -- Effects), everything else under the script's folder
 local function TargetFor(p, path)
@@ -1238,8 +1263,9 @@ local function FinishInstall(job)
   end
   local skipped = (job.skipped or 0) > 0
     and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
-  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files' .. skipped .. '). To update it or get other scripts later, open '
-      .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.' }
+  local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
+  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. #job.queue .. ' files' .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
+      .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.', folders = InstallFolders(p) }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil
   -- next one of "Update all"
@@ -1700,6 +1726,21 @@ local function ProductCard(p, x, y, w)
   -- message for this script
   if p.msg then
     cy = cy + Banner(dl, ix, cy, iw, p.msg.kind, p.msg.text) + 10
+    -- where it went, each folder with a button that opens it
+    for i, d in ipairs(p.msg.folders or {}) do
+      local bw = Btn_W(REVEAL_LABEL)
+      if Btn('##reveal' .. p.id .. i, REVEAL_LABEL, ix + iw - bw, cy, 'ghost', bw) then RevealFolder(d.dir) end
+      Mono_Caps(dl, 10, ix, cy, P.ink3, 'Installed to  \194\183  ' .. d.label)
+      -- long paths keep their end, which is the part that tells them apart
+      local font, room, path = F_Mono(11), iw - bw - 16, d.dir
+      if TextW(path, font) > room then
+        while #path > 1 and TextW('...' .. path, font) > room do path = path:sub(2) end
+        path = '...' .. path
+      end
+      Txt(dl, font, 11, ix, cy + 15, P.ink2, path)
+      if path ~= d.dir and im.IsMouseHoveringRect(ctx, ix, cy, ix + room, cy + BTN_H) then im.SetTooltip(ctx, d.dir) end
+      cy = cy + BTN_H + 6
+    end
   end
 
   -- divider, then the version picker, license link and Run

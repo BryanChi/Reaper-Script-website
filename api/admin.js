@@ -37,14 +37,26 @@ async function withNamesAndDevices(supabase, rows) {
 	return rows.map(r => ({ ...r, name: names[(r.email || '').toLowerCase()] || null, devices: r.license_key ? (devices[r.license_key] || 0) : 0 }));
 }
 
-// Simple auth middleware
+// Admin tokens are signed with ADMIN_PASSWORD and carry their expiry, so any serverless instance
+// can check them (a token kept in one instance's memory was lost on the next cold start).
+const ADMIN_TOKEN_MS = 24 * 60 * 60 * 1000;
+function signAdminToken(exp) {
+	return crypto.createHmac('sha256', process.env.ADMIN_PASSWORD || '').update('admin:' + exp).digest('hex');
+}
+function makeAdminToken() {
+	const exp = Date.now() + ADMIN_TOKEN_MS;
+	return exp + '.' + signAdminToken(exp);
+}
 function checkAuth(req) {
 	const authHeader = req.headers.authorization;
-	if (!authHeader || !authHeader.startsWith('Bearer ')) {
+	if (!process.env.ADMIN_PASSWORD || !authHeader || !authHeader.startsWith('Bearer ')) {
 		return false;
 	}
-	const token = authHeader.substring(7);
-	return global.__adminTokens && global.__adminTokens.has(token);
+	const [exp, sig] = authHeader.substring(7).split('.');
+	if (!exp || !sig || !(Number(exp) > Date.now())) return false;
+	const want = Buffer.from(signAdminToken(exp));
+	const got = Buffer.from(sig);
+	return got.length === want.length && crypto.timingSafeEqual(got, want);
 }
 
 // Helper to get Supabase client
@@ -93,19 +105,7 @@ module.exports = async function handler(req, res) {
 			return res.status(401).json({ ok: false, error: 'Invalid password' });
 		}
 
-		const token = crypto.randomBytes(32).toString('hex');
-		
-		if (!global.__adminTokens) {
-			global.__adminTokens = new Set();
-		}
-		global.__adminTokens.add(token);
-
-		setTimeout(() => {
-			if (global.__adminTokens) {
-				global.__adminTokens.delete(token);
-			}
-		}, 24 * 60 * 60 * 1000);
-
+		const token = makeAdminToken();
 		return res.status(200).json({ ok: true, token });
 	}
 

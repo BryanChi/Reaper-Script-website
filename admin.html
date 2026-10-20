@@ -347,7 +347,9 @@
 	</div>
 
 	<script>
+		// kept for this tab, so a reload doesn't ask for the password again
 		let adminToken = null;
+		try { adminToken = sessionStorage.getItem('adminToken'); } catch (e) {}
 		let currentEditType = null;
 		let currentEditId = null;
 		let currentEditProduct = null;
@@ -394,6 +396,7 @@
 			.then(data => {
 				if (data && data.ok && data.token) {
 					adminToken = data.token;
+					try { sessionStorage.setItem('adminToken', adminToken); } catch (e) {}
 					document.getElementById('authSection').style.display = 'none';
 					document.getElementById('adminPanel').style.display = 'block';
 					// Load data after a small delay to ensure token is set
@@ -459,6 +462,7 @@
 				if (r.status === 401) {
 					// Token expired or invalid - prompt for re-authentication
 					adminToken = null;
+					try { sessionStorage.removeItem('adminToken'); } catch (e) {}
 					// Only hide panel if it's currently visible (not during initial login)
 					const adminPanel = document.getElementById('adminPanel');
 					if (adminPanel && adminPanel.style.display !== 'none') {
@@ -524,6 +528,7 @@
 				if (r.status === 401) {
 					// Token expired or invalid - prompt for re-authentication
 					adminToken = null;
+					try { sessionStorage.removeItem('adminToken'); } catch (e) {}
 					// Only hide panel if it's currently visible (not during initial login)
 					const adminPanel = document.getElementById('adminPanel');
 					if (adminPanel && adminPanel.style.display !== 'none') {
@@ -869,6 +874,7 @@
 				if (r.status === 401) {
 					// Token expired or invalid - prompt for re-authentication
 					adminToken = null;
+					try { sessionStorage.removeItem('adminToken'); } catch (e) {}
 					document.getElementById('adminPanel').style.display = 'none';
 					document.getElementById('authSection').style.display = 'block';
 					document.getElementById('adminPassword').value = '';
@@ -999,6 +1005,13 @@
 				.replace(/\n/g, '\\n')
 				.replace(/\r/g, '\\r')
 				.replace(/\t/g, '\\t');
+		}
+
+		if (adminToken) {
+			document.getElementById('authSection').style.display = 'none';
+			document.getElementById('adminPanel').style.display = 'block';
+			loadLicenses();
+			loadTrials();
 		}
 
 		// Allow Enter key to authenticate

@@ -290,17 +290,19 @@
 					<table id="licensesTable">
 						<thead>
 							<tr>
+								<th>Name</th>
 								<th>Email</th>
 								<th>Product</th>
 								<th>License Key</th>
 								<th>Status</th>
 								<th>Created</th>
 								<th>Expires</th>
+								<th>Devices</th>
 								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody id="licensesBody">
-							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -312,17 +314,19 @@
 					<table id="trialsTable">
 						<thead>
 							<tr>
+								<th>Name</th>
 								<th>Email</th>
 								<th>Product</th>
 								<th>License Key</th>
 								<th>Status</th>
 								<th>Started</th>
 								<th>Expires</th>
+								<th>Devices</th>
 								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody id="trialsBody">
-							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -438,7 +442,7 @@
 			
 			const tbody = document.getElementById('licensesBody');
 			if (!tbody) return; // Panel might not be visible yet
-			tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
 			const timeoutPromise = new Promise((_, reject) => 
@@ -481,14 +485,17 @@
 				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load licenses', 'error');
-					tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error loading licenses</td></tr>';
+					tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: #ef4444;">Error loading licenses</td></tr>';
 					return;
 				}
-				renderLicenses(data.licenses || []);
+				// trials show in this list too; a failed trials request still shows the licenses
+				return fetch('/api/admin?action=trials', { headers: { 'Authorization': `Bearer ${adminToken}` } })
+					.then(r => r.ok ? r.json() : null).catch(() => null)
+					.then(t => renderLicenses(data.licenses || [], (t && t.ok && t.trials) || []));
 			})
 			.catch(err => {
 				showMessage('Error loading licenses: ' + err.message, 'error');
-				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
 			});
 		}
 
@@ -500,7 +507,7 @@
 			
 			const tbody = document.getElementById('trialsBody');
 			if (!tbody) return; // Panel might not be visible yet
-			tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+			tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>';
 			
 			// Create a timeout promise (30 seconds)
 			const timeoutPromise = new Promise((_, reject) => 
@@ -543,14 +550,14 @@
 				if (!data) return; // Handled by 401 case above
 				if (!data.ok) {
 					showMessage(data.error || 'Failed to load trials', 'error');
-					tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error loading trials</td></tr>';
+					tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: #ef4444;">Error loading trials</td></tr>';
 					return;
 				}
 				renderTrials(data.trials || []);
 			})
 			.catch(err => {
 				showMessage('Error loading trials: ' + err.message, 'error');
-				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: #ef4444;">Error: ' + escapeHtml(err.message) + '</td></tr>';
 			});
 		}
 
@@ -633,14 +640,53 @@
 			.catch(err => showMessage('Error: ' + err.message, 'error'));
 		}
 
-		function renderLicenses(licenses) {
+		function nameCell(row) {
+			return row.name ? escapeHtml(row.name) : '<span style="opacity:.5">—</span>';
+		}
+		function daysLeft(expiresAt) {
+			if (!expiresAt) return '';
+			const d = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+			return d > 0 ? ` · ${d} day${d === 1 ? '' : 's'} left` : ' · expired';
+		}
+		function trialRow(trial) {
+			const started = trial.started_at ? new Date(trial.started_at).toLocaleString() : 'N/A';
+			const expires = trial.expires_at ? new Date(trial.expires_at).toLocaleString() + daysLeft(trial.expires_at) : 'N/A';
+			const status = trial.expires_at && new Date(trial.expires_at).getTime() > Date.now() ? 'trial' : 'expired';
+			const email = escapeJsString(trial.email || '');
+			const product = escapeJsString(trial.product || '');
+			return `
+				<tr>
+					<td>${nameCell(trial)}</td>
+					<td>${escapeHtml(trial.email || 'N/A')}</td>
+					<td>${productLabel(trial.product)}</td>
+					<td><code class="license-key">${escapeHtml(trial.license_key || 'N/A')}</code></td>
+					<td><span class="status-badge status-${status}">${status === 'trial' ? 'trial' : 'trial expired'}</span></td>
+					<td>${started}</td>
+					<td>${expires}</td>
+					<td>${trial.devices || 0}</td>
+				<td class="actions">
+					<button class="btn btn-secondary" onclick="editTrial('${email}', '${trial.expires_at || ''}', '${product}')">Edit</button>
+					<button class="btn btn-primary" onclick="regenerateTrialKey('${email}', '${product}')">Regenerate Key</button>
+					<button class="btn btn-danger" onclick="deleteTrial('${email}', '${product}')">Delete</button>
+				</td>
+				</tr>
+			`;
+		}
+
+		function renderLicenses(licenses, trials) {
+			trials = trials || [];
 			const tbody = document.getElementById('licensesBody');
-			if (licenses.length === 0) {
-				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No licenses found</td></tr>';
+			if (licenses.length === 0 && trials.length === 0) {
+				tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No licenses found</td></tr>';
 				return;
 			}
 
-			tbody.innerHTML = licenses.map(lic => {
+			// newest first across both kinds
+			const rows = licenses.map(lic => ({ at: lic.created_at, lic }))
+				.concat(trials.map(trial => ({ at: trial.started_at, trial })))
+				.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+			tbody.innerHTML = rows.map(({ lic, trial }) => {
+				if (trial) return trialRow(trial);
 				const created = lic.created_at ? new Date(lic.created_at).toLocaleString() : 'N/A';
 				// renewal orders get their own inactive row naming the license they renewed (2 more years of updates)
 				const upd = lic.updates_until || (lic.created_at ? new Date(new Date(lic.created_at).setUTCFullYear(new Date(lic.created_at).getUTCFullYear() + 2)) : null);
@@ -653,12 +699,14 @@
 				const emailJsEscaped = escapeJsString(lic.email || 'N/A');
 				return `
 					<tr>
+						<td>${nameCell(lic)}</td>
 						<td>${emailEscaped}</td>
 						<td>${productLabel(lic.product)}</td>
 						<td><code class="license-key">${escapeHtml(lic.license_key || 'N/A')}</code></td>
 						<td><span class="status-badge status-${status}">${status}</span></td>
 						<td>${created}</td>
 						<td>${expires}</td>
+						<td>${lic.devices || 0}</td>
 					<td class="actions">
 						<button class="btn btn-secondary" onclick="editLicense('${licenseKeyEscaped}', '${emailJsEscaped}', '${status}')">Edit</button>
 						<button class="btn btn-primary" onclick="regenerateLicenseKey('${licenseKeyEscaped}')">Regenerate Key</button>
@@ -672,32 +720,11 @@
 		function renderTrials(trials) {
 			const tbody = document.getElementById('trialsBody');
 			if (trials.length === 0) {
-				tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No trials found</td></tr>';
+				tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No trials found</td></tr>';
 				return;
 			}
 
-			const now = Date.now();
-			tbody.innerHTML = trials.map(trial => {
-				const started = trial.started_at ? new Date(trial.started_at).toLocaleString() : 'N/A';
-				const expires = trial.expires_at ? new Date(trial.expires_at).toLocaleString() : 'N/A';
-				const expiresTs = trial.expires_at ? new Date(trial.expires_at).getTime() : 0;
-				const status = expiresTs > now ? 'trial' : 'expired';
-				return `
-					<tr>
-						<td>${escapeHtml(trial.email || 'N/A')}</td>
-						<td>${productLabel(trial.product)}</td>
-						<td><code class="license-key">${escapeHtml(trial.license_key || 'N/A')}</code></td>
-						<td><span class="status-badge status-${status}">${status}</span></td>
-						<td>${started}</td>
-						<td>${expires}</td>
-					<td class="actions">
-						<button class="btn btn-secondary" onclick="editTrial('${escapeHtml(trial.email)}', '${trial.expires_at || ''}', '${escapeHtml(trial.product || '')}')">Edit</button>
-						<button class="btn btn-primary" onclick="regenerateTrialKey('${escapeHtml(trial.email)}', '${escapeHtml(trial.product || '')}')">Regenerate Key</button>
-						<button class="btn btn-danger" onclick="deleteTrial('${escapeHtml(trial.email)}', '${escapeHtml(trial.product || '')}')">Delete</button>
-					</td>
-					</tr>
-				`;
-			}).join('');
+			tbody.innerHTML = trials.map(trialRow).join('');
 		}
 
 		function editLicense(licenseKey, email, status) {

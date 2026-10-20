@@ -14,6 +14,29 @@ function memTrialKey(store, email, product) {
 	return store && store.trials && store.trials[id] ? id : null;
 }
 
+// Account names come from the sign-in accounts (Google gives full_name; email sign-ups have none).
+// Devices = active device_activations for the row's key. Both are display-only extras for the panel.
+async function withNamesAndDevices(supabase, rows) {
+	if (!rows.length) return rows;
+	const names = {};
+	try {
+		for (let page = 1; page <= 20; page++) {
+			const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+			if (error || !data || !data.users) break;
+			for (const u of data.users) {
+				const m = u.user_metadata || {};
+				const name = m.full_name || m.name || [m.given_name, m.family_name].filter(Boolean).join(' ');
+				if (u.email && name) names[u.email.toLowerCase()] = name;
+			}
+			if (data.users.length < 1000) break;
+		}
+	} catch (e) { /* names are optional */ }
+	const devices = {};
+	const { data: acts } = await supabase.from('device_activations').select('license_key').eq('active', true).limit(10000);
+	for (const a of acts || []) devices[a.license_key] = (devices[a.license_key] || 0) + 1;
+	return rows.map(r => ({ ...r, name: names[(r.email || '').toLowerCase()] || null, devices: r.license_key ? (devices[r.license_key] || 0) : 0 }));
+}
+
 // Simple auth middleware
 function checkAuth(req) {
 	const authHeader = req.headers.authorization;
@@ -125,7 +148,7 @@ module.exports = async function handler(req, res) {
 			return res.status(500).json({ ok: false, error: error.message });
 		}
 
-		return res.status(200).json({ ok: true, licenses: licenses || [] });
+		return res.status(200).json({ ok: true, licenses: await withNamesAndDevices(supabase, licenses || []) });
 	}
 
 	// Handle GET /api/admin/trials
@@ -161,7 +184,7 @@ module.exports = async function handler(req, res) {
 			return res.status(500).json({ ok: false, error: error.message });
 		}
 
-		return res.status(200).json({ ok: true, trials: trials || [] });
+		return res.status(200).json({ ok: true, trials: await withNamesAndDevices(supabase, trials || []) });
 	}
 
 	// POST /api/admin?action=trace { text }: which license or trial a leaked copy was downloaded

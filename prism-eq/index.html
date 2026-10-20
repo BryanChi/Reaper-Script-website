@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prism EQ · free dynamic EQ for REAPER</title>
+<link rel="canonical" href="https://www.coolreaperscripts.com/prism-eq">
+<meta property="og:title" content="Prism EQ · free dynamic EQ for REAPER">
+<meta property="og:description" content="A free 16-band JSFX EQ for REAPER with dynamic and spectral bands, per-band saturation, Mid/Side placement and linear phase.">
+<meta property="og:type" content="product">
+<meta property="og:url" content="https://www.coolreaperscripts.com/prism-eq">
+<meta property="og:image" content="https://www.coolreaperscripts.com/prism-eq/prism-eq.webp">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Prism EQ is a free 16-band EQ for REAPER (JSFX) with dynamic and spectral bands, per-band saturation, Mid/Side placement, linear phase and an analog character switch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#000;--body:#0c0c0d;--ink:#f2f2f2;--ink2:#9a9a9a;--ink3:#5f5f5f;--line:rgba(255,255,255,.1);
+  --acc:#49cc85;--amb:#e7b04a;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--sans:"Inter Tight",system-ui,sans-serif;--disp:"Anton",Impact,sans-serif;
+  --prism:linear-gradient(90deg,#ff6f6f,#ffc36f,#d8ff6f,#6fffb0,#6fd8ff,#8b8bff,#c56fff);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+.cols{position:fixed;inset:0;display:grid;grid-template-columns:repeat(12,1fr);max-width:1240px;margin:0 auto;padding:0 16px;pointer-events:none;z-index:0}
+.cols i{border-left:1px solid rgba(255,255,255,.035)}
+.cols i:last-child{border-right:1px solid rgba(255,255,255,.035)}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 16px}
+.nav{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font:600 13px var(--mono);letter-spacing:.18em;text-transform:uppercase}
+.logo svg{width:16px;height:14px}
+.nav-links{display:flex;gap:22px;font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+.nav-links a{text-decoration:none}
+.nav-links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:10px;font:600 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;padding:12px 18px;border:1px solid var(--line);background:var(--body);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:rgba(255,255,255,.3)}
+.btn-go{background:var(--acc);border-color:var(--acc);color:#04140b}
+.btn-go:hover{background:#5fe09a;border-color:#5fe09a}
+.btn-lg{padding:16px 24px;font-size:13px}
+.btn svg{width:16px;height:16px}
+.hero{padding:88px 0 40px}
+.pill{display:inline-flex;gap:10px;align-items:center;font:500 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--line);padding:6px 12px}
+.pill b{color:var(--acc);font-weight:600}
+h1{font:400 clamp(56px,11vw,148px)/.92 var(--disp);letter-spacing:.01em;text-transform:uppercase;margin:24px 0 0}
+h1 .bar{display:block;height:4px;width:min(420px,60%);background:var(--prism);margin:18px 0 0}
+.lede{max-width:640px;font-size:clamp(17px,2vw,20px);color:#cfcfcf;margin:28px 0 0}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin:32px 0 0}
+.fine{font:12px var(--mono);color:var(--ink3);margin:14px 0 0;letter-spacing:.04em}
+.shot{margin:56px 0 0;border:1px solid var(--line);background:var(--body);position:relative}
+.shot::before,.shot::after{content:"";position:absolute;width:14px;height:14px;border:1px solid rgba(255,255,255,.4)}
+.shot::before{top:-6px;left:-6px;border-right:0;border-bottom:0}
+.shot::after{bottom:-6px;right:-6px;border-left:0;border-top:0}
+.shot video{display:block;width:100%;height:auto;aspect-ratio:24/13;background:#050505}
+.plate{display:flex;justify-content:space-between;gap:12px;font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding:10px 14px;border-top:1px solid var(--line)}
+.plate b{color:var(--acc);font-weight:600}
+section{padding:96px 0 0}
+.kicker{font:500 12px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)}
+.kicker b{color:var(--acc);margin-right:10px}
+h2{font:400 clamp(36px,6vw,72px)/1 var(--disp);text-transform:uppercase;margin:14px 0 0}
+.sub{color:var(--ink2);max-width:620px;margin:16px 0 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.card{background:var(--body);padding:28px 24px 30px;position:relative}
+.card .n{font:600 11px var(--mono);color:var(--ink3);letter-spacing:.1em}
+.card h3{font:600 13px var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:16px 0 0}
+.card p{color:var(--ink2);font-size:15px;margin:10px 0 0}
+.card .sw{height:2px;width:36px;margin:18px 0 0}
+.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.spec{background:var(--body);padding:22px 20px}
+.spec b{display:block;font:400 44px/1 var(--disp)}
+.spec span{display:block;font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin:10px 0 0}
+.steps{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.steps li{background:var(--body);padding:26px 24px;display:flex;gap:16px}
+.steps li>b{font:400 36px/1 var(--disp);color:var(--acc)}
+.steps h3{font:600 13px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.steps p{color:var(--ink2);font-size:15px;margin:8px 0 0}
+code,kbd{font:13px var(--mono);background:#151517;border:1px solid var(--line);padding:1px 6px;color:var(--ink)}
+.fxd{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;align-items:center;border:1px solid var(--line);background:var(--body);padding:40px;margin:40px 0 0}
+.fxd p{color:var(--ink2);margin:14px 0 0}
+footer{margin:110px 0 0;border-top:1px solid var(--line);padding:28px 0 40px;font:12px var(--mono);color:var(--ink3);letter-spacing:.06em}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+footer a{color:var(--ink2);text-decoration:none}
+@media (max-width:900px){
+  .grid,.steps{grid-template-columns:1fr}
+  .specs{grid-template-columns:repeat(2,1fr)}
+  .fxd{grid-template-columns:1fr;padding:26px}
+  .nav-links{display:none}
+  .hero{padding:56px 0 24px}
+  section{padding:72px 0 0}
+}
+</style>
+</head>
+<body>
+<div class="cols" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="/prism-eq"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M0 14h16L8 0z" fill="#49cc85"/></svg>Prism EQ</a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="/fx-devices">FX Devices</a>
+    </nav>
+    <a class="btn btn-go" href="#install">Download free</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <p class="pill"><b>Free</b> JSFX for REAPER 7 · Windows · macOS · Linux</p>
+    <h1>Prism EQ<span class="bar" aria-hidden="true"></span></h1>
+    <p class="lede">A 16-band EQ that also listens. Any band can turn dynamic, react per frequency bin, saturate its own range, or work only on the mid or the sides. It's free, and it runs anywhere REAPER does.</p>
+    <div class="cta">
+      <a class="btn btn-go btn-lg" href="/prism-eq/FXD%20Prism%20EQ.jsfx" download="FXD Prism EQ.jsfx">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download Prism EQ</a>
+      <a class="btn btn-lg" href="#features">What it does</a>
+    </div>
+    <p class="fine">One .jsfx file. No installer, no account, no license key.</p>
+
+    <figure class="shot">
+      <video src="/prism-eq/prism-eq-demo.mp4" poster="/prism-eq/prism-eq.webp" controls playsinline preload="metadata"></video>
+      <figcaption class="plate"><span><b>01</b> Live in REAPER</span><span>Recorded in real time, with sound</span></figcaption>
+    </figure>
+  </div>
+
+  <section class="wrap" id="features" aria-labelledby="f-h">
+    <p class="kicker"><b>02</b> Features</p>
+    <h2 id="f-h">Every band does more</h2>
+    <p class="sub">Double-click to add a band, drag to move it, scroll for Q. Everything else lives in the band panel underneath the display.</p>
+    <div class="specs">
+      <div class="spec"><b>16</b><span>Bands</span></div>
+      <div class="spec"><b>10</b><span>Filter shapes</span></div>
+      <div class="spec"><b>8</b><span>Saturation types</span></div>
+      <div class="spec"><b>96</b><span>dB/oct slopes, or brickwall</span></div>
+    </div>
+    <div class="grid">
+      <div class="card"><span class="n">01</span><h3>Dynamic bands</h3><p>A band can cut or boost only when its range gets loud. Tame harsh hats or a boomy note without dulling the rest of the mix.</p><div class="sw" style="background:#49cc85"></div></div>
+      <div class="card"><span class="n">02</span><h3>Spectral mode</h3><p>Dynamics run per FFT bin inside the band, so only the resonances that poke out get pulled down.</p><div class="sw" style="background:#6fd8ff"></div></div>
+      <div class="card"><span class="n">03</span><h3>Auto threshold</h3><p>The threshold follows the band's own long-term level. Auto attack and release follow the material too.</p><div class="sw" style="background:#8b8bff"></div></div>
+      <div class="card"><span class="n">04</span><h3>Band saturation</h3><p>Tape, Tube, Transistor, Soft Clip, Hard Clip, Diode, Fold and Bitcrush on the band's own range. Oversampled and level-matched.</p><div class="sw" style="background:#e7b04a"></div></div>
+      <div class="card"><span class="n">05</span><h3>Stereo placement</h3><p>Put any band on Stereo, Left, Right, Mid or Side. Add air to the sides, or tighten the low end in the middle.</p><div class="sw" style="background:#ff7a6f"></div></div>
+      <div class="card"><span class="n">06</span><h3>Zero latency or linear phase</h3><p>Analog-matched filters with no cramping near Nyquist, or a linear-phase mode when phase matters. Plus Clean, Subtle and Warm character.</p><div class="sw" style="background:#f2f2f2"></div></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="install" aria-labelledby="i-h">
+    <p class="kicker"><b>03</b> Install</p>
+    <h2 id="i-h">Three steps</h2>
+    <ol class="steps">
+      <li><b>1</b><div><h3>Download</h3><p>Get <code>FXD Prism EQ.jsfx</code>.</p>
+        <p><a class="btn btn-go" href="/prism-eq/FXD%20Prism%20EQ.jsfx" download="FXD Prism EQ.jsfx">Download</a></p></div></li>
+      <li><b>2</b><div><h3>Drop it in Effects</h3><p>In REAPER choose <kbd>Options</kbd> › <kbd>Show REAPER resource path</kbd>, open the <code>Effects</code> folder and put the file there.</p></div></li>
+      <li><b>3</b><div><h3>Add it to a track</h3><p>Open the FX browser, press <kbd>F5</kbd> to rescan, and search for <code>Prism</code>.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="wrap" aria-labelledby="x-h">
+    <p class="kicker"><b>04</b> Made by FX Devices</p>
+    <div class="fxd">
+      <div>
+        <h2 id="x-h">Want it as a device?</h2>
+        <p>Prism EQ comes from FX Devices, which docks your plugins along the bottom of REAPER as native-feeling devices with easy modulation and readable chains. Inside FX Devices, Prism EQ gets its own device with live dynamics on the curve.</p>
+      </div>
+      <div><a class="btn btn-lg" href="/fx-devices">See FX Devices</a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Prism EQ · free</span>
+    <span><a href="/fx-devices">FX Devices</a> · <a href="/">Vertical FX List</a> · <a href="/privacy">Privacy</a></span>
+  </div>
+</footer>
+</body>
+</html>

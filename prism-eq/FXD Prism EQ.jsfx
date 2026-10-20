@@ -1,0 +1,2907 @@
+desc:FXD Prism EQ
+//tags: equalizer dynamic spectral saturation
+//author: FX Devices
+// Prism EQ: a 16-band EQ with Pro-Q 4's band params, so FX Devices' Pro-Q device drives it
+// (src/FX Layout Plugin Scripts/FXD Prism EQ.lua). Per band:
+//   shapes   Bell, Low/High Shelf, Low/High Cut, Notch, Band Pass, Tilt Shelf, Flat Tilt, All Pass
+//   slopes   6..96 dB/oct and Brickwall; stereo placement Stereo / Left / Right / Mid / Side
+//   dynamics range < 0 compresses, > 0 expands above the threshold (global attack, release,
+//            ratio; internal or external side chain on pins 3/4). Dynamics Mode Spectral runs
+//            them per FFT bin inside the band's region (latency = spectral resolution)
+//   saturation  Tape, Tube, Transistor, Soft Clip, Hard Clip, Diode, Fold, Bitcrush on the
+//            band's own region, anti-aliased (ADAA + 2x / 4x oversampling), level-matched to the
+//            Drive and DC-free; Saturation Mix blends it with the clean band
+//   auto     Auto Attack / Release sets the times from the band's crest factor (fast on
+//            transients, slow on sustained material, longer for low bands); Auto Threshold
+//            (a per-band bit mask) tracks the band's long-term level, 3 dB above it
+// (A JSFX has at most 256 sliders: 16 x 15 band sliders + 16 globals.)
+// Globals: Zero Latency / Linear Phase (a linear-phase FIR, Linear Phase Length sets its
+// latency), Character (Clean / Subtle / Warm), Auto Gain, Gain Scale, Saturation Oversampling,
+// Output level and pan. Filters are analog prototypes matched to their analog magnitude up to
+// Nyquist (no bilinear cramping). The @gfx GUI uses the Monolith look.
+
+slider1:0<0,1,1{Off,On}>-Band 1 Used
+slider2:1<0,1,1{Off,On}>-Band 1 Enabled
+slider3:1000<10,30000,0.01:log>-Band 1 Frequency
+slider4:0<-30,30,0.01>-Band 1 Gain
+slider5:1<0.025,40,0.001:log>-Band 1 Q
+slider6:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 1 Shape
+slider7:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 1 Slope
+slider8:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 1 Stereo Placement
+slider9:0<0,1,1{Off,On}>-Band 1 Solo
+slider10:0<0,2,1{Off,Dynamic,Spectral}>-Band 1 Dynamics Mode
+slider11:0<-30,30,0.01>-Band 1 Dynamic Range
+slider12:-20<-80,0,0.1>-Band 1 Threshold
+slider13:100<0,100,0.1>-Band 1 Saturation Mix
+slider14:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 1 Saturation
+slider15:25<0,100,0.1>-Band 1 Drive
+slider16:0<0,1,1{Off,On}>-Band 2 Used
+slider17:1<0,1,1{Off,On}>-Band 2 Enabled
+slider18:1000<10,30000,0.01:log>-Band 2 Frequency
+slider19:0<-30,30,0.01>-Band 2 Gain
+slider20:1<0.025,40,0.001:log>-Band 2 Q
+slider21:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 2 Shape
+slider22:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 2 Slope
+slider23:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 2 Stereo Placement
+slider24:0<0,1,1{Off,On}>-Band 2 Solo
+slider25:0<0,2,1{Off,Dynamic,Spectral}>-Band 2 Dynamics Mode
+slider26:0<-30,30,0.01>-Band 2 Dynamic Range
+slider27:-20<-80,0,0.1>-Band 2 Threshold
+slider28:100<0,100,0.1>-Band 2 Saturation Mix
+slider29:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 2 Saturation
+slider30:25<0,100,0.1>-Band 2 Drive
+slider31:0<0,1,1{Off,On}>-Band 3 Used
+slider32:1<0,1,1{Off,On}>-Band 3 Enabled
+slider33:1000<10,30000,0.01:log>-Band 3 Frequency
+slider34:0<-30,30,0.01>-Band 3 Gain
+slider35:1<0.025,40,0.001:log>-Band 3 Q
+slider36:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 3 Shape
+slider37:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 3 Slope
+slider38:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 3 Stereo Placement
+slider39:0<0,1,1{Off,On}>-Band 3 Solo
+slider40:0<0,2,1{Off,Dynamic,Spectral}>-Band 3 Dynamics Mode
+slider41:0<-30,30,0.01>-Band 3 Dynamic Range
+slider42:-20<-80,0,0.1>-Band 3 Threshold
+slider43:100<0,100,0.1>-Band 3 Saturation Mix
+slider44:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 3 Saturation
+slider45:25<0,100,0.1>-Band 3 Drive
+slider46:0<0,1,1{Off,On}>-Band 4 Used
+slider47:1<0,1,1{Off,On}>-Band 4 Enabled
+slider48:1000<10,30000,0.01:log>-Band 4 Frequency
+slider49:0<-30,30,0.01>-Band 4 Gain
+slider50:1<0.025,40,0.001:log>-Band 4 Q
+slider51:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 4 Shape
+slider52:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 4 Slope
+slider53:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 4 Stereo Placement
+slider54:0<0,1,1{Off,On}>-Band 4 Solo
+slider55:0<0,2,1{Off,Dynamic,Spectral}>-Band 4 Dynamics Mode
+slider56:0<-30,30,0.01>-Band 4 Dynamic Range
+slider57:-20<-80,0,0.1>-Band 4 Threshold
+slider58:100<0,100,0.1>-Band 4 Saturation Mix
+slider59:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 4 Saturation
+slider60:25<0,100,0.1>-Band 4 Drive
+slider61:0<0,1,1{Off,On}>-Band 5 Used
+slider62:1<0,1,1{Off,On}>-Band 5 Enabled
+slider63:1000<10,30000,0.01:log>-Band 5 Frequency
+slider64:0<-30,30,0.01>-Band 5 Gain
+slider65:1<0.025,40,0.001:log>-Band 5 Q
+slider66:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 5 Shape
+slider67:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 5 Slope
+slider68:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 5 Stereo Placement
+slider69:0<0,1,1{Off,On}>-Band 5 Solo
+slider70:0<0,2,1{Off,Dynamic,Spectral}>-Band 5 Dynamics Mode
+slider71:0<-30,30,0.01>-Band 5 Dynamic Range
+slider72:-20<-80,0,0.1>-Band 5 Threshold
+slider73:100<0,100,0.1>-Band 5 Saturation Mix
+slider74:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 5 Saturation
+slider75:25<0,100,0.1>-Band 5 Drive
+slider76:0<0,1,1{Off,On}>-Band 6 Used
+slider77:1<0,1,1{Off,On}>-Band 6 Enabled
+slider78:1000<10,30000,0.01:log>-Band 6 Frequency
+slider79:0<-30,30,0.01>-Band 6 Gain
+slider80:1<0.025,40,0.001:log>-Band 6 Q
+slider81:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 6 Shape
+slider82:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 6 Slope
+slider83:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 6 Stereo Placement
+slider84:0<0,1,1{Off,On}>-Band 6 Solo
+slider85:0<0,2,1{Off,Dynamic,Spectral}>-Band 6 Dynamics Mode
+slider86:0<-30,30,0.01>-Band 6 Dynamic Range
+slider87:-20<-80,0,0.1>-Band 6 Threshold
+slider88:100<0,100,0.1>-Band 6 Saturation Mix
+slider89:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 6 Saturation
+slider90:25<0,100,0.1>-Band 6 Drive
+slider91:0<0,1,1{Off,On}>-Band 7 Used
+slider92:1<0,1,1{Off,On}>-Band 7 Enabled
+slider93:1000<10,30000,0.01:log>-Band 7 Frequency
+slider94:0<-30,30,0.01>-Band 7 Gain
+slider95:1<0.025,40,0.001:log>-Band 7 Q
+slider96:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 7 Shape
+slider97:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 7 Slope
+slider98:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 7 Stereo Placement
+slider99:0<0,1,1{Off,On}>-Band 7 Solo
+slider100:0<0,2,1{Off,Dynamic,Spectral}>-Band 7 Dynamics Mode
+slider101:0<-30,30,0.01>-Band 7 Dynamic Range
+slider102:-20<-80,0,0.1>-Band 7 Threshold
+slider103:100<0,100,0.1>-Band 7 Saturation Mix
+slider104:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 7 Saturation
+slider105:25<0,100,0.1>-Band 7 Drive
+slider106:0<0,1,1{Off,On}>-Band 8 Used
+slider107:1<0,1,1{Off,On}>-Band 8 Enabled
+slider108:1000<10,30000,0.01:log>-Band 8 Frequency
+slider109:0<-30,30,0.01>-Band 8 Gain
+slider110:1<0.025,40,0.001:log>-Band 8 Q
+slider111:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 8 Shape
+slider112:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 8 Slope
+slider113:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 8 Stereo Placement
+slider114:0<0,1,1{Off,On}>-Band 8 Solo
+slider115:0<0,2,1{Off,Dynamic,Spectral}>-Band 8 Dynamics Mode
+slider116:0<-30,30,0.01>-Band 8 Dynamic Range
+slider117:-20<-80,0,0.1>-Band 8 Threshold
+slider118:100<0,100,0.1>-Band 8 Saturation Mix
+slider119:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 8 Saturation
+slider120:25<0,100,0.1>-Band 8 Drive
+slider121:0<0,1,1{Off,On}>-Band 9 Used
+slider122:1<0,1,1{Off,On}>-Band 9 Enabled
+slider123:1000<10,30000,0.01:log>-Band 9 Frequency
+slider124:0<-30,30,0.01>-Band 9 Gain
+slider125:1<0.025,40,0.001:log>-Band 9 Q
+slider126:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 9 Shape
+slider127:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 9 Slope
+slider128:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 9 Stereo Placement
+slider129:0<0,1,1{Off,On}>-Band 9 Solo
+slider130:0<0,2,1{Off,Dynamic,Spectral}>-Band 9 Dynamics Mode
+slider131:0<-30,30,0.01>-Band 9 Dynamic Range
+slider132:-20<-80,0,0.1>-Band 9 Threshold
+slider133:100<0,100,0.1>-Band 9 Saturation Mix
+slider134:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 9 Saturation
+slider135:25<0,100,0.1>-Band 9 Drive
+slider136:0<0,1,1{Off,On}>-Band 10 Used
+slider137:1<0,1,1{Off,On}>-Band 10 Enabled
+slider138:1000<10,30000,0.01:log>-Band 10 Frequency
+slider139:0<-30,30,0.01>-Band 10 Gain
+slider140:1<0.025,40,0.001:log>-Band 10 Q
+slider141:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 10 Shape
+slider142:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 10 Slope
+slider143:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 10 Stereo Placement
+slider144:0<0,1,1{Off,On}>-Band 10 Solo
+slider145:0<0,2,1{Off,Dynamic,Spectral}>-Band 10 Dynamics Mode
+slider146:0<-30,30,0.01>-Band 10 Dynamic Range
+slider147:-20<-80,0,0.1>-Band 10 Threshold
+slider148:100<0,100,0.1>-Band 10 Saturation Mix
+slider149:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 10 Saturation
+slider150:25<0,100,0.1>-Band 10 Drive
+slider151:0<0,1,1{Off,On}>-Band 11 Used
+slider152:1<0,1,1{Off,On}>-Band 11 Enabled
+slider153:1000<10,30000,0.01:log>-Band 11 Frequency
+slider154:0<-30,30,0.01>-Band 11 Gain
+slider155:1<0.025,40,0.001:log>-Band 11 Q
+slider156:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 11 Shape
+slider157:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 11 Slope
+slider158:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 11 Stereo Placement
+slider159:0<0,1,1{Off,On}>-Band 11 Solo
+slider160:0<0,2,1{Off,Dynamic,Spectral}>-Band 11 Dynamics Mode
+slider161:0<-30,30,0.01>-Band 11 Dynamic Range
+slider162:-20<-80,0,0.1>-Band 11 Threshold
+slider163:100<0,100,0.1>-Band 11 Saturation Mix
+slider164:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 11 Saturation
+slider165:25<0,100,0.1>-Band 11 Drive
+slider166:0<0,1,1{Off,On}>-Band 12 Used
+slider167:1<0,1,1{Off,On}>-Band 12 Enabled
+slider168:1000<10,30000,0.01:log>-Band 12 Frequency
+slider169:0<-30,30,0.01>-Band 12 Gain
+slider170:1<0.025,40,0.001:log>-Band 12 Q
+slider171:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 12 Shape
+slider172:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 12 Slope
+slider173:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 12 Stereo Placement
+slider174:0<0,1,1{Off,On}>-Band 12 Solo
+slider175:0<0,2,1{Off,Dynamic,Spectral}>-Band 12 Dynamics Mode
+slider176:0<-30,30,0.01>-Band 12 Dynamic Range
+slider177:-20<-80,0,0.1>-Band 12 Threshold
+slider178:100<0,100,0.1>-Band 12 Saturation Mix
+slider179:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 12 Saturation
+slider180:25<0,100,0.1>-Band 12 Drive
+slider181:0<0,1,1{Off,On}>-Band 13 Used
+slider182:1<0,1,1{Off,On}>-Band 13 Enabled
+slider183:1000<10,30000,0.01:log>-Band 13 Frequency
+slider184:0<-30,30,0.01>-Band 13 Gain
+slider185:1<0.025,40,0.001:log>-Band 13 Q
+slider186:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 13 Shape
+slider187:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 13 Slope
+slider188:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 13 Stereo Placement
+slider189:0<0,1,1{Off,On}>-Band 13 Solo
+slider190:0<0,2,1{Off,Dynamic,Spectral}>-Band 13 Dynamics Mode
+slider191:0<-30,30,0.01>-Band 13 Dynamic Range
+slider192:-20<-80,0,0.1>-Band 13 Threshold
+slider193:100<0,100,0.1>-Band 13 Saturation Mix
+slider194:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 13 Saturation
+slider195:25<0,100,0.1>-Band 13 Drive
+slider196:0<0,1,1{Off,On}>-Band 14 Used
+slider197:1<0,1,1{Off,On}>-Band 14 Enabled
+slider198:1000<10,30000,0.01:log>-Band 14 Frequency
+slider199:0<-30,30,0.01>-Band 14 Gain
+slider200:1<0.025,40,0.001:log>-Band 14 Q
+slider201:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 14 Shape
+slider202:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 14 Slope
+slider203:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 14 Stereo Placement
+slider204:0<0,1,1{Off,On}>-Band 14 Solo
+slider205:0<0,2,1{Off,Dynamic,Spectral}>-Band 14 Dynamics Mode
+slider206:0<-30,30,0.01>-Band 14 Dynamic Range
+slider207:-20<-80,0,0.1>-Band 14 Threshold
+slider208:100<0,100,0.1>-Band 14 Saturation Mix
+slider209:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 14 Saturation
+slider210:25<0,100,0.1>-Band 14 Drive
+slider211:0<0,1,1{Off,On}>-Band 15 Used
+slider212:1<0,1,1{Off,On}>-Band 15 Enabled
+slider213:1000<10,30000,0.01:log>-Band 15 Frequency
+slider214:0<-30,30,0.01>-Band 15 Gain
+slider215:1<0.025,40,0.001:log>-Band 15 Q
+slider216:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 15 Shape
+slider217:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 15 Slope
+slider218:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 15 Stereo Placement
+slider219:0<0,1,1{Off,On}>-Band 15 Solo
+slider220:0<0,2,1{Off,Dynamic,Spectral}>-Band 15 Dynamics Mode
+slider221:0<-30,30,0.01>-Band 15 Dynamic Range
+slider222:-20<-80,0,0.1>-Band 15 Threshold
+slider223:100<0,100,0.1>-Band 15 Saturation Mix
+slider224:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 15 Saturation
+slider225:25<0,100,0.1>-Band 15 Drive
+slider226:0<0,1,1{Off,On}>-Band 16 Used
+slider227:1<0,1,1{Off,On}>-Band 16 Enabled
+slider228:1000<10,30000,0.01:log>-Band 16 Frequency
+slider229:0<-30,30,0.01>-Band 16 Gain
+slider230:1<0.025,40,0.001:log>-Band 16 Q
+slider231:0<0,9,1{Bell,Low Shelf,Low Cut,High Shelf,High Cut,Notch,Band Pass,Tilt Shelf,Flat Tilt,All Pass}>-Band 16 Shape
+slider232:1<0,9,1{6 dB/oct,12 dB/oct,18 dB/oct,24 dB/oct,30 dB/oct,36 dB/oct,48 dB/oct,72 dB/oct,96 dB/oct,Brickwall}>-Band 16 Slope
+slider233:0<0,4,1{Stereo,Left,Right,Mid,Side}>-Band 16 Stereo Placement
+slider234:0<0,1,1{Off,On}>-Band 16 Solo
+slider235:0<0,2,1{Off,Dynamic,Spectral}>-Band 16 Dynamics Mode
+slider236:0<-30,30,0.01>-Band 16 Dynamic Range
+slider237:-20<-80,0,0.1>-Band 16 Threshold
+slider238:100<0,100,0.1>-Band 16 Saturation Mix
+slider239:0<0,8,1{Off,Tape,Tube,Transistor,Soft Clip,Hard Clip,Diode,Fold,Bitcrush}>-Band 16 Saturation
+slider240:25<0,100,0.1>-Band 16 Drive
+slider241:0<-36,36,0.01>-Output Level
+slider242:0<-100,100,0.1>-Output Pan
+slider243:100<0,200,0.1>-Gain Scale
+slider244:0<0,1,1{Off,On}>-Auto Gain
+slider245:0<0,1,1{Zero Latency,Linear Phase}>-Phase Mode
+slider246:0<0,2,1{Clean,Subtle,Warm}>-Character
+slider247:10<0.1,500,0.01:log>-Attack
+slider248:150<5,5000,0.1:log>-Release
+slider249:4<1.1,20,0.01:log>-Ratio
+slider250:0<0,1,1{Internal,External}>-Side Chain
+slider251:1<0,3,1{Low,Medium,High,Maximum}>-Spectral Resolution
+slider252:0<0,7999,1>-gmem slot
+slider253:2<0,3,1{Low,Medium,High,Maximum}>-Linear Phase Length
+slider254:1<0,2,1{Off,2x,4x}>-Saturation Oversampling
+slider255:0<0,3,1{Off,Attack,Release,Attack + Release}>-Auto Attack Release
+slider256:0<0,65535,1>-Auto Threshold Bands
+
+in_pin:Left in
+in_pin:Right in
+in_pin:Side chain L
+in_pin:Side chain R
+out_pin:Left out
+out_pin:Right out
+
+options:no_meter
+options:gmem=FXD_Prism_EQ
+options:gfx_hz=60
+
+@init
+ext_noinit = 1.0;   // keep filter state when playback starts
+ext_nodenorm = 0;
+gfx_ext_retina = 1;
+
+NB = 16;          // bands
+NF = 15;          // sliders per band
+MAXSEC = 16;      // filter sections per band
+PI = $pi;
+TWO_PI = 2 * $pi;
+LN10_20 = log(10) / 20;
+DBLN = 10 / log(10);
+
+// shapes (slider order)
+SH_BELL = 0; SH_LS = 1; SH_LC = 2; SH_HS = 3; SH_HC = 4; SH_NOTCH = 5; SH_BP = 6; SH_TILT = 7; SH_FLAT = 8; SH_AP = 9;
+// band slider fields
+F_USED = 0; F_ENA = 1; F_FREQ = 2; F_GAIN = 3; F_Q = 4; F_SHAPE = 5; F_SLOPE = 6; F_PLACE = 7;
+F_SOLO = 8; F_DYN = 9; F_RANGE = 10; F_THR = 11; F_SMIX = 12; F_SAT = 13; F_DRIVE = 14;
+// F_DYN: 0 off, 1 dynamic, 2 spectral
+GBASE = NB * NF + 1; // first global slider
+G_OUT = GBASE; G_PAN = GBASE + 1; G_GS = GBASE + 2; G_AUTO = GBASE + 3; G_PHASE = GBASE + 4; G_CHAR = GBASE + 5;
+G_ATT = GBASE + 6; G_REL = GBASE + 7; G_RATIO = GBASE + 8; G_SC = GBASE + 9; G_RES = GBASE + 10;
+G_LPLEN = GBASE + 12; G_OSQ = GBASE + 13; // slider252 is the gmem slot
+G_AAR = GBASE + 14; G_ATHR = GBASE + 15;  // auto attack / release (1 attack, 2 release), auto threshold band mask
+
+//------------------------------------------------------------------ memory
+// Small arrays are handed out from 1000 up; FFT buffers sit in their own 65536 blocks
+// (an FFT buffer must not cross a 65536 boundary). The GUI uses blocks 16 to 18.
+MP = 1000;
+function m_alloc(n) local(p) ( p = MP; MP += n; p; );
+PAR     = m_alloc(NB * NF); // [b*NF + f] slider values
+B_ACT   = m_alloc(NB);      // band is used and enabled
+B_GSH   = m_alloc(NB);      // shape has a gain (bell, shelves, tilts)
+B_TDYN  = m_alloc(NB);      // time-domain dynamics (dynamic, not spectral)
+B_SPECB = m_alloc(NB);      // spectral dynamics
+B_SF    = m_alloc(NB);      // smoothed ln(freq)
+B_SG    = m_alloc(NB);      // smoothed gain (dB, gain scale applied)
+B_SQ    = m_alloc(NB);      // smoothed ln(Q)
+B_DDB   = m_alloc(NB);      // dynamic gain change in use (dB)
+B_ENV0  = m_alloc(NB);      // detector envelopes (power)
+B_ENV1  = m_alloc(NB);
+B_DESG  = m_alloc(NB);      // dynamic change the filter was last designed with
+B_NSEC  = m_alloc(NB);      // number of sections in use
+B_SHP   = m_alloc(NB);      // shape / order the band was designed with (crossfade on change)
+B_DIRTY = m_alloc(NB);      // needs a redesign
+B_QD    = m_alloc(NB);      // waiting in the design queue
+B_CDIRTY= m_alloc(NB);      // log-grid curves need recomputing
+B_WDIRTY= m_alloc(NB);      // spectral weights per FFT bin need remapping
+B_KLO   = m_alloc(NB);      // FFT bins where the band's weight matters
+B_KHI   = m_alloc(NB);
+B_SPECD = m_alloc(NB);      // display: largest spectral change this frame (dB, signed)
+B_ISOT  = m_alloc(NB);      // isolation filter: 0 none, 1 band pass, 2 low pass, 3 high pass
+B_LVL   = m_alloc(NB);      // display: detector level (dB)
+B_TF    = m_alloc(NB);      // targets
+B_TG    = m_alloc(NB);
+B_TQ    = m_alloc(NB);
+B_RMS0  = m_alloc(NB);      // detector RMS (power) per channel, before attack / release
+B_RMS1  = m_alloc(NB);
+B_KRMS  = m_alloc(NB);      // RMS smoothing coefficient (about 1.5 periods of the band frequency)
+B_SMIX  = m_alloc(NB);      // saturation mix (0..1)
+B_SATT  = m_alloc(NB);      // saturation type
+B_DRV   = m_alloc(NB);      // drive (linear)
+B_SATC  = m_alloc(NB);      // level match for the drive
+B_HOLD  = m_alloc(NB);      // bitcrush sample hold (samples)
+B_QLV   = m_alloc(NB);      // bitcrush levels
+B_FADE  = m_alloc(NB);      // on / off fade (0..1)
+B_RAMP  = m_alloc(NB);      // samples left in a coefficient ramp
+B_XF    = m_alloc(NB);      // samples left in a crossfade from the old filter structure
+B_XN    = m_alloc(NB);      // sections of the old structure
+B_DSN   = m_alloc(NB);      // designed at least once since it came on
+B_SXF   = m_alloc(NB);      // samples left in a crossfade from the old saturation type
+B_SSET  = m_alloc(NB);      // which of the two saturation state sets is in use
+B_OT    = m_alloc(NB);      // the old type and its constants, while it fades out
+B_ODRV  = m_alloc(NB);
+B_OSATC = m_alloc(NB);
+B_OSMIX = m_alloc(NB);
+B_OHOLD = m_alloc(NB);
+B_OQLV  = m_alloc(NB);
+B_SAG   = m_alloc(NB);      // level match in use (from the measured levels, see sat_level)
+B_SAGS  = m_alloc(NB);      // its smoothed target
+B_SAGI  = m_alloc(NB);      // its step per sample (ramped across the block)
+B_SAGY  = m_alloc(NB);      // the type it was measured for
+B_KA    = m_alloc(NB);      // attack / release coefficients in use (auto or global)
+B_KR    = m_alloc(NB);
+B_APK   = m_alloc(NB);      // auto: peak power (fast attack, 80 ms release)
+B_AMN   = m_alloc(NB);      // auto: mean power (400 ms)
+B_AAVG  = m_alloc(NB);      // auto: long-term level (dB, gated)
+B_AT    = m_alloc(NB);      // auto: seconds tracked (running mean until the time constant)
+B_AATT  = m_alloc(NB);      // auto attack (ms)
+B_AREL  = m_alloc(NB);      // auto release (ms)
+B_ATHR  = m_alloc(NB);      // auto threshold (dB)
+ACTL    = m_alloc(NB);      // bands to process (active or fading out)
+DQ      = m_alloc(NB + 1);  // design queue
+SLOPE_DB= m_alloc(10);      // slope enum -> dB/oct (0 = brickwall)
+SLOPE_DB[0] = 6; SLOPE_DB[1] = 12; SLOPE_DB[2] = 18; SLOPE_DB[3] = 24; SLOPE_DB[4] = 30;
+SLOPE_DB[5] = 36; SLOPE_DB[6] = 48; SLOPE_DB[7] = 72; SLOPE_DB[8] = 96; SLOPE_DB[9] = 0;
+COEF    = m_alloc(NB * MAXSEC * 5); // (b*MAXSEC + s) * 5 : b0 b1 b2 a1 a2, in use
+CTGT    = m_alloc(NB * MAXSEC * 5); // ramp target
+CINC    = m_alloc(NB * MAXSEC * 5); // ramp step per sample
+CTMP    = m_alloc(NB * MAXSEC * 5); // fresh design
+XCOEF   = m_alloc(NB * MAXSEC * 5); // old structure (crossfade)
+STATE   = m_alloc(NB * MAXSEC * 4); // (b*MAXSEC + s) * 4 : z1 z2 for ch 0 and 1
+XSTATE  = m_alloc(NB * MAXSEC * 4);
+ISO     = m_alloc(NB * 5);  // isolation biquad (detector, solo, bitcrush)
+ISO_OS  = m_alloc(NB * 5);  // the same at the oversampled rate (saturation)
+DETST   = m_alloc(NB * 4);  // detector state
+SOLOST  = m_alloc(4);
+AS      = m_alloc(30 * 6);  // analog sections
+DGT     = m_alloc(16);      // dig2 fit scratch
+DGF     = m_alloc(16);
+SSZ     = 72;
+SST     = m_alloc(NB * 4 * SSZ); // saturation state per band, set and channel (see sat_os)
+CHST    = m_alloc(8);       // character: ADAA x1 F1, DC blocker x1 y1, per channel
+HB1     = m_alloc(8);       // half-band coefficients, 2x stage
+HB2     = m_alloc(8);       // 4x stage
+NL      = 1024;             // log-frequency grid for the curves
+LGF     = m_alloc(NL);
+SPOS    = m_alloc(4);
+ANA_IN  = 20000;  // 8192 analyzer rings (mono)
+ANA_OUT = 30000;
+ANA_N   = 8192;
+// spectral engine (STFT): FFT buffers, rings, per-bin arrays
+FL  = 65536 * 1; FR = 65536 * 2; FSL = 65536 * 3; FSR = 65536 * 4;
+INB_L = 65536 * 5; INB_R = INB_L + 8192; INB_SL = INB_L + 16384; INB_SR = INB_L + 24576;
+OUT_L = INB_L + 32768; OUT_R = OUT_L + 8192;
+WIN   = OUT_L + 16384;
+GST   = 65536 * 6;        // b*4096 smoothed spectral change per bin (dB, >= 0)
+ACC_L = 65536 * 7; ACC_R = ACC_L + 4096; ACC_M = ACC_L + 8192; ACC_S = ACC_L + 12288; // dB per bin
+LEV   = ACC_L + 16384;    // 5 * 4096 detector level per bin: stereo(max), L, R, M, S
+SPECV = ACC_L + 36864;    // 4096 display: total spectral change per bin (dB)
+STI   = ACC_L + 40960;    // per FFT bin: log-grid position (index, fraction)
+STF   = ACC_L + 45056;
+SMT   = ACC_L + 49152;    // smoothing scratch
+WGT   = 65536 * 8;        // b*4096 band weight per bin
+// curves on the log grid
+BCL   = 65536 * 9;        // b*NL static band curve (dB)
+BWL   = BCL + 16384;      // b*NL dynamics weight (-1..1.2)
+GSL   = BCL + 32768;      // 4*NL summed static curves: L R M S
+// linear phase engine (uniformly partitioned FIR)
+KD    = 65536 * 10;       // kernel design buffer (K)
+KWIN  = 65536 * 11;       // kernel window (K)
+KTI   = 65536 * 12;       // per design bin: log-grid position (index, fraction)
+KTF   = KTI + 16400;
+FIRB  = 65536 * 13;
+IN2L  = FIRB; IN2R = FIRB + 4096; XW = FIRB + 8192;
+YL = FIRB + 12288; YR = FIRB + 16384; YLO = FIRB + 20480; YRO = FIRB + 24576;
+FBIL = FIRB + 28672; FBIR = FBIL + 2048; FBOL = FBIL + 4096; FBOR = FBIL + 6144;
+FPW    = FIRB + 36864;     // partition FFT scratch (4096)
+FDL_L = 65536 * 14;       // frequency-domain delay lines (NPART * 2B)
+FDL_R = 65536 * 15;
+EK    = 65536 * 20;       // kernel partitions: (set*4 + entry) * 65536 + p * 2B
+// GUI memory starts at 65536 * 16
+//------------------------------------------------------------------ helpers
+function db2lin(d) ( exp(d * LN10_20) );
+function lin2db(v) ( 20 * log10(max(v, 0.000000000001)) );
+function par(b, f) ( PAR[b * NF + f] );
+function cosh_(x) ( 0.5 * (exp(x) + exp(-x)) );
+function is_gain_shape(sh) ( sh == SH_BELL || sh == SH_LS || sh == SH_HS || sh == SH_TILT || sh == SH_FLAT );
+
+// filter orders from the slope enum (brickwall = steepest we build)
+function cut_order(si) ( si == 9 ? 24 : SLOPE_DB[si] / 6 );
+function shelf_order(si) ( si == 9 ? 24 : max(SLOPE_DB[si], 6) / 6 );
+function bell_order(si) ( si == 9 ? 8 : max(1, floor(max(SLOPE_DB[si], 12) / 12)) );
+function bp_order(si) ( si == 9 ? 16 : SLOPE_DB[si] / 6 );
+
+//------------------------------------------------------------------ analog magnitude (dB)
+// Same closed forms as FX Devices' "Pro Q Curves.lua", with this EQ's filter orders.
+function db1pexp(t) ( t > 40 ? DBLN * t : DBLN * log(1 + exp(t)) );
+function butterq1(N) ( 0.5 / sin(PI / (2 * N)) );
+function rescorr(y2, q1, R) local(a) (
+  a = (1 - y2) * (1 - y2);
+  DBLN * log((a + y2 / (q1 * q1)) / (a + y2 / (q1 * q1 * R * R)));
+);
+function resfac(N, Q) ( (N <= 1 || Q == 1) ? 1 : N < 2 ? Q ^ (N - 1) : Q );
+function cutdb(y, N, R) local(db) (
+  N <= 0 ? 0 : (
+    db = -db1pexp(2 * N * log(y));
+    R != 1 ? db += rescorr(y * y, butterq1(max(N, 2)), R);
+    max(db, -240);
+  );
+);
+function shelfcore(u, G) local(e) (
+  u > 0 ? ( e = exp(-u); DBLN * (log(G * e + 1) - log(e + G)); )
+        : ( e = exp(u);  DBLN * (log(G + e) - log(1 + G * e)); );
+);
+function lowshelfdb(x, G, gdb, N, R) local(db, q1, rr, xz, xp) (
+  (gdb == 0 || N <= 0) ? 0 : (
+    db = gdb * 0.5 + shelfcore(2 * N * log(x), G);
+    R != 1 ? (
+      q1 = butterq1(max(N, 2));
+      rr = exp(log(G) / (2 * N));
+      xz = x / rr; xp = x * rr;
+      db = db - rescorr(xz * xz, q1, R) + rescorr(xp * xp, q1, R);
+    );
+    db;
+  );
+);
+// shape, slope enum, Hz, dB (gain scale applied), Q, Hz
+function magdb(sh, si, fc, g, Q, f) local(x, N, M, v, gl, y, db) (
+  x = f / fc;
+  sh == SH_BELL ? (
+    g == 0 ? 0 : (
+      M = bell_order(si);
+      v = abs(Q * (x - 1 / x));
+      v < 0.000000000001 ? g : ( gl = 10 ^ (g / 20); g * 0.5 + shelfcore(2 * M * log(v), gl); );
+    );
+  ) : (sh == SH_LC || sh == SH_HC) ? (
+    y = sh == SH_LC ? 1 / x : x;
+    N = cut_order(si);
+    si == 9 ? cutdb(y, N, 1) : cutdb(y, N, resfac(N, Q));
+  ) : (sh == SH_LS || sh == SH_HS || sh == SH_TILT) ? (
+    N = shelf_order(si);
+    y = sh == SH_LS ? x : 1 / x;
+    gl = 10 ^ (g / 20);
+    db = lowshelfdb(y, gl, g, N, si == 9 ? 1 : resfac(N, sqrt(Q)));
+    sh == SH_TILT ? db -= 0.5 * g;
+    db;
+  ) : sh == SH_NOTCH ? (
+    M = bell_order(si);
+    v = abs(Q * (x - 1 / x));
+    v < 0.000000000001 ? -240 : max(-db1pexp(-2 * M * log(v)), -240);
+  ) : sh == SH_BP ? (
+    N = bp_order(si);
+    v = abs(Q * (x - 1 / x));
+    v < 0.000000000001 ? 0 : max(-db1pexp(2 * N * log(v)), -240);
+  ) : sh == SH_FLAT ? (
+    g * log(x) / (5 * log(2));
+  ) : 0;
+);
+
+//------------------------------------------------------------------ analog prototypes
+// Every band is built as a list of analog sections in s (rad/sample), each
+//   (n2 s^2 + n1 s + n0) / (s^2 + d1 s + d0)    or    (n1 s + n0) / (s + d0)
+// and each section is then turned into a digital biquad whose magnitude matches the analog one
+// at DC, Nyquist and the section's own frequency (Vicanek, "Matched Second Order Digital
+// Filters"), so curves keep their analog shape right up to Nyquist (no bilinear cramping).
+NAS = 0;
+function as_add2(n2, n1, n0, d1, d0) local(p) (
+  NAS < 30 ? (
+    p = AS + NAS * 6;
+    p[0] = n2; p[1] = n1; p[2] = n0; p[3] = d1; p[4] = d0; p[5] = 2;
+    NAS += 1;
+  );
+);
+function as_add1(n1, n0, d0) local(p) (
+  NAS < 30 ? (
+    p = AS + NAS * 6;
+    p[0] = 0; p[1] = n1; p[2] = n0; p[3] = 0; p[4] = d0; p[5] = 1;
+    NAS += 1;
+  );
+);
+function as_gain(g) (
+  NAS == 0 ? as_add2(1, 1, 1, 1, 1);
+  AS[0] *= g; AS[1] *= g; AS[2] *= g;
+);
+function bw_q(N, k) ( 0.5 / sin((2 * k - 1) * PI / (2 * N)) );
+
+// Low pass -> band pass of a prototype quadratic  s_p^2 + be s_p + ga  with s_p = Q (s/w + w/s).
+// Gives two monic biquads s^2 + c1 s + c0 (BQ1 = the higher one).
+function bp_quad(be, ga, Q, w) local(disc, pr, pim, ur, ui, ar, ai, mg, sr, si, s1r, s1i, s2r, s2i, t, p1, p2) (
+  disc = be * be - 4 * ga;
+  disc < 0 ? (
+    pr = -be * 0.5; pim = sqrt(-disc) * 0.5;
+    ur = pr / Q; ui = pim / Q;
+    ar = ur * ur - ui * ui - 4; ai = 2 * ur * ui;
+    mg = sqrt(ar * ar + ai * ai);
+    sr = sqrt(max(0, (mg + ar) * 0.5));
+    si = sqrt(max(0, (mg - ar) * 0.5));
+    ai < 0 ? si = -si;
+    s1r = (ur + sr) * 0.5; s1i = (ui + si) * 0.5;
+    s2r = (ur - sr) * 0.5; s2i = (ui - si) * 0.5;
+    BQ1_c1 = -2 * s1r * w; BQ1_c0 = (s1r * s1r + s1i * s1i) * w * w;
+    BQ2_c1 = -2 * s2r * w; BQ2_c0 = (s2r * s2r + s2i * s2i) * w * w;
+  ) : (
+    // two real prototype roots: each gives  s^2 - (p/Q) s + 1
+    p1 = (-be + sqrt(disc)) * 0.5; p2 = (-be - sqrt(disc)) * 0.5;
+    BQ1_c1 = -p1 / Q * w; BQ1_c0 = w * w;
+    BQ2_c1 = -p2 / Q * w; BQ2_c0 = w * w;
+  );
+  BQ1_c0 < BQ2_c0 ? (
+    t = BQ1_c0; BQ1_c0 = BQ2_c0; BQ2_c0 = t;
+    t = BQ1_c1; BQ1_c1 = BQ2_c1; BQ2_c1 = t;
+  );
+);
+
+function proto_cut(w, N, R, lp) local(k, q) (
+  k = 1;
+  loop(floor(N / 2),
+    q = bw_q(N, k);
+    k == 1 ? q *= R;
+    lp ? as_add2(0, 0, w * w, w / q, w * w) : as_add2(1, 0, 0, w / q, w * w);
+    k += 1;
+  );
+  N & 1 ? ( lp ? as_add1(0, w, w) : as_add1(1, 0, w); );
+);
+
+// Butterworth shelf of order N: zeros on a circle of radius w*r, poles on w/r, r = G^(1/2N)
+// (low shelf), mirrored for the high shelf.
+function proto_shelf(w, gdb, N, R, high) local(glin, rad, k, q, az, ap) (
+  glin = db2lin(gdb);
+  rad = glin ^ (1 / (2 * N));
+  high ? ( az = w / rad; ap = w * rad; ) : ( az = w * rad; ap = w / rad; );
+  k = 1;
+  loop(floor(N / 2),
+    q = bw_q(N, k);
+    k == 1 ? q *= R;
+    as_add2(1, az / q, az * az, ap / q, ap * ap);
+    k += 1;
+  );
+  N & 1 ? as_add1(1, az, ap);
+  high ? as_gain(glin);
+);
+
+// Bell: Butterworth low shelf of order M in s_p (gain G at the centre), band-pass transformed.
+function proto_bell(w, gdb, Q, M) local(glin, rad, k, bq_, z1a, z0a, z1b, z0b) (
+  glin = db2lin(gdb);
+  rad = glin ^ (1 / (2 * M));
+  k = 1;
+  loop(floor(M / 2),
+    bq_ = bw_q(M, k);
+    bp_quad(rad / bq_, rad * rad, Q, w);
+    z1a = BQ1_c1; z0a = BQ1_c0; z1b = BQ2_c1; z0b = BQ2_c0;
+    bp_quad(1 / (rad * bq_), 1 / (rad * rad), Q, w);
+    as_add2(1, z1a, z0a, BQ1_c1, BQ1_c0);
+    as_add2(1, z1b, z0b, BQ2_c1, BQ2_c0);
+    k += 1;
+  );
+  M & 1 ? as_add2(1, rad / Q * w, w * w, w / (rad * Q), w * w);
+);
+
+// Notch: Butterworth high pass of order M in s_p, band-pass transformed.
+function proto_notch(w, Q, M) local(k, bq_) (
+  k = 1;
+  loop(floor(M / 2),
+    bq_ = bw_q(M, k);
+    bp_quad(1 / bq_, 1, Q, w);
+    as_add2(1, 0, w * w, BQ1_c1, BQ1_c0);
+    as_add2(1, 0, w * w, BQ2_c1, BQ2_c0);
+    k += 1;
+  );
+  M & 1 ? as_add2(1, 0, w * w, w / Q, w * w);
+);
+
+// Band pass: Butterworth low pass of order N in s_p, band-pass transformed (unity peak).
+function proto_bp(w, Q, N) local(k, bq_) (
+  k = 1;
+  loop(floor(N / 2),
+    bq_ = bw_q(N, k);
+    bp_quad(1 / bq_, 1, Q, w);
+    as_add2(0, w / Q, 0, BQ1_c1, BQ1_c0);
+    as_add2(0, w / Q, 0, BQ2_c1, BQ2_c0);
+    k += 1;
+  );
+  N & 1 ? as_add2(0, w / Q, 0, w / Q, w * w);
+);
+
+// Flat tilt: a constant dB/oct slope (gain / 5 per octave) through 0 dB at w, built from
+// first order shelves one octave apart from 5 Hz to 40 kHz.
+function proto_flat(w, gdb) local(c, f, i, z, p, pp, o2, m2) (
+  abs(gdb) > 0.001 ? (
+    c = 10 ^ (gdb / 5 / 20);
+    i = 0; f = 5;
+    m2 = 1;
+    loop(14,
+      z = TWO_PI * f / srate; p = z * c;
+      as_add1(1, z, p);
+      o2 = w * w;
+      m2 *= (z * z + o2) / (p * p + o2);
+      f *= 2;
+    );
+    as_gain(1 / sqrt(m2));
+  );
+);
+
+//------------------------------------------------------------------ analog -> digital
+function hmag2(p, om) local(o2, nr, dr) (
+  o2 = om * om;
+  p[5] == 2 ? (
+    nr = p[2] - p[0] * o2; dr = p[4] - o2;
+    (nr * nr + p[1] * p[1] * o2) / (dr * dr + p[3] * p[3] * o2 + 0.);
+  ) : (
+    (p[2] * p[2] + p[1] * p[1] * o2) / (p[4] * p[4] + o2);
+  );
+);
+
+// Numerator: |N(e^jw)|^2 = B0 f0 + B1 f1 + B2 f2  (f1 = sin^2(w/2), f0 = 1 - f1, f2 = 4 f0 f1) is
+// linear in B0..B2, so it is fitted to |H_analog|^2 |A|^2 by weighted least squares (relative
+// error) over frequencies around the section, with DC and Nyquist held almost exactly. Then
+// factored back into b0 b1 b2 as in Vicanek's matched biquads.
+function dig2(p, c) local(d0, d1, w0, z, e, a1, a2, a0, kk, qa0, qa1, qa2, i, om, f0, f1, f2, t, wt, s00, s01, s02, s11, s12, s22, r0, r1, r2, det, qb0, qb1, qb2, sb0, sb1, ww, disc, nb0, tmax) (
+  d0 = max(p[4], 0.00000000000000000001); d1 = p[3];
+  w0 = sqrt(d0); z = d1 / (2 * w0);
+  w0 < 0.9 * PI ? (
+    e = exp(-z * w0);
+    z < 1 ? a1 = -2 * e * cos(w0 * sqrt(1 - z * z)) : a1 = -2 * e * cosh_(w0 * sqrt(z * z - 1));
+    a2 = e * e;
+  ) : (
+    kk = 2;
+    a0 = kk * kk + d1 * kk + d0;
+    a1 = 2 * (d0 - kk * kk) / a0;
+    a2 = (kk * kk - d1 * kk + d0) / a0;
+  );
+  qa0 = sqr(1 + a1 + a2); qa1 = sqr(1 - a1 + a2); qa2 = -4 * a2;
+  // targets on the grid: DC, Nyquist and 11 points w0 * 2^(j/2), j = -5..5, inside (0, pi)
+  tmax = 0;
+  i = 0;
+  loop(13,
+    om = i == 0 ? 0 : i == 1 ? PI : min(PI * 0.999, w0 * 2 ^ ((i - 7) / 2));
+    f1 = sqr(sin(om * 0.5)); f0 = 1 - f1; f2 = 4 * f0 * f1;
+    t = hmag2(p, om) * (qa0 * f0 + qa1 * f1 + qa2 * f2);
+    DGT[i] = t; DGF[i] = f1;
+    tmax = max(tmax, t);
+    i += 1;
+  );
+  s00 = s01 = s02 = s11 = s12 = s22 = r0 = r1 = r2 = 0;
+  i = 0;
+  loop(13,
+    t = DGT[i]; f1 = DGF[i]; f0 = 1 - f1; f2 = 4 * f0 * f1;
+    wt = 1 / sqr(t + tmax * 0.000001);
+    i < 2 ? wt *= 10000 : i == 7 ? wt *= 30;
+    s00 += wt * f0 * f0; s01 += wt * f0 * f1; s02 += wt * f0 * f2;
+    s11 += wt * f1 * f1; s12 += wt * f1 * f2; s22 += wt * f2 * f2;
+    r0 += wt * f0 * t; r1 += wt * f1 * t; r2 += wt * f2 * t;
+    i += 1;
+  );
+  det = s00 * (s11 * s22 - s12 * s12) - s01 * (s01 * s22 - s12 * s02) + s02 * (s01 * s12 - s11 * s02);
+  qb0 = (r0 * (s11 * s22 - s12 * s12) - s01 * (r1 * s22 - s12 * r2) + s02 * (r1 * s12 - s11 * r2)) / det;
+  qb1 = (s00 * (r1 * s22 - r2 * s12) - r0 * (s01 * s22 - s12 * s02) + s02 * (s01 * r2 - r1 * s02)) / det;
+  qb2 = (s00 * (s11 * r2 - s12 * r1) - s01 * (s01 * r2 - r1 * s02) + r0 * (s01 * s12 - s11 * s02)) / det;
+  sb0 = sqrt(max(0, qb0)); sb1 = sqrt(max(0, qb1));
+  ww = 0.5 * (sb0 + sb1);
+  disc = ww * ww + qb2;
+  disc < 0 ? disc = 0;
+  nb0 = 0.5 * (ww + sqrt(disc));
+  c[0] = nb0;
+  c[1] = 0.5 * (sb0 - sb1);
+  c[2] = nb0 > 0.000000000000000000000000000001 ? -qb2 / (4 * nb0) : 0;
+  c[3] = a1; c[4] = a2;
+);
+
+function dig1(p, c) local(d0, pz, g0, g1) (
+  d0 = p[4];
+  pz = d0 < 0.9 * PI ? exp(-d0) : (2 - d0) / (2 + d0);
+  g0 = sqrt(hmag2(p, 0)) * (1 - pz);
+  g1 = sqrt(hmag2(p, PI)) * (1 + pz);
+  c[0] = 0.5 * (g0 + g1); c[1] = 0.5 * (g0 - g1); c[2] = 0;
+  c[3] = -pz; c[4] = 0;
+);
+
+//------------------------------------------------------------------ band design
+// gain shapes use B_SG (smoothed, gain scaled) plus the dynamic change when it runs in the
+// filter (zero latency, time-domain dynamics)
+function band_gain(b) (
+  B_SG[b] + ((B_TDYN[b] && PHASE == 0) ? B_DDB[b] : 0);
+);
+
+// the band's region (detector, saturation, solo) as one biquad at w (rad/sample)
+function iso_design(b, w, q, sh, dst) (
+  NAS = 0;
+  q = min(max(q, 0.3), 12);
+  sh == SH_BELL || sh == SH_NOTCH || sh == SH_BP || sh == SH_AP ? (
+    B_ISOT[b] = 1; as_add2(0, w / q, 0, w / q, w * w);
+  ) : (sh == SH_LS || sh == SH_HC) ? (
+    B_ISOT[b] = 2; as_add2(0, 0, w * w, w / 0.7071, w * w);
+  ) : (sh == SH_HS || sh == SH_LC) ? (
+    B_ISOT[b] = 3; as_add2(1, 0, 0, w / 0.7071, w * w);
+  ) : (
+    B_ISOT[b] = 0;
+  );
+  B_ISOT[b] ? dig2(AS, dst);
+);
+
+// Designs into CTMP, then takes it over without a click: the first design since the band came
+// on is used as is (the band fades in), a new structure (shape, slope, sections) crossfades
+// from the old sections, and the same structure ramps its coefficients over RAMPN samples.
+function design(b) local(sh, si, f, w, q, g, nsec, i, p, c, ct, cw, ca, al, key, ordr, R, n5, o) (
+  sh = par(b, F_SHAPE); si = par(b, F_SLOPE);
+  f = exp(B_SF[b]); q = exp(B_SQ[b]);
+  g = band_gain(b);
+  B_DESG[b] = B_DDB[b];
+  w = TWO_PI * f / srate;
+  NAS = 0;
+  nsec = 0;
+  ct = CTMP + b * MAXSEC * 5;
+  sh == SH_AP ? (
+    // all pass: RBJ (bilinear), one section per 12 dB/oct
+    cw = min(w, 0.995 * PI);
+    al = sin(cw) / (2 * q);
+    ca = 1 + al;
+    i = 0;
+    loop(max(1, bell_order(si)),
+      c = ct + i * 5;
+      c[0] = (1 - al) / ca; c[1] = -2 * cos(cw) / ca; c[2] = 1;
+      c[3] = c[1]; c[4] = c[0];
+      i += 1;
+    );
+    nsec = i;
+  ) : (
+    sh == SH_BELL ? ( abs(g) > 0.0005 ? proto_bell(w, g, q, bell_order(si)); )
+    : sh == SH_LS ? ( abs(g) > 0.0005 ? ( ordr = shelf_order(si); R = si == 9 ? 1 : resfac(ordr, sqrt(q)); proto_shelf(w, g, ordr, R, 0); ); )
+    : sh == SH_HS ? ( abs(g) > 0.0005 ? ( ordr = shelf_order(si); R = si == 9 ? 1 : resfac(ordr, sqrt(q)); proto_shelf(w, g, ordr, R, 1); ); )
+    : sh == SH_TILT ? ( abs(g) > 0.0005 ? ( ordr = shelf_order(si); R = si == 9 ? 1 : resfac(ordr, sqrt(q)); proto_shelf(w, g, ordr, R, 1); as_gain(db2lin(-0.5 * g)); ); )
+    : sh == SH_LC ? ( ordr = cut_order(si); proto_cut(w, ordr, si == 9 ? 1 : resfac(ordr, q), 0); )
+    : sh == SH_HC ? ( ordr = cut_order(si); proto_cut(w, ordr, si == 9 ? 1 : resfac(ordr, q), 1); )
+    : sh == SH_NOTCH ? proto_notch(w, q, bell_order(si))
+    : sh == SH_BP ? proto_bp(w, q, bp_order(si))
+    : sh == SH_FLAT ? proto_flat(w, g);
+    nsec = min(NAS, MAXSEC);
+    i = 0;
+    loop(nsec,
+      p = AS + i * 6;
+      c = ct + i * 5;
+      p[5] == 2 ? dig2(p, c) : dig1(p, c);
+      i += 1;
+    );
+  );
+  key = sh * 1000 + si * 10 + (nsec > 0);
+  c = COEF + b * MAXSEC * 5; o = b * MAXSEC * 5;
+  n5 = nsec * 5;
+  !B_DSN[b] ? (
+    memcpy(c, ct, n5);
+    memset(STATE + b * MAXSEC * 4, 0, MAXSEC * 4);
+    B_RAMP[b] = 0; B_XF[b] = 0; B_DSN[b] = 1;
+  ) : (key != B_SHP[b] || nsec != B_NSEC[b]) ? (
+    (B_NSEC[b] > 0 && PHASE == 0) ? (
+      memcpy(XCOEF + o, c, B_NSEC[b] * 5);
+      memcpy(XSTATE + b * MAXSEC * 4, STATE + b * MAXSEC * 4, MAXSEC * 4);
+      B_XN[b] = B_NSEC[b]; B_XF[b] = XFLEN;
+    );
+    memcpy(c, ct, n5);
+    memset(STATE + b * MAXSEC * 4, 0, MAXSEC * 4);
+    B_RAMP[b] = 0;
+  ) : n5 > 0 ? (
+    memcpy(CTGT + o, ct, n5);
+    i = 0; loop(n5, CINC[o + i] = (ct[i] - c[i]) / RAMPN; i += 1; );
+    B_RAMP[b] = RAMPN;
+  );
+  B_SHP[b] = key;
+  B_NSEC[b] = nsec;
+
+  iso_design(b, w, q, sh, ISO + b * 5);
+  iso_design(b, w / OSF, q, sh, ISO_OS + b * 5);
+  B_KRMS[b] = 1 - exp(-1 / (min(0.03, max(0.002, 1.5 / f)) * srate));
+  B_DIRTY[b] = 0;
+);
+
+function dq_push(b) (
+  !B_QD[b] ? ( DQ[DQT] = b; DQT = (DQT + 1) % (NB + 1); DQN += 1; B_QD[b] = 1; );
+);
+
+//------------------------------------------------------------------ per-sample filtering
+function run_secs(b, ch, x) local(c, s, y) (
+  c = COEF + b * MAXSEC * 5; s = STATE + b * MAXSEC * 4 + ch * 2;
+  loop(B_NSEC[b],
+    y = c[0] * x + s[0];
+    s[0] = c[1] * x - c[3] * y + s[1];
+    s[1] = c[2] * x - c[4] * y;
+    x = y; c += 5; s += 4;
+  );
+  x;
+);
+function run_old(b, ch, x) local(c, s, y) (
+  c = XCOEF + b * MAXSEC * 5; s = XSTATE + b * MAXSEC * 4 + ch * 2;
+  loop(B_XN[b],
+    y = c[0] * x + s[0];
+    s[0] = c[1] * x - c[3] * y + s[1];
+    s[1] = c[2] * x - c[4] * y;
+    x = y; c += 5; s += 4;
+  );
+  x;
+);
+function ramp_step(b) local(c, ci) (
+  c = COEF + b * MAXSEC * 5;
+  B_RAMP[b] -= 1;
+  B_RAMP[b] > 0 ? (
+    ci = CINC + b * MAXSEC * 5;
+    B_NSEC[b] == 1 ? (
+      c[0] += ci[0]; c[1] += ci[1]; c[2] += ci[2]; c[3] += ci[3]; c[4] += ci[4];
+    ) : loop(B_NSEC[b] * 5, c[0] += ci[0]; c += 1; ci += 1; );
+  ) : memcpy(c, CTGT + b * MAXSEC * 5, B_NSEC[b] * 5);
+);
+function bq(c, s, x) local(y) (
+  y = c[0] * x + s[0];
+  s[0] = c[1] * x - c[3] * y + s[1];
+  s[1] = c[2] * x - c[4] * y;
+  y;
+);
+
+//------------------------------------------------------------------ saturation
+// Each type is a memoryless curve with slope 1 at 0, run with first-order antiderivative
+// anti-aliasing (ADAA) at 2x or 4x the sample rate. Only the curve's distortion
+// (level-matched curve - straight line) is added back, so with Drive and the curve at rest a
+// band stays clean. Bitcrush runs at the plain rate (its aliasing is the effect).
+function logcosh(x) local(a) ( a = abs(x); a + log(1 + exp(-2 * a)) - log(2) );
+function tanh_(x) local(e) ( x > 20 ? 1 : x < -20 ? -1 : ( e = exp(2 * x); (e - 1) / (e + 1); ) );
+// transistor: a hard cubic knee, ceilings +1 and -0.7 (asymmetric, so some even harmonics)
+TRP = 1.5; TRN = 1.05;
+function knee_c(v) ( v < 1 ? v - v * v * v / 3 : 2 / 3 );
+function knee_i(v) ( v < 1 ? v * v / 2 - v * v * v * v / 12 : 2 * v / 3 - 0.25 );
+function sat_f(t, x) (
+  t == 1 ? tanh_(x)
+  : t == 2 ? ( x >= 0 ? x / (1 + x) : x / (1 - 0.5 * x) )
+  : t == 3 ? ( x >= 0 ? TRP * knee_c(x / TRP) : -TRN * knee_c(-x / TRN) )
+  : t == 4 ? ( abs(x) < 1 ? x - x * x * x / 3 : sign(x) * 2 / 3 )
+  : t == 5 ? max(-1, min(1, x))
+  : t == 6 ? ( x >= 0 ? 1 - exp(-x) : x )
+  : t == 7 ? sin(x)
+  : x;
+);
+function sat_int(t, x) (
+  t == 1 ? logcosh(x)
+  : t == 2 ? ( x >= 0 ? x - log(1 + x) : -x / 0.5 - log(1 - 0.5 * x) / 0.25 )
+  : t == 3 ? ( x >= 0 ? TRP * TRP * knee_i(x / TRP) : TRN * TRN * knee_i(-x / TRN) )
+  : t == 4 ? ( abs(x) < 1 ? x * x / 2 - x * x * x * x / 12 : abs(x) * 2 / 3 - 0.25 )
+  : t == 5 ? ( abs(x) < 1 ? x * x / 2 : abs(x) - 0.5 )
+  : t == 6 ? ( x >= 0 ? x + exp(-x) - 1 : x * x / 2 )
+  : t == 7 ? 1 - cos(x)
+  : x * x / 2;
+);
+// distortion only: ADAA(curve) - ADAA(line). sp = [x1, F1] (Character)
+function sat_delta(t, x, sp) local(x1, F, y) (
+  x1 = sp[0];
+  F = sat_int(t, x);
+  abs(x - x1) > 0.000001 ? y = (F - sp[1]) / (x - x1) : y = sat_f(t, 0.5 * (x + x1));
+  sp[0] = x; sp[1] = F;
+  y - 0.5 * (x + x1);
+);
+// how loud the curve is at a reference level (for level matching the drive)
+function sat_peak(t, a) (
+  t == 7 ? ( a < PI * 0.5 ? sin(a) : 1 ) : 0.5 * (abs(sat_f(t, a)) + abs(sat_f(t, -a)));
+);
+
+// Half-band polyphase IIR (two all-pass chains, Valenzuela & Constantinides; the coefficient
+// design is Laurent de Soras' HIIR). Flat to 20 kHz, images about 95 dB down.
+function hb_coefs(dst, nc, tr) local(k, q, kks, e, e2, e4, order, idx, c, num, den, ww, wwsq, x, i, j, acc) (
+  k = tan((1 - tr * 2) * PI / 4); k *= k;
+  kks = (1 - k * k) ^ 0.25; e = 0.5 * (1 - kks) / (1 + kks); e2 = e * e; e4 = e2 * e2;
+  q = e * (1 + e4 * (2 + e4 * (15 + 150 * e4)));
+  order = nc * 2 + 1;
+  idx = 0;
+  loop(nc,
+    c = idx + 1;
+    acc = 0; i = 0; j = 1;
+    loop(24, acc += q ^ (i * (i + 1)) * sin((i * 2 + 1) * c * PI / order) * j; j = -j; i += 1; );
+    num = acc * q ^ 0.25;
+    acc = 0; i = 1; j = -1;
+    loop(24, acc += q ^ (i * i) * cos(i * 2 * c * PI / order) * j; j = -j; i += 1; );
+    den = acc + 0.5;
+    ww = num / den; wwsq = ww * ww;
+    x = sqrt((1 - wwsq * k) * (1 - wwsq / k)) / (1 + wwsq);
+    dst[idx] = (1 - x) / (1 + x);
+    idx += 1;
+  );
+);
+// one sample in, two out (HB_A then HB_B); unrolled, coefficients in H10..H15 / H20..H23.
+// s = [x * nc, y * nc]
+function hb_up6(s, v) local(e, o, t) (
+  e = v; o = v;
+  t = s[0]; s[0] = e; e = (e - s[6]) * H10 + t; s[6] = e;
+  t = s[1]; s[1] = o; o = (o - s[7]) * H11 + t; s[7] = o;
+  t = s[2]; s[2] = e; e = (e - s[8]) * H12 + t; s[8] = e;
+  t = s[3]; s[3] = o; o = (o - s[9]) * H13 + t; s[9] = o;
+  t = s[4]; s[4] = e; e = (e - s[10]) * H14 + t; s[10] = e;
+  t = s[5]; s[5] = o; o = (o - s[11]) * H15 + t; s[11] = o;
+  HB_A = e; HB_B = o;
+);
+// two samples in (a then b), one out
+function hb_down6(s, a, b) local(e, o, t) (
+  e = b; o = a;
+  t = s[0]; s[0] = e; e = (e - s[6]) * H10 + t; s[6] = e;
+  t = s[1]; s[1] = o; o = (o - s[7]) * H11 + t; s[7] = o;
+  t = s[2]; s[2] = e; e = (e - s[8]) * H12 + t; s[8] = e;
+  t = s[3]; s[3] = o; o = (o - s[9]) * H13 + t; s[9] = o;
+  t = s[4]; s[4] = e; e = (e - s[10]) * H14 + t; s[10] = e;
+  t = s[5]; s[5] = o; o = (o - s[11]) * H15 + t; s[11] = o;
+  0.5 * (e + o);
+);
+function hb_up4(s, v) local(e, o, t) (
+  e = v; o = v;
+  t = s[0]; s[0] = e; e = (e - s[4]) * H20 + t; s[4] = e;
+  t = s[1]; s[1] = o; o = (o - s[5]) * H21 + t; s[5] = o;
+  t = s[2]; s[2] = e; e = (e - s[6]) * H22 + t; s[6] = e;
+  t = s[3]; s[3] = o; o = (o - s[7]) * H23 + t; s[7] = o;
+  HB_A = e; HB_B = o;
+);
+function hb_down4(s, a, b) local(e, o, t) (
+  e = b; o = a;
+  t = s[0]; s[0] = e; e = (e - s[4]) * H20 + t; s[4] = e;
+  t = s[1]; s[1] = o; o = (o - s[5]) * H21 + t; s[5] = o;
+  t = s[2]; s[2] = e; e = (e - s[6]) * H22 + t; s[6] = e;
+  t = s[3]; s[3] = o; o = (o - s[7]) * H23 + t; s[7] = o;
+  0.5 * (e + o);
+);
+
+// Saturation state per band, set (two, for crossfades between types) and channel,
+// s = SST + ((b*2 + set)*2 + ch) * SSZ:
+//  0-1 region biquad (bitcrush)  2-3 ADAA  4-5 DC blocker  6-21 up 2x  22-37 down 2x
+//  38-45 up 4x  46-53 down 4x  54-57 Thiran  58-59 region biquad (oversampled)
+//  60-61 tape emphasis  62 tube level  63-64 bitcrush hold  65 delay  66 last region sample
+//  67-69 level match: region power, curve mean and power
+// The distortion of the band's region (half a sample late, from the ADAA), level-matched,
+// DC-blocked and scaled by the mix.
+function sat_core(rg, s) local(t, z, y, bias, a, del, x1, F) (
+  t = SA_T;
+  z = rg * SA_D;
+  // tape: highs are emphasised into the curve and de-emphasised after, so they saturate first
+  t == 1 ? ( s[60] += TP_A * (z - s[60]); z = (1 + TP_G) * z - TP_G * s[60]; );
+  // tube: the operating point follows the level, so loud notes bloom with even harmonics
+  t == 2 ? (
+    a = abs(z);
+    s[62] += (a - s[62]) * (a > s[62] ? TU_KA : TU_KR);
+    bias = TU_B * s[62]; z += bias;
+  );
+  x1 = s[2];
+  F = sat_int(t, z);
+  y = abs(z - x1) > 0.00001 ? (F - s[3]) / (z - x1) : sat_f(t, 0.5 * (z + x1));
+  s[2] = z; s[3] = F;
+  t == 1 ? ( y = (y + TP_G1 * s[61]) * TP_GN; s[61] += TP_A * (y - s[61]); )
+  : t == 2 ? y -= sat_f(2, bias);
+  // levels for the level match: the region in, the curve out (mean and power)
+  a = 0.5 * (rg + s[66]);
+  s[67] += SAG_K * (a * a - s[67]); s[68] += SAG_K * (y - s[68]); s[69] += SAG_K * (y * y - s[69]);
+  del = SA_C * y - a;
+  s[66] = rg;
+  y = del - s[4] + DC_R * s[5]; s[4] = del; s[5] = y;
+  y * SA_M;
+);
+// one (oversampled) sample: the dry signal through a 1.5 sample all-pass delay (second-order
+// Thiran) + the distortion delayed 1 + 0.5 (ADAA), so both line up at every frequency
+function sat_os1(u, s) local(dry, rg, t) (
+  dry = TH_A2 * u + TH_A1 * s[54] + s[55] - TH_A1 * s[56] - TH_A2 * s[57];
+  s[55] = s[54]; s[54] = u; s[57] = s[56]; s[56] = dry;
+  SA_R ? (
+    rg = SA_B0 * u + s[58];
+    s[58] = SA_B1 * u - SA_A1 * rg + s[59];
+    s[59] = SA_B2 * u - SA_A2 * rg;
+  ) : rg = u;
+  t = s[65]; s[65] = sat_core(rg, s);
+  dry + t;
+);
+function sat_os(b, x, s) local(a0, a1, u0, u1, u2, u3, v0, v1, w0, w1, c) (
+  // this band's region filter, read once (sat_load set the rest)
+  SA_R = B_ISOT[b];
+  c = ISO_OS + b * 5; SA_B0 = c[0]; SA_B1 = c[1]; SA_B2 = c[2]; SA_A1 = c[3]; SA_A2 = c[4];
+  OSF == 1 ? sat_os1(x, s) : (
+    hb_up6(s + 6, x); a0 = HB_A; a1 = HB_B;
+    OSF == 4 ? (
+      hb_up4(s + 38, a0); u0 = HB_A; u1 = HB_B;
+      hb_up4(s + 38, a1); u2 = HB_A; u3 = HB_B;
+      v0 = sat_os1(u0, s); v1 = sat_os1(u1, s);
+      w0 = hb_down4(s + 46, v0, v1);
+      v0 = sat_os1(u2, s); v1 = sat_os1(u3, s);
+      w1 = hb_down4(s + 46, v0, v1);
+    ) : (
+      w0 = sat_os1(a0, s); w1 = sat_os1(a1, s);
+    );
+    hb_down6(s + 22, w0, w1);
+  );
+);
+function sat_crush(b, x, s) local(rg, q) (
+  rg = B_ISOT[b] ? bq(ISO + b * 5, s, x) : x;
+  s[63] -= 1;
+  s[63] <= 0 ? ( s[63] = SA_H; s[64] = rg; );
+  q = floor(s[64] * SA_Q + 0.5) / SA_Q;
+  x + (q - rg) * SA_M;
+);
+// a type and its constants: the band's own, or (old = 1) the type that is fading out
+function sat_load(b, old) (
+  old ? ( SA_T = B_OT[b]; SA_D = B_ODRV[b]; SA_C = B_OSATC[b]; SA_M = B_OSMIX[b]; SA_H = B_OHOLD[b]; SA_Q = B_OQLV[b]; )
+  : ( SA_T = B_SATT[b]; SA_D = B_DRV[b]; SA_C = B_SAG[b]; SA_M = B_SMIX[b]; SA_H = B_HOLD[b]; SA_Q = B_QLV[b]; );
+);
+function sat_run(b, ch, old, y) local(s) (
+  sat_load(b, old);
+  s = SST + ((b * 2 + (B_SSET[b] ~ old)) * 2 + ch) * SSZ;
+  SA_T == 0 ? y : SA_T == 8 ? sat_crush(b, y, s) : sat_os(b, y, s);
+);
+// a band on one channel: its filter (with any crossfade from an old structure), then saturation
+function band_ch(b, ch, x) local(y, t) (
+  PHASE == 0 ? (
+    y = B_NSEC[b] > 0 ? run_secs(b, ch, x) : x;
+    B_XF[b] > 0 ? ( t = run_old(b, ch, x); y += (t - y) * B_XF[b] / XFLEN; );
+  ) : y = x;
+  // a new saturation type (or on / off) crossfades from the old one over SXLEN
+  B_SXF[b] > 0 ? (
+    t = sat_run(b, ch, 1, y);
+    y = sat_run(b, ch, 0, y);
+    y += (t - y) * B_SXF[b] / SXLEN;
+  ) : B_SATT[b] > 0 ? y = sat_run(b, ch, 0, y);
+  y;
+);
+// character on the whole output: s = ADAA state, d = DC blocker state
+// Drive is level-matched on the band's real level: the curve's output is scaled so its RMS
+// (over about 300 ms, both channels) equals the region's, so turning Drive up adds harmonics
+// at a steady loudness. Until there is signal, the match at -18 dBFS (B_SATC) is used.
+function sat_level() local(i, b, t, s0, s1, ein, vy, g, kb) (
+  kb = 1 - exp(-max(1, samplesblock) / (0.05 * srate));
+  i = 0;
+  loop(NACT,
+    b = ACTL[i]; t = B_SATT[b];
+    t > 0 && t < 8 ? (
+      s0 = SST + (b * 2 + B_SSET[b]) * 2 * SSZ; s1 = s0 + SSZ;
+      ein = s0[67] + s1[67];
+      vy = max(0, s0[69] - s0[68] * s0[68]) + max(0, s1[69] - s1[68] * s1[68]);
+      g = ein > 0.000000001 && vy > 0.000000000001 ? sqrt(ein / vy) : B_SATC[b];
+      g = max(B_SATC[b] * 0.25, min(B_SATC[b] * 4, g));
+      B_SAGY[b] != t ? ( B_SAGY[b] = t; B_SAG[b] = B_SAGS[b] = B_SATC[b]; );
+      B_SAGS[b] += (g - B_SAGS[b]) * kb;
+      B_SAGI[b] = (B_SAGS[b] - B_SAG[b]) / max(1, samplesblock);
+    ) : ( B_SAG[b] = B_SAGS[b] = B_SATC[b]; B_SAGI[b] = 0; B_SAGY[b] = t; );
+    i += 1;
+  );
+);
+function char_ch(t, g, x, s, d) local(v, y) (
+  v = sat_delta(t, x * g, s) / g;
+  y = v - d[0] + DC_R1 * d[1]; d[0] = v; d[1] = y;
+  x + y;
+);
+
+function os_setup(n) local(b) (
+  OSF = n;
+  hb_coefs(HB1, 6, min(0.3, max(0.03, (0.25 - 20000 / (2 * srate)) * 2)));
+  hb_coefs(HB2, 4, 0.25);
+  H10 = HB1[0]; H11 = HB1[1]; H12 = HB1[2]; H13 = HB1[3]; H14 = HB1[4]; H15 = HB1[5];
+  H20 = HB2[0]; H21 = HB2[1]; H22 = HB2[2]; H23 = HB2[3];
+  DC_R = 1 - TWO_PI * 5 / (OSF * srate);
+  TP_A = 1 - exp(-TWO_PI * 3000 / (OSF * srate));
+  TP_G1 = TP_G * (1 - TP_A); TP_GN = 1 / (1 + TP_G - TP_G * TP_A);
+  TU_KA = 1 - exp(-1 / (0.005 * OSF * srate));
+  TU_KR = 1 - exp(-1 / (0.06 * OSF * srate));
+  SAG_K = 1 - exp(-1 / (0.3 * OSF * srate));
+  memset(SST, 0, NB * 4 * SSZ);
+  b = 0; loop(NB, B_DIRTY[b] = 1; b += 1; );
+);
+
+//------------------------------------------------------------------ curves on a log grid
+// Each band's curve is computed on NL log-spaced points (10 Hz .. Nyquist) and read from there
+// by the spectral and linear phase engines, so moving a band costs NL curve points, not one per
+// FFT bin.
+function grid_setup() local(i) (
+  LG_L0 = log(10); LG_SC = (NL - 1) / log(srate * 0.5 / 10);
+  i = 0; loop(NL, LGF[i] = 10 * exp(i / LG_SC); i += 1; );
+);
+function grid_pos(f) ( max(0, min(NL - 1.0001, (log(max(f, 10)) - LG_L0) * LG_SC)) );
+// position tables for the bins of an FFT of size n (bin k = k * srate / n)
+function grid_table(ti, tf, nbin, n) local(k, p) (
+  k = 0;
+  loop(nbin,
+    p = grid_pos(max(k, 0.5) * srate / n);
+    ti[k] = floor(p); tf[k] = p - floor(p);
+    k += 1;
+  );
+);
+function curve_update(b) local(sh, si, fc, q, g, gw, i, cp, wp) (
+  sh = par(b, F_SHAPE); si = par(b, F_SLOPE);
+  fc = exp(B_SF[b]); q = exp(B_SQ[b]); g = B_SG[b];
+  FIR_ON ? (
+    cp = BCL + b * NL;
+    (B_ACT[b] && sh != SH_AP) ? (
+      i = 0; loop(NL, cp[i] = magdb(sh, si, fc, g, q, LGF[i]); i += 1; );
+    ) : memset(cp, 0, NL);
+    KDIRTY = 1;
+  );
+  (STFT_ON && (B_SPECB[b] || (B_TDYN[b] && PHASE))) ? (
+    wp = BWL + b * NL;
+    gw = par(b, F_RANGE) * GSCALE;
+    abs(gw) < 0.5 ? gw = 12;
+    i = 0; loop(NL, wp[i] = max(-1, min(1.2, magdb(sh, si, fc, gw, q, LGF[i]) / gw)); i += 1; );
+    B_WDIRTY[b] = 1;
+  );
+  B_CDIRTY[b] = 0;
+);
+
+//------------------------------------------------------------------ spectral engine
+// Short-time FFT, Hann analysis and synthesis windows, 75% overlap: spectral dynamics, and
+// time-domain dynamics in Linear Phase mode, as per-bin gain changes. Latency = FFT size.
+FFTN = 0; HOP = 0; WP = 0; HOPC = 0;
+STFT_ON = 0;
+function stft_setup(n) local(i) (
+  FFTN = n; HOP = n / 4;
+  i = 0;
+  loop(n, WIN[i] = 0.5 - 0.5 * cos(TWO_PI * i / n); i += 1; );
+  memset(INB_L, 0, 8192 * 4);
+  memset(OUT_L, 0, 8192 * 2);
+  memset(GST, 0, 4096 * NB);
+  WP = 0; HOPC = 0;
+  // Hann^2 at 75% overlap sums to 1.5; ifft_real(fft_real(x)) comes back as 2n * x
+  OLA_G = 1 / (1.5 * n * 2);
+  grid_table(STI, STF, n / 2, n);
+  i = 0; loop(NB, B_CDIRTY[i] = 1; B_WDIRTY[i] = 1; i += 1; );
+);
+
+// band weight per bin (how much of the band's dynamic change each bin gets)
+function band_bins(b) local(k, v, wp, wtp, lo, hi, nbin, ip) (
+  nbin = FFTN / 2;
+  wp = BWL + b * NL; wtp = WGT + b * 4096;
+  lo = nbin; hi = 0;
+  k = 0;
+  loop(nbin,
+    ip = STI[k];
+    v = wp[ip] + (wp[ip + 1] - wp[ip]) * STF[k];
+    wtp[k] = v;
+    abs(v) > 0.003 ? ( lo = min(lo, k); hi = max(hi, k); );
+    k += 1;
+  );
+  B_KLO[b] = lo; B_KHI[b] = hi;
+  B_WDIRTY[b] = 0;
+);
+
+function frame_in(src, dst) local(i, k) (
+  i = 0;
+  loop(FFTN, k = (WP + i) & (FFTN - 1); dst[i] = src[k] * WIN[i]; i += 1; );
+  fft_real(dst, FFTN);
+  fft_permute(dst, FFTN / 2);
+);
+
+// detector level per bin, sine-calibrated dBFS: 0 = stereo (louder of L/R), 1 L, 2 R, 3 M, 4 S
+function det_levels() local(k, nbin, nrm, lr, li, rr, ri, pl, pr, pm, ps) (
+  nbin = FFTN / 2;
+  nrm = 16 / (FFTN * FFTN);
+  k = 0;
+  loop(nbin,
+    lr = FSL[2 * k]; li = FSL[2 * k + 1]; rr = FSR[2 * k]; ri = FSR[2 * k + 1];
+    k == 0 ? ( li = 0; ri = 0; );
+    pl = (lr * lr + li * li) * nrm + 0.000000000000000000000000000001;
+    pr = (rr * rr + ri * ri) * nrm + 0.000000000000000000000000000001;
+    pm = (sqr(lr + rr) + sqr(li + ri)) * 0.25 * nrm + 0.000000000000000000000000000001;
+    ps = (sqr(lr - rr) + sqr(li - ri)) * 0.25 * nrm + 0.000000000000000000000000000001;
+    LEV[k] = DBLN * log(max(pl, pr));
+    LEV[4096 + k] = DBLN * log(pl);
+    LEV[8192 + k] = DBLN * log(pr);
+    LEV[12288 + k] = DBLN * log(pm);
+    LEV[16384 + k] = DBLN * log(ps);
+    k += 1;
+  );
+);
+
+// smooth a per-bin dB curve across neighbouring bins (1/4 1/2 1/4), so per-bin gains don't
+// change sharply from bin to bin (less time aliasing, fewer "musical noise" artefacts)
+function smooth_bins(acc, nbin) local(k) (
+  SMT[0] = 0.75 * acc[0] + 0.25 * acc[1];
+  k = 1;
+  loop(nbin - 2, SMT[k] = 0.25 * (acc[k - 1] + acc[k + 1]) + 0.5 * acc[k]; k += 1; );
+  SMT[nbin - 1] = 0.75 * acc[nbin - 1] + 0.25 * acc[nbin - 2];
+  memcpy(acc, SMT, nbin);
+);
+
+// auto attack / release / threshold for band b from its detector power pw, dt seconds apart.
+// Crest factor (peak over mean) picks the times: transients get about 1 ms / 50 ms,
+// sustained material 30 ms / 600 ms, scaled longer for low bands so they don't distort.
+// The threshold sits 3 dB above the band's long-term level (silence below -70 dB is ignored).
+function auto_track(b, pw, dt) local(pk, mn, c, fs, lm, k) (
+  pk = B_APK[b];
+  pk = pw > pk ? pw : pk + (pw - pk) * (1 - exp(-dt / 0.08));
+  B_APK[b] = pk;
+  mn = (B_AMN[b] += (pw - B_AMN[b]) * (1 - exp(-dt / 0.4)));
+  c = min(1, max(0, DBLN * log((pk + 0.0000000001) / (mn + 0.0000000001)) / 18));
+  fs = min(3, max(0.5, sqrt(500 / max(10, par(b, F_FREQ)))));
+  B_AATT[b] = 30 * (1 / 30) ^ c * fs;
+  B_AREL[b] = 600 * (50 / 600) ^ c * fs;
+  lm = DBLN * log(2 * mn + 0.000000000000000000000000000001);
+  lm > -70 ? (
+    k = max(1 - exp(-dt / 2), dt / (B_AT[b] + dt));
+    B_AT[b] += dt;
+    B_AAVG[b] += (lm - B_AAVG[b]) * k;
+    B_ATHR[b] = min(0, max(-80, B_AAVG[b] + 3));
+  );
+);
+function auto_thr(b) ( (ATHR_M >> b) & 1 ? B_ATHR[b] : par(b, F_THR); );
+
+function stft_frame() local(b, k, nbin, pl, acc, lvp, wtp, gp, thr, rng, sgn, rat, over, o, amt, cur, fat, frl, bat, brl, ps, pw, mx, gl, gr, xr, xi, yr, yi, mr, mi, sr, si, need_ms, d, nw, gu) (
+  nbin = FFTN / 2;
+  frame_in(INB_L, FL);
+  frame_in(INB_R, FR);
+  ANY_SPEC ? (
+    frame_in(INB_SL, FSL);
+    frame_in(INB_SR, FSR);
+    det_levels();
+  );
+  // weights that changed (a few bands per frame)
+  nw = 0;
+  b = 0; loop(NB, B_WDIRTY[b] && nw < 4 ? ( band_bins(b); nw += 1; ); b += 1; );
+  memset(ACC_L, 0, 4096 * 4);
+  need_ms = 0;
+  gu = 0;
+  memset(SPECV, 0, nbin);
+  fat = 1 - exp(-HOP / (ATT_MS * 0.001 * srate));
+  frl = 1 - exp(-HOP / (REL_MS * 0.001 * srate));
+  rat = 1 - 1 / RATIO;
+  b = 0;
+  loop(NB,
+    pl = par(b, F_PLACE);
+    acc = ACC_L + (pl == 0 ? 0 : (pl - 1) * 4096);
+    wtp = WGT + b * 4096;
+    B_SPECB[b] ? (
+      pl >= 3 ? need_ms = 1;
+      gu |= pl == 0 ? 3 : 1 << (pl - 1);
+      // spectral dynamics: every bin follows its own level
+      gp = GST + b * 4096;
+      lvp = LEV + pl * 4096;
+      bat = fat; brl = frl;
+      // the band's weighted mean power: shown in FXD's node popup, and drives the auto times / threshold
+      ps = 0; pw = 0;
+      k = B_KLO[b];
+      loop(max(0, B_KHI[b] - B_KLO[b] + 1), ps += wtp[k] * exp(lvp[k] / DBLN); pw += wtp[k]; k += 1; );
+      B_LVL[b] = DBLN * log(ps / max(0.000001, pw) + 0.000000000000000000000000000001);
+      (AUTO_AR || ((ATHR_M >> b) & 1)) ? (
+        auto_track(b, ps / max(0.000001, pw) * 0.5, HOP / srate);
+        B_LVL[b] = DBLN * log(2 * B_AMN[b] + 0.000000000000000000000000000001);
+        AUTO_AR & 1 ? bat = 1 - exp(-HOP / (B_AATT[b] * 0.001 * srate));
+        AUTO_AR & 2 ? brl = 1 - exp(-HOP / (B_AREL[b] * 0.001 * srate));
+      );
+      thr = auto_thr(b);
+      rng = par(b, F_RANGE) * GSCALE;
+      sgn = sign(rng); rng = abs(rng);
+      mx = 0;
+      k = B_KLO[b];
+      loop(max(0, B_KHI[b] - B_KLO[b] + 1),
+        over = lvp[k] - thr;
+        o = over <= -3 ? 0 : over < 3 ? sqr(over + 3) / 12 : over;
+        amt = min(rng, o * rat);
+        cur = gp[k];
+        cur += (amt - cur) * (amt > cur ? bat : brl);
+        gp[k] = cur;
+        d = sgn * cur * wtp[k];
+        acc[k] += d;
+        pl == 0 ? ACC_R[k] += d;
+        SPECV[k] += d;
+        abs(d) > abs(mx) ? mx = d;
+        k += 1;
+      );
+      B_SPECD[b] = mx;
+    ) : (B_TDYN[b] && PHASE) ? (
+      pl >= 3 ? need_ms = 1;
+      gu |= pl == 0 ? 3 : 1 << (pl - 1);
+      // Linear Phase: the band's dynamic change as a per-bin gain
+      d = B_DDB[b];
+      k = B_KLO[b];
+      loop(max(0, B_KHI[b] - B_KLO[b] + 1),
+        acc[k] += d * wtp[k];
+        pl == 0 ? ACC_R[k] += d * wtp[k];
+        k += 1;
+      );
+    );
+    b += 1;
+  );
+  gu & 1 ? smooth_bins(ACC_L, nbin);
+  gu & 2 ? smooth_bins(ACC_R, nbin);
+  gu & 4 ? smooth_bins(ACC_M, nbin);
+  gu & 8 ? smooth_bins(ACC_S, nbin);
+  // apply: L/R gains, then M/S gains
+  k = 0;
+  loop(nbin,
+    gl = exp(ACC_L[k] * LN10_20); gr = exp(ACC_R[k] * LN10_20);
+    k == 0 ? (
+      FL[0] *= gl; FR[0] *= gr;
+      FL[1] *= exp(ACC_L[nbin - 1] * LN10_20); FR[1] *= exp(ACC_R[nbin - 1] * LN10_20);
+    ) : (
+      FL[2 * k] *= gl; FL[2 * k + 1] *= gl;
+      FR[2 * k] *= gr; FR[2 * k + 1] *= gr;
+    );
+    need_ms ? (
+      gl = exp(ACC_M[k] * LN10_20); gr = exp(ACC_S[k] * LN10_20);
+      (gl != 1 || gr != 1) ? (
+        k == 0 ? (
+          mr = (FL[0] + FR[0]) * 0.5 * gl; sr = (FL[0] - FR[0]) * 0.5 * gr;
+          FL[0] = mr + sr; FR[0] = mr - sr;
+          gl = exp(ACC_M[nbin - 1] * LN10_20); gr = exp(ACC_S[nbin - 1] * LN10_20);
+          mr = (FL[1] + FR[1]) * 0.5 * gl; sr = (FL[1] - FR[1]) * 0.5 * gr;
+          FL[1] = mr + sr; FR[1] = mr - sr;
+        ) : (
+          xr = FL[2 * k]; xi = FL[2 * k + 1]; yr = FR[2 * k]; yi = FR[2 * k + 1];
+          mr = (xr + yr) * 0.5 * gl; mi = (xi + yi) * 0.5 * gl;
+          sr = (xr - yr) * 0.5 * gr; si = (xi - yi) * 0.5 * gr;
+          FL[2 * k] = mr + sr; FL[2 * k + 1] = mi + si;
+          FR[2 * k] = mr - sr; FR[2 * k + 1] = mi - si;
+        );
+      );
+    );
+    k += 1;
+  );
+  fft_ipermute(FL, nbin); ifft_real(FL, FFTN);
+  fft_ipermute(FR, nbin); ifft_real(FR, FFTN);
+  k = 0;
+  loop(FFTN,
+    d = (WP + k) & (FFTN - 1);
+    OUT_L[d] += FL[k] * WIN[k] * OLA_G;
+    OUT_R[d] += FR[k] * WIN[k] * OLA_G;
+    k += 1;
+  );
+);
+
+//------------------------------------------------------------------ linear phase engine
+// The static EQ curve as a real linear-phase FIR of K taps (Hann-windowed), run as uniformly
+// partitioned overlap-save convolution in blocks of B (FFT 2B). Latency = K/2 + B.
+// A new kernel is built in steps on the samples after a block (never all at once) and the
+// output crossfades from the old kernel to the new one over a block. With Mid/Side or
+// Left/Right bands the kernel is a 2x2 matrix (4 entries), otherwise one kernel for both sides.
+FIR_ON = 0; FIR_K = 0; FIR_B = 0; FIR_P2 = 0; FIR_NP = 0;
+KNE = m_alloc(2);
+
+function gsl(g, ip, fr) local(p) ( p = GSL + g * NL + ip; p[0] + (p[1] - p[0]) * fr; );
+// static curves summed per side: 0 L, 1 R, 2 M, 3 S (stereo bands count for L and R)
+function kern_group(g) local(b, i, pl, cp, dst, use) (
+  dst = GSL + g * NL;
+  memset(dst, 0, NL);
+  b = 0;
+  loop(NB,
+    pl = par(b, F_PLACE);
+    use = g == 0 ? (pl == 0 || pl == 1) : g == 1 ? (pl == 0 || pl == 2) : g == 2 ? pl == 3 : pl == 4;
+    use ? ( cp = BCL + b * NL; i = 0; loop(NL, dst[i] += cp[i]; i += 1; ); );
+    b += 1;
+  );
+);
+// natural-order spectrum of kernel entry e for design bins k0..k1-1
+function kern_gain(e, k0, k1) local(k, ip, fr, gl, gr, gm, gs, v, h) (
+  h = FIR_K / 2;
+  k = k0;
+  loop(k1 - k0,
+    ip = KTI[k]; fr = KTF[k];
+    KBNE == 1 ? (
+      v = exp(LN10_20 * max(-200, min(60, gsl(0, ip, fr))));
+    ) : KBNE == 2 ? (
+      v = exp(LN10_20 * max(-200, min(60, gsl(e, ip, fr))));
+    ) : (
+      gm = exp(LN10_20 * max(-200, min(60, gsl(2, ip, fr))));
+      gs = exp(LN10_20 * max(-200, min(60, gsl(3, ip, fr))));
+      v = e == 0 || e == 2 ? exp(LN10_20 * max(-200, min(60, gsl(0, ip, fr))))
+                           : exp(LN10_20 * max(-200, min(60, gsl(1, ip, fr))));
+      v *= (e == 0 || e == 3) ? 0.5 * (gm + gs) : 0.5 * (gm - gs);
+    );
+    k == 0 ? ( KD[0] = v; ) : k == h ? ( KD[1] = v; ) : ( KD[2 * k] = v; KD[2 * k + 1] = 0; );
+    k += 1;
+  );
+);
+// window the zero-phase impulse response in KD into partitions p0..p1-1 of entry e, set st
+function kern_part_range(e, st, p0, p1) local(p, n, base, sc, idx, h) (
+  base = EK + (st * 4 + e) * 65536;
+  sc = 1 / (FIR_K * 4 * FIR_P2);
+  h = FIR_K / 2;
+  p = p0;
+  loop(p1 - p0,
+    n = 0;
+    loop(FIR_B, idx = (p * FIR_B + n - h) & (FIR_K - 1); FPW[n] = KD[idx] * KWIN[p * FIR_B + n] * sc; n += 1; );
+    memset(FPW + FIR_B, 0, FIR_B);
+    fft_real(FPW, FIR_P2);
+    memcpy(base + p * FIR_P2, FPW, FIR_P2);
+    p += 1;
+  );
+);
+function kern_part(e, st) ( kern_part_range(e, st, 0, FIR_NP); );
+
+ACCF_L = FIRB + 40960; ACCF_R = FIRB + 45056; // precomputed partitions 1..NP-1 for the next block
+ACCN_L = FIRB + 49152; ACCN_R = FIRB + 53248; // the same for a new kernel waiting to come in
+function fir_setup(k) local(i) (
+  FIR_K = k;
+  FIR_B = k <= 8192 ? 1024 : 2048;
+  FIR_P2 = 2 * FIR_B;
+  FIR_NP = FIR_K / FIR_B;
+  i = 0; loop(FIR_K, KWIN[i] = 0.5 - 0.5 * cos(TWO_PI * i / FIR_K); i += 1; );
+  grid_table(KTI, KTF, FIR_K / 2 + 1, FIR_K);
+  memset(IN2L, 0, 4096 * 7); memset(FBIL, 0, 8192);
+  memset(FDL_L, 0, 65536); memset(FDL_R, 0, 65536);
+  memset(ACCF_L, 0, 4096); memset(ACCF_R, 0, 4096);
+  FPOS = 0; FSLOT = 0; FPC = FIR_NP; FNC = FIR_NP; KSET = 0; ASET = 0; KXF = 0;
+  // start from a unit kernel so nothing comes out wrong before the first build
+  memset(KD, 0, FIR_K); KD[0] = FIR_K;
+  KNE[0] = 1; kern_part(0, 0);
+  KNE[1] = 1; kern_part(0, 1);
+  KREADY = 0; KBUILD = 0; KDIRTY = 1;
+  i = 0; loop(NB, B_CDIRTY[i] = 1; i += 1; );
+);
+
+// one step of a kernel build into set 1 - KSET; KST counts the steps
+function kern_step() local(b, pl, lr, ms, nch, e, c, pc) (
+  KST < 4 ? (
+    kern_group(KST);
+  ) : KST == 4 ? (
+    lr = 0; ms = 0;
+    b = 0; loop(NB, pl = par(b, F_PLACE); (B_ACT[b] || B_FADE[b] > 0) && par(b, F_SHAPE) != SH_AP ? ( pl == 1 || pl == 2 ? lr = 1; pl >= 3 ? ms = 1; ); b += 1; );
+    KBNE = ms ? 4 : lr ? 2 : 1;
+  ) : (
+    // per entry: 4 gain chunks, the inverse FFT, then the partitions in chunks of 4
+    nch = 4 + 1 + ceil(FIR_NP / 4);
+    e = floor((KST - 5) / nch); c = (KST - 5) - e * nch;
+    c < 4 ? (
+      pc = ceil((FIR_K / 2 + 1) / 4);
+      kern_gain(e, c * pc, min(FIR_K / 2 + 1, (c + 1) * pc));
+    ) : c == 4 ? (
+      fft_ipermute(KD, FIR_K / 2);
+      ifft_real(KD, FIR_K);
+    ) : (
+      pc = (c - 5) * 4;
+      kern_part_range(e, 1 - KSET, pc, min(FIR_NP, pc + 4));
+      (pc + 4 >= FIR_NP && e == KBNE - 1) ? (
+        KNE[1 - KSET] = KBNE; KBUILD = 0; KREADY = 1;
+        memset(ACCN_L, 0, FIR_P2); memset(ACCN_R, 0, FIR_P2); FNC = 1;
+      );
+    );
+  );
+  KST += 1;
+);
+
+// y += x * h over the packed fft_real layout ([0] DC, [1] Nyquist, then complex pairs)
+function cmac(y, x, h) local(k, xr, xi, hr, hi) (
+  y[0] += x[0] * h[0]; y[1] += x[1] * h[1];
+  k = 2;
+  loop(FIR_B - 1,
+    xr = x[k]; xi = x[k + 1]; hr = h[k]; hi = h[k + 1];
+    y[k] += xr * hr - xi * hi; y[k + 1] += xr * hi + xi * hr;
+    k += 2;
+  );
+);
+// partition p of kernel set st against the input spectrum for slot s, into yl / yr
+function fir_part(st, p, s, yl, yr) local(xl, xr, e0) (
+  xl = FDL_L + s * FIR_P2; xr = FDL_R + s * FIR_P2;
+  e0 = EK + st * 4 * 65536 + p * FIR_P2;
+  KNE[st] == 1 ? ( cmac(yl, xl, e0); cmac(yr, xr, e0); )
+  : KNE[st] == 2 ? ( cmac(yl, xl, e0); cmac(yr, xr, e0 + 65536); )
+  : ( cmac(yl, xl, e0); cmac(yl, xr, e0 + 65536); cmac(yr, xl, e0 + 131072); cmac(yr, xr, e0 + 196608); );
+);
+function fir_block() local(p, n, t, xs) (
+  // the new input block's spectrum
+  memcpy(IN2L, IN2L + FIR_B, FIR_B); memcpy(IN2L + FIR_B, FBIL, FIR_B);
+  memcpy(IN2R, IN2R + FIR_B, FIR_B); memcpy(IN2R + FIR_B, FBIR, FIR_B);
+  FSLOT = (FSLOT + 1) % FIR_NP;
+  xs = FDL_L + FSLOT * FIR_P2; memcpy(xs, IN2L, FIR_P2); fft_real(xs, FIR_P2);
+  xs = FDL_R + FSLOT * FIR_P2; memcpy(xs, IN2R, FIR_P2); fft_real(xs, FIR_P2);
+  // finish the precomputed partitions (normally already done), then partition 0
+  loop(FIR_NP - FPC, fir_part(ASET, FPC, (FSLOT - FPC + FIR_NP) % FIR_NP, ACCF_L, ACCF_R); FPC += 1; );
+  memcpy(YL, ACCF_L, FIR_P2); memcpy(YR, ACCF_R, FIR_P2);
+  fir_part(ASET, 0, FSLOT, YL, YR);
+  KREADY ? (
+    // a new kernel: crossfade from the old one over this block
+    KSET = 1 - KSET; KREADY = 0; KXF = 1;
+    memcpy(YLO, YL, FIR_P2); memcpy(YRO, YR, FIR_P2);
+    loop(FIR_NP - FNC, fir_part(KSET, FNC, (FSLOT - FNC + FIR_NP) % FIR_NP, ACCN_L, ACCN_R); FNC += 1; );
+    memcpy(YL, ACCN_L, FIR_P2); memcpy(YR, ACCN_R, FIR_P2);
+    fir_part(KSET, 0, FSLOT, YL, YR);
+  );
+  ifft_real(YL, FIR_P2); ifft_real(YR, FIR_P2);
+  KXF ? (
+    ifft_real(YLO, FIR_P2); ifft_real(YRO, FIR_P2);
+    n = 0;
+    loop(FIR_B,
+      t = (n + 0.5) / FIR_B;
+      FBOL[n] = YLO[FIR_B + n] + (YL[FIR_B + n] - YLO[FIR_B + n]) * t;
+      FBOR[n] = YRO[FIR_B + n] + (YR[FIR_B + n] - YRO[FIR_B + n]) * t;
+      n += 1;
+    );
+    KXF = 0;
+  ) : (
+    memcpy(FBOL, YL + FIR_B, FIR_B); memcpy(FBOR, YR + FIR_B, FIR_B);
+  );
+  // the next block's partitions 1..NP-1 are summed on the coming samples
+  memset(ACCF_L, 0, FIR_P2); memset(ACCF_R, 0, FIR_P2);
+  ASET = KSET; FPC = 1; FNC = FIR_NP;
+  FPSTEP = max(1, floor(FIR_B / (2 * FIR_NP)) - 1);
+  FPCNT = FPSTEP;
+  // start a kernel build if the curves changed (at most one per block)
+  KDIRTY && !KBUILD && !KREADY ? ( KBUILD = 1; KST = 0; KDIRTY = 0; );
+);
+// per sample: in -> FBIL/FBIR, out <- FBOL/FBOR (FIR_L / FIR_R), plus the spread-out work
+function fir_sample(l, r) (
+  FBIL[FPOS] = l; FBIR[FPOS] = r;
+  FIR_L = FBOL[FPOS]; FIR_R = FBOR[FPOS];
+  FPOS += 1;
+  FPOS >= FIR_B ? ( FPOS = 0; fir_block(); ) : (
+    KBUILD ? kern_step()
+    : (FPC < FIR_NP || (KREADY && FNC < FIR_NP)) ? (
+      FPCNT -= 1;
+      FPCNT <= 0 ? (
+        FPCNT = FPSTEP;
+        FPC < FIR_NP ? (
+          fir_part(ASET, FPC, (FSLOT + 1 - FPC + FIR_NP) % FIR_NP, ACCF_L, ACCF_R); FPC += 1;
+        ) : (
+          fir_part(1 - KSET, FNC, (FSLOT + 1 - FNC + FIR_NP) % FIR_NP, ACCN_L, ACCN_R); FNC += 1;
+        );
+      );
+    );
+  );
+);
+
+//------------------------------------------------------------------ parameters
+INIT_DONE = 0;
+function read_params() local(b, f, i, v, ch, sh, act, gsh, tdyn, spec, na, aspec, atdyn, solo, gs, chg_g, t, d) (
+  gs = slider(G_GS) / 100;
+  chg_g = gs != GSCALE;
+  GSCALE = gs;
+  v = slider(G_PHASE) >= 0.5;
+  v != PHASE ? ( PHASE = v; PHASE_CHG = 1; );
+  ATT_MS = slider(G_ATT); REL_MS = slider(G_REL); RATIO = max(1.01, slider(G_RATIO));
+  AUTO_AR = slider(G_AAR) | 0; ATHR_M = slider(G_ATHR) | 0;
+  SC_EXT = slider(G_SC) >= 0.5;
+  OUT_DB = slider(G_OUT); PAN = slider(G_PAN) / 100;
+  AUTO = slider(G_AUTO) >= 0.5; CHAR = slider(G_CHAR) | 0;
+  v = 1024 * 2 ^ (slider(G_RES) | 0);
+  v != RES_N ? ( RES_N = v; PHASE_CHG = 1; );
+  // linear phase length: 4096 .. 32768 taps at 48 kHz, more at high sample rates
+  LPK = min(32768, 4096 * 2 ^ (max(0, min(3, slider(G_LPLEN))) | 0) * (srate > 70000 ? 2 : 1) * (srate > 140000 ? 2 : 1));
+  v = slider(G_OSQ) >= 1.5 ? 4 : slider(G_OSQ) >= 0.5 ? 2 : 1;
+  v != OSF ? os_setup(v);
+  na = 0; aspec = 0; atdyn = 0; solo = -1;
+  b = 0;
+  loop(NB,
+    ch = 0;
+    i = 0;
+    loop(NF,
+      v = slider(1 + b * NF + i);
+      v != PAR[b * NF + i] ? ( PAR[b * NF + i] = v; ch |= (1 << i); );
+      i += 1;
+    );
+    sh = par(b, F_SHAPE);
+    act = par(b, F_USED) >= 0.5 && par(b, F_ENA) >= 0.5;
+    gsh = is_gain_shape(sh);
+    tdyn = act && gsh && par(b, F_DYN) >= 0.5 && abs(par(b, F_RANGE)) > 0.01;
+    spec = tdyn && par(b, F_DYN) >= 1.5;
+    tdyn = tdyn && !spec;
+    (act != B_ACT[b] || spec != B_SPECB[b] || tdyn != B_TDYN[b]) ? (
+      ch |= 1;
+      act && !B_ACT[b] && B_FADE[b] <= 0 ? (
+        memset(STATE + b * MAXSEC * 4, 0, MAXSEC * 4);
+        memset(SST + b * 4 * SSZ, 0, 4 * SSZ); memset(DETST + b * 4, 0, 4); B_SXF[b] = 0;
+        B_ENV0[b] = 0; B_ENV1[b] = 0; B_DDB[b] = 0;
+        B_APK[b] = 0; B_AMN[b] = 0; B_AT[b] = 0; B_ATHR[b] = par(b, F_THR);
+        B_DSN[b] = 0; B_XF[b] = 0; B_RAMP[b] = 0;
+      );
+      !tdyn ? B_DDB[b] = 0;
+    );
+    B_ACT[b] = act; B_GSH[b] = gsh; B_TDYN[b] = tdyn; B_SPECB[b] = spec;
+    B_TF[b] = log(max(10, par(b, F_FREQ)));
+    B_TG[b] = gsh ? par(b, F_GAIN) * gs : 0;
+    B_TQ[b] = log(max(0.025, par(b, F_Q)));
+    (ch || chg_g || !INIT_DONE) ? (
+      !INIT_DONE || !B_DSN[b] ? ( B_SF[b] = B_TF[b]; B_SG[b] = B_TG[b]; B_SQ[b] = B_TQ[b]; );
+      B_DIRTY[b] = 1; B_CDIRTY[b] = 1;
+      AG_DIRTY = 1;
+    );
+    (act || B_FADE[b] > 0) ? (
+      ACTL[na] = b; na += 1;
+      act ? (
+        spec ? aspec = 1;
+        tdyn ? atdyn = 1;
+        par(b, F_SOLO) >= 0.5 && solo < 0 ? solo = b;
+      );
+    );
+    // saturation
+    t = act ? (par(b, F_SAT) | 0) : B_SATT[b];
+    t != B_SATT[b] ? (
+      B_FADE[b] > 0 && INIT_DONE ? (
+        B_OT[b] = B_SATT[b]; B_ODRV[b] = B_DRV[b]; B_OSATC[b] = B_SAG[b]; B_OSMIX[b] = B_SMIX[b];
+        B_OHOLD[b] = B_HOLD[b]; B_OQLV[b] = B_QLV[b];
+        B_SXF[b] = SXLEN;
+        B_SSET[b] = 1 - B_SSET[b];
+        memset(SST + (b * 2 + B_SSET[b]) * 2 * SSZ, 0, 2 * SSZ);
+      ) : B_SXF[b] = 0;
+    );
+    B_SATT[b] = t;
+    d = db2lin(par(b, F_DRIVE) * 0.3);
+    B_DRV[b] = d;
+    B_SATC[b] = t > 0 && t < 8 ? SAT_REF / max(0.000001, sat_peak(t, d * SAT_REF)) : 1;
+    B_QLV[b] = 2 ^ (12 - par(b, F_DRIVE) * 0.1);
+    B_HOLD[b] = 1 + floor(max(0, par(b, F_DRIVE) - 50) / 50 * 7 + 0.5);
+    B_SMIX[b] = min(1, max(0, par(b, F_SMIX) / 100));
+    b += 1;
+  );
+  NACT = na; ANY_SPEC = aspec; ANY_TDYN = atdyn;
+  solo != SOLO_B ? ( SOLO_B = solo; memset(SOLOST, 0, 4); );
+  INIT_DONE = 1;
+);
+
+// one-pole smoothing of frequency / gain / Q towards the slider values (20 ms), every 32 samples
+function smooth_params() local(i, b, k, d, mv) (
+  k = 1 - exp(-32 / (0.02 * srate));
+  i = 0;
+  loop(NACT,
+    b = ACTL[i];
+    mv = 0;
+    d = B_TF[b] - B_SF[b]; abs(d) > 0.0005 ? ( B_SF[b] += d * k; mv = 1; ) : B_SF[b] = B_TF[b];
+    d = B_TG[b] - B_SG[b]; abs(d) > 0.005 ? ( B_SG[b] += d * k; mv = 1; ) : B_SG[b] = B_TG[b];
+    d = B_TQ[b] - B_SQ[b]; abs(d) > 0.0005 ? ( B_SQ[b] += d * k; mv = 1; ) : B_SQ[b] = B_TQ[b];
+    mv ? ( B_DIRTY[b] = 1; B_CDIRTY[b] = 1; AG_DIRTY = 1; );
+    i += 1;
+  );
+);
+
+// auto gain: keeps the loudness of pink noise (equal power per octave) between 20 Hz and 20 kHz
+function auto_gain() local(i, b, f, s, t, pl, w, n) (
+  s = 0; n = 48;
+  i = 0;
+  loop(n,
+    f = 20 * 1000 ^ ((i + 0.5) / n);
+    t = 0;
+    b = 0;
+    loop(NB,
+      B_ACT[b] && par(b, F_SHAPE) != SH_AP ? (
+        pl = par(b, F_PLACE);
+        w = pl == 0 ? 1 : 0.5;
+        t += w * magdb(par(b, F_SHAPE), par(b, F_SLOPE), exp(B_SF[b]), B_SG[b], exp(B_SQ[b]), f);
+      );
+      b += 1;
+    );
+    s += 10 ^ (max(t, -120) / 10);
+    i += 1;
+  );
+  AG_DB = -10 * log10(s / n);
+  AG_DIRTY = 0;
+);
+
+// dynamics: detector envelopes -> gain change (dB), every 32 samples
+function dyn_update() local(i, b, e, lvl, over, o, amt, rng, rat) (
+  rat = 1 - 1 / RATIO;
+  i = 0;
+  loop(NACT,
+    b = ACTL[i];
+    B_TDYN[b] ? (
+      (AUTO_AR || ((ATHR_M >> b) & 1)) ? auto_track(b, max(B_RMS0[b], B_RMS1[b]), 32 / srate);
+      B_KA[b] = AUTO_AR & 1 ? 1 - exp(-1 / (B_AATT[b] * 0.001 * srate)) : KA;
+      B_KR[b] = AUTO_AR & 2 ? 1 - exp(-1 / (B_AREL[b] * 0.001 * srate)) : KR;
+      e = max(B_ENV0[b], B_ENV1[b]);
+      lvl = DBLN * log(2 * e + 0.000000000000000000000000000001);
+      B_LVL[b] = lvl;
+      over = lvl - auto_thr(b);
+      o = over <= -3 ? 0 : over < 3 ? sqr(over + 3) / 12 : over;
+      rng = par(b, F_RANGE) * GSCALE;
+      amt = min(abs(rng), o * rat);
+      B_DDB[b] = sign(rng) * amt;
+      PHASE == 0 && abs(B_DDB[b] - B_DESG[b]) > 0.02 ? B_DIRTY[b] = 1;
+    );
+    i += 1;
+  );
+);
+
+//------------------------------------------------------------------ state
+SUBC = 0;
+PHASE = -1; RES_N = 0;
+OUT_G = 1; AG_DB = 0;
+ANA_WP = 0;
+SOLO_B = -1;
+OSF = 0;
+DQH = 0; DQT = 0; DQN = 0;
+CU_B = 0; CU_C = 0;
+XFLEN = 256; RAMPN = 32; FADE_STEP = 1 / XFLEN; SXLEN = 512;
+TH_A1 = 0.4; TH_A2 = -1 / 35;       // Thiran, 1.5 samples
+DC_R1 = 1 - TWO_PI * 5 / srate;     // 5 Hz DC blockers
+TP_G = 1;                           // tape emphasis: +6 dB above about 3 kHz
+TU_B = 0.4;                         // tube bias per unit of level
+SAT_REF = 0.125;                    // drive is level-matched at -18 dBFS
+grid_setup();
+
+//================================================================== GUI
+// Everything the GUI keeps globally starts with u_ / U_ so it never shares a name with a
+// variable of the audio code (EEL names are global and case-insensitive).
+U_FFTA  = 65536 * 16;        // analyzer FFT buffers (each inside one 65536 block)
+U_FFTB  = 65536 * 17;
+U_WINT  = 65536 * 18;        // 4096 Hann window
+U_SPRE  = U_WINT + 4096;     // smoothed analyzer, per column (max 4096 columns)
+U_SPOST = U_SPRE + 4096;
+U_CST   = U_SPOST + 4096;    // static curves: 5 groups (stereo, L, R, M, S) * 2048 points
+U_CLV   = U_CST + 5 * 2048;  // live curves (dynamics, spectral)
+U_BND   = U_CLV + 5 * 2048;  // the selected / hovered band's own curve, 2048 points
+U_KMIN  = U_BND + 2048;      // knob kinds: min, max, log, default, bipolar
+U_KMAX  = U_KMIN + 32;
+U_KLOG  = U_KMAX + 32;
+U_KDEF  = U_KLOG + 32;
+U_KBI   = U_KDEF + 32;
+U_NX    = U_KBI + 32;        // node screen positions per band
+U_NY    = U_NX + 16;
+U_GRP   = U_NY + 16;         // groups in use
+U_ZERO  = U_GRP + 8;         // 2048 zeros
+U_SPV   = U_ZERO + 2048;     // smoothed spectral change per curve point
+U_RV    = U_SPV + 2048;      // per band: how much of its prism color shows (0..1, follows the mouse)
+
+U_FN = 4096;
+u_i = 0; loop(U_FN, U_WINT[u_i] = 0.5 - 0.5 * cos(2 * $pi * u_i / U_FN); u_i += 1; );
+
+// knob kinds
+K_FREQ = 1; K_GAIN = 2; K_Q = 3; K_RANGE = 4; K_THR = 5; K_DRIVE = 6; K_ATT = 7; K_REL = 8;
+K_RATIO = 9; K_GSC = 10; K_PAN = 11; K_OUTG = 12; K_MIX = 13;
+function u_kind(k, lo, hi, lg, def, bi) (
+  U_KMIN[k] = lo; U_KMAX[k] = hi; U_KLOG[k] = lg; U_KDEF[k] = def; U_KBI[k] = bi;
+);
+u_kind(K_FREQ, 10, 30000, 1, 1000, 0);
+u_kind(K_GAIN, -30, 30, 0, 0, 1);
+u_kind(K_Q, 0.025, 40, 1, 1, 0);
+u_kind(K_RANGE, -30, 30, 0, 0, 1);
+u_kind(K_THR, -80, 0, 0, -20, 0);
+u_kind(K_DRIVE, 0, 100, 0, 25, 0);
+u_kind(K_ATT, 0.1, 500, 1, 10, 0);
+u_kind(K_REL, 5, 5000, 1, 150, 0);
+u_kind(K_RATIO, 1.1, 20, 1, 4, 0);
+u_kind(K_GSC, 0, 200, 0, 100, 0);
+u_kind(K_PAN, -100, 100, 0, 0, 1);
+u_kind(K_OUTG, -36, 36, 0, 0, 1);
+u_kind(K_MIX, 0, 100, 0, 100, 0);
+
+function u_tonorm(k, v) (
+  U_KLOG[k] ? log(max(v, U_KMIN[k]) / U_KMIN[k]) / log(U_KMAX[k] / U_KMIN[k])
+            : (v - U_KMIN[k]) / (U_KMAX[k] - U_KMIN[k]);
+);
+function u_fromnorm(k, t) (
+  t = min(1, max(0, t));
+  U_KLOG[k] ? U_KMIN[k] * exp(t * log(U_KMAX[k] / U_KMIN[k]))
+            : U_KMIN[k] + t * (U_KMAX[k] - U_KMIN[k]);
+);
+// value text into #u_v
+function u_fmt(k, v) (
+  k == K_FREQ ? ( v < 100 ? sprintf(#u_v, "%.1f Hz", v) : v < 1000 ? sprintf(#u_v, "%.0f Hz", v) : sprintf(#u_v, "%.2f kHz", v / 1000); )
+  : (k == K_GAIN || k == K_RANGE || k == K_OUTG) ? sprintf(#u_v, "%+.1f dB", v)
+  : k == K_Q ? sprintf(#u_v, "%.2f", v)
+  : k == K_THR ? sprintf(#u_v, "%.1f dB", v)
+  : (k == K_DRIVE || k == K_GSC || k == K_MIX) ? sprintf(#u_v, "%.0f%%", v)
+  : (k == K_ATT || k == K_REL) ? ( v < 10 ? sprintf(#u_v, "%.1f ms", v) : sprintf(#u_v, "%.0f ms", v); )
+  : k == K_RATIO ? sprintf(#u_v, "%.1f:1", v)
+  : k == K_PAN ? ( abs(v) < 0.5 ? strcpy(#u_v, "C") : v < 0 ? sprintf(#u_v, "L%.0f", -v) : sprintf(#u_v, "R%.0f", v); )
+  : sprintf(#u_v, "%.2f", v);
+);
+
+function u_shape_name(s) (
+  s == 0 ? "BELL" : s == 1 ? "LOW SHELF" : s == 2 ? "LOW CUT" : s == 3 ? "HIGH SHELF" : s == 4 ? "HIGH CUT"
+  : s == 5 ? "NOTCH" : s == 6 ? "BAND PASS" : s == 7 ? "TILT SHELF" : s == 8 ? "FLAT TILT" : "ALL PASS";
+);
+function u_place_name(p) ( p == 0 ? "STEREO" : p == 1 ? "LEFT" : p == 2 ? "RIGHT" : p == 3 ? "MID" : "SIDE"; );
+function u_sat_name(t) (
+  t == 0 ? "OFF" : t == 1 ? "TAPE" : t == 2 ? "TUBE" : t == 3 ? "TRANSISTOR" : t == 4 ? "SOFT CLIP"
+  : t == 5 ? "HARD CLIP" : t == 6 ? "DIODE" : t == 7 ? "FOLD" : "BITCRUSH";
+);
+function u_slope_txt(si) ( si >= 9 ? strcpy(#u_v, "BRICKWALL") : sprintf(#u_v, "%d DB/OCT", SLOPE_DB[si]); );
+
+//------------------------------------------------------------------ drawing helpers
+function u_col(c, a) (
+  gfx_r = ((c >> 16) & 255) / 255; gfx_g = ((c >> 8) & 255) / 255; gfx_b = (c & 255) / 255; gfx_a = a;
+);
+function u_rect(x, y, w, h) ( gfx_rect(floor(x), floor(y), floor(w + 0.5), floor(h + 0.5)); );
+function u_frame(x, y, w, h) local(x2, y2) (
+  x = floor(x); y = floor(y); x2 = floor(x + w - 1); y2 = floor(y + h - 1);
+  gfx_line(x, y, x2, y, 0); gfx_line(x, y2, x2, y2, 0);
+  gfx_line(x, y, x, y2, 0); gfx_line(x2, y, x2, y2, 0);
+);
+function u_hline(x1, x2, y) ( gfx_line(floor(x1), floor(y), floor(x2), floor(y), 0); );
+function u_vline(x, y1, y2) ( gfx_line(floor(x), floor(y1), floor(x), floor(y2), 0); );
+// corner ticks just outside / on a rect
+function u_ticks(x, y, w, h, len) local(x2, y2) (
+  x = floor(x); y = floor(y); x2 = floor(x + w - 1); y2 = floor(y + h - 1);
+  gfx_line(x, y, x + len, y, 0); gfx_line(x, y, x, y + len, 0);
+  gfx_line(x2 - len, y, x2, y, 0); gfx_line(x2, y, x2, y + len, 0);
+  gfx_line(x, y2, x + len, y2, 0); gfx_line(x, y2 - len, x, y2, 0);
+  gfx_line(x2 - len, y2, x2, y2, 0); gfx_line(x2, y2 - len, x2, y2, 0);
+);
+// letter-spaced text
+function u_tw(s, sp) local(w, h) ( gfx_measurestr(s, w, h); w + sp * max(0, strlen(s) - 1); );
+function u_text(s, x, y, sp) local(i, n) (
+  gfx_x = floor(x); gfx_y = floor(y);
+  sp == 0 ? gfx_drawstr(s) : (
+    n = strlen(s); i = 0;
+    loop(n, gfx_drawchar(str_getchar(s, i)); gfx_x += sp; i += 1; );
+  );
+);
+function u_text_c(s, cx, y, sp) ( u_text(s, cx - u_tw(s, sp) * 0.5, y, sp); );
+function u_text_r(s, rx, y, sp) ( u_text(s, rx - u_tw(s, sp), y, sp); );
+
+// fonts: 1 labels, 2 title, 3 small, 4 values. JetBrains Mono when installed (FX Devices ships
+// it in src/Fonts), else the system's monospace.
+u_fs = 0;
+function u_fonts(s) local(i) (
+  s != u_fs ? (
+    u_fs = s;
+    gfx_setfont(1, "JetBrains Mono", 11 * s);
+    gfx_getfont(#u_face);
+    u_jb = match("*JetBrains*", #u_face) || match("*jetbrains*", #u_face);
+    u_jb ? strcpy(#u_face, "JetBrains Mono") : strcpy(#u_face, "Menlo");
+    gfx_setfont(1, #u_face, 10 * s);
+    gfx_setfont(2, #u_face, 13 * s, 'b');
+    gfx_setfont(3, #u_face, 9 * s);
+    gfx_setfont(4, #u_face, 11 * s);
+    gfx_setfont(5, #u_face, 9 * s, 'b');
+  );
+);
+
+// palette (Monolith)
+C_CANVAS = 0x050505; C_BODY = 0x0C0C0D; C_ACC = 0x49CC85; C_INK = 0xF2F2F2; C_INK2 = 0x9A9A9A;
+C_INK3 = 0x5F5F5F; C_AMB = 0xE7B04A;
+function u_pcol(p) ( p == 0 ? C_INK : p == 1 ? 0x6FA8FF : p == 2 ? 0xFF7A6F : p == 3 ? 0xA98BFF : 0xE7B04A; );
+
+// prism accents: a spectrum hue (0 red .. 1 violet), softened toward white
+function u_spec(t) local(h, i, f, r, g, b) (
+  h = max(0, min(1, t)) * 5; i = floor(h); f = h - i;
+  r = 0; g = 0; b = 0;
+  i == 0 ? ( r = 1; g = f; ) : i == 1 ? ( r = 1 - f; g = 1; ) : i == 2 ? ( g = 1; b = f; )
+  : i == 3 ? ( g = 1 - f; b = 1; ) : i == 4 ? ( r = f * 0.6; b = 1; ) : ( r = 0.6; b = 1; );
+  (floor((0.3 + 0.7 * r) * 255) << 16) | (floor((0.3 + 0.7 * g) * 255) << 8) | floor((0.3 + 0.7 * b) * 255);
+);
+// a color from hue (0..1, wraps), saturation and value
+function u_hsv(h, s, v) local(i, f, p, q, t, r, g, b) (
+  h = (h - floor(h)) * 6; i = floor(h); f = h - i;
+  p = v * (1 - s); q = v * (1 - s * f); t = v * (1 - s * (1 - f));
+  i == 0 ? ( r = v; g = t; b = p; ) : i == 1 ? ( r = q; g = v; b = p; ) : i == 2 ? ( r = p; g = v; b = t; )
+  : i == 3 ? ( r = p; g = q; b = v; ) : i == 4 ? ( r = t; g = p; b = v; ) : ( r = v; g = p; b = q; );
+  (floor(r * 255 + 0.5) << 16) | (floor(g * 255 + 0.5) << 8) | floor(b * 255 + 0.5);
+);
+// every band has its own hue, spread around the color wheel so neighbors differ; its node is a
+// small prism gradient around that hue (the FXD device does the same)
+function u_bhue(b) ( b * 0.381966 + 0.02 - floor(b * 0.381966 + 0.02); );
+function u_bandc(b) ( u_hsv(u_bhue(b), 0.55, 1); );
+// c1 blended toward c2 by t
+function u_mix(c1, c2, t) (
+  (floor(((c1 >> 16) & 255) + (((c2 >> 16) & 255) - ((c1 >> 16) & 255)) * t) << 16)
+  | (floor(((c1 >> 8) & 255) + (((c2 >> 8) & 255) - ((c1 >> 8) & 255)) * t) << 8)
+  | floor((c1 & 255) + ((c2 & 255) - (c1 & 255)) * t);
+);
+function u_prism_rect(b, x, y, w, h, a) local(hh, c0, c1, c2, r0, g0, b0) (
+  hh = u_bhue(b);
+  c0 = u_hsv(hh - 0.07, 0.62, 1); c1 = u_hsv(hh, 0.5, 1); c2 = u_hsv(hh, 0.62, 0.9);
+  r0 = ((c0 >> 16) & 255) / 255; g0 = ((c0 >> 8) & 255) / 255; b0 = (c0 & 255) / 255;
+  x = floor(x); y = floor(y); w = floor(w + 0.5); h = floor(h + 0.5);
+  gfx_gradrect(x, y, w, h, r0, g0, b0, a,
+    (((c1 >> 16) & 255) / 255 - r0) / w, (((c1 >> 8) & 255) / 255 - g0) / w, ((c1 & 255) / 255 - b0) / w, 0,
+    (((c2 >> 16) & 255) / 255 - r0) / h, (((c2 >> 8) & 255) / 255 - g0) / h, ((c2 & 255) / 255 - b0) / h, 0);
+);
+// a 1-px spectral hairline from x1 (red) to x2 (violet), in steps of seg px
+function u_prism_hline(x1, x2, y, a, seg) local(n, i, xa, xb) (
+  n = max(1, floor((x2 - x1) / seg));
+  i = 0;
+  loop(n,
+    xa = floor(x1 + (x2 - x1) * i / n); xb = floor(x1 + (x2 - x1) * (i + 1) / n);
+    u_col(u_spec((i + 0.5) / n), a); gfx_rect(xa, floor(y), max(1, xb - xa), max(1, floor(u_s * 0.5 + 0.5)));
+    i += 1;
+  );
+);
+
+//------------------------------------------------------------------ geometry
+function u_f2x(f) ( u_dx + u_dw * log(max(f, 10) / 10) / log(3000); );
+function u_x2f(x) ( 10 * exp((x - u_dx) / u_dw * log(3000)); );
+// u_rngv: the shown range, easing toward u_rng (the chosen one)
+// the smallest range (3, 6, 12, 30 dB) where m dB fits within f of it
+function u_rng_fit(m, f) ( m <= 3 * f ? 3 : m <= 6 * f ? 6 : m <= 12 * f ? 12 : 30; );
+function u_g2y(g) ( u_dy + u_dh * 0.5 - g / u_rngv * u_dh * 0.44; );
+function u_y2g(y) ( (u_dy + u_dh * 0.5 - y) / (u_dh * 0.44) * u_rngv; );
+function u_a2y(d) ( u_dy + u_dh * (6 - d) / 96; ); // analyzer dB (+6 at the top, -90 at the bottom)
+
+//------------------------------------------------------------------ slider access
+function u_bp(b, f) ( slider(1 + b * NF + f); );
+function u_set(idx, v) ( slider(idx) = v; slider_automate(slider(idx)); );
+function u_set_end(idx) ( slider_automate(slider(idx), 1); );
+function u_bset(b, f, v) ( u_set(1 + b * NF + f, v); );
+function u_bused(b) ( u_bp(b, F_USED) >= 0.5; );
+
+//------------------------------------------------------------------ input
+// u_mx/u_my mouse, u_press/u_rel left edges, u_dbl double click, u_rpress right press
+function u_hit(x, y, w, h) ( u_mx >= x && u_mx < x + w && u_my >= y && u_my < y + h; );
+
+// immediate-mode widgets; u_act = id being pressed
+function u_button(id, x, y, w, h, s, on, c) local(hov) (
+  hov = u_hit(x, y, w, h) && (u_act == 0 || u_act == id);
+  u_press && hov ? u_act = id;
+  on ? ( u_col(c, 0.16); u_rect(x, y, w, h); );
+  u_col(on ? c : C_INK, on ? 0.75 : hov ? 0.3 : 0.14); u_frame(x, y, w, h);
+  gfx_setfont(3);
+  u_col(on ? c : hov ? C_INK : C_INK2, 1);
+  u_text_c(s, x + w * 0.5, y + (h - gfx_texth) * 0.5, u_s);
+  u_rel && u_act == id && hov;
+);
+// a box that opens a menu; returns the picked item (1 based) or 0
+function u_menubox(id, x, y, w, h, lbl, val, items) local(hov, r) (
+  hov = u_hit(x, y, w, h) && (u_act == 0 || u_act == id);
+  u_press && hov ? u_act = id;
+  u_col(C_BODY, 1); u_rect(x, y, w, h);
+  u_col(C_INK, hov ? 0.3 : 0.12); u_frame(x, y, w, h);
+  gfx_setfont(3);
+  lbl ? ( u_col(C_INK3, 1); u_text(lbl, x + 6 * u_s, y + (h - gfx_texth) * 0.5, u_s); );
+  u_col(hov ? C_INK : 0xD8D8D8, 1);
+  u_text_r(val, x + w - 16 * u_s, y + (h - gfx_texth) * 0.5, u_s);
+  // little caret
+  u_col(C_INK2, 1);
+  gfx_triangle(x + w - 11 * u_s, y + h * 0.5 - 1.5 * u_s, x + w - 5 * u_s, y + h * 0.5 - 1.5 * u_s, x + w - 8 * u_s, y + h * 0.5 + 2 * u_s);
+  r = 0;
+  u_rel && u_act == id && hov ? (
+    gfx_x = x; gfx_y = y + h;
+    r = gfx_showmenu(items);
+  );
+  r;
+);
+
+// tick-ring knob for slider idx
+function u_arc(cx, cy, rad, a1, a2, th) local(i) (
+  i = 0; loop(max(1, floor(th + 0.5)), gfx_arc(cx, cy, rad - i, a1, a2, 1); i += 1; );
+);
+function u_knob(id, cx, cy, rad, idx, k, lbl) local(v, t, hov, a, a0, a1, i, n, r1, r2, lit, ca, sa, from, cap, d) (
+  v = slider(idx);
+  hov = u_hit(cx - rad - 6 * u_s, cy - rad - 16 * u_s, rad * 2 + 12 * u_s, rad * 2 + 32 * u_s) && (u_act == 0 || u_act == id);
+  u_press && hov ? (
+    u_dbl ? (
+      u_set(idx, U_KDEF[k]); u_set_end(idx);
+    ) : ( u_act = id; u_kv = u_tonorm(k, v); u_ky = u_my; );
+  );
+  u_act == id && u_down ? (
+    d = (u_ky - u_my) / (180 * u_s) * (u_shift ? 0.1 : 1);
+    u_ky = u_my;
+    u_kv = min(1, max(0, u_kv + d));
+    d != 0 ? ( v = u_fromnorm(k, u_kv); u_set(idx, v); );
+  );
+  u_act == id && u_rel ? u_set_end(idx);
+  hov && u_wheel != 0 && u_act == 0 ? (
+    v = u_fromnorm(k, u_tonorm(k, v) + u_wheel * (u_shift ? 0.002 : 0.02));
+    u_set(idx, v); u_set_end(idx);
+    u_wheel = 0;
+  );
+  t = u_tonorm(k, v);
+  a0 = -0.75 * $pi; a1 = 0.75 * $pi;
+  // label
+  gfx_setfont(3);
+  u_col(hov || u_act == id ? C_INK : C_INK2, 1);
+  u_text_c(lbl, cx, cy - rad - 13 * u_s, u_s);
+  // track and value arc
+  u_col(C_INK, hov ? 0.2 : 0.11);
+  u_arc(cx, cy, rad, a0, a1, 2 * u_s);
+  a = a0 + (a1 - a0) * t;
+  from = U_KBI[k] ? 0 : a0;
+  abs(a - from) > 0.01 ? (
+    u_col(u_act == id ? C_INK : C_ACC, 1);
+    u_arc(cx, cy, rad, min(a, from), max(a, from), 2 * u_s);
+  );
+  // ticks
+  cap = rad - max(6 * u_s, rad * 0.3);
+  r1 = cap + 2 * u_s; r2 = rad - 3.5 * u_s;
+  n = 10; i = 0;
+  loop(n + 1,
+    ca = a0 + (a1 - a0) * i / n;
+    lit = i / n <= t + 0.001;
+    u_col(C_INK, lit ? (hov ? 0.69 : 0.44) : 0.15);
+    gfx_line(cx + sin(ca) * r1, cy - cos(ca) * r1, cx + sin(ca) * r2, cy - cos(ca) * r2, 1);
+    i += 1;
+  );
+  // cap and pointer
+  u_col(u_act == id ? 0x1A1A1A : 0x0A0A0A, 1); gfx_circle(cx, cy, cap, 1, 1);
+  u_col(C_INK, hov ? 0.35 : 0.18); gfx_circle(cx, cy, cap, 0, 1);
+  u_col(C_INK, 1);
+  gfx_line(cx + sin(a) * cap * 0.2, cy - cos(a) * cap * 0.2, cx + sin(a) * (cap - 1.5 * u_s), cy - cos(a) * (cap - 1.5 * u_s), 1);
+  // value
+  u_fmt(k, v);
+  gfx_setfont(4);
+  u_col(u_act == id ? C_ACC : 0xD8D8D8, 1);
+  u_text_c(#u_v, cx, cy + rad + 4 * u_s, 0);
+);
+
+// section header: caps label, hairline to the right
+function u_section(s, x, y, w) local(tw) (
+  gfx_setfont(5);
+  u_col(C_INK2, 1);
+  u_text(s, x, y, u_s);
+  tw = u_tw(s, u_s);
+  u_col(C_INK, 0.09); u_hline(x + tw + 6 * u_s, x + w, y + gfx_texth * 0.5);
+);
+
+//------------------------------------------------------------------ analyzer
+function u_analyze(ring, buf, sm) local(n, p, i, k, x, f0, f1, k0, k1, pw, re, im, m, fr, kk, db, binhz, nb) (
+  n = U_FN;
+  p = ANA_WP - n;
+  i = 0;
+  loop(n, buf[i] = ring[(p + i) & (ANA_N - 1)] * U_WINT[i]; i += 1; );
+  fft_real(buf, n);
+  fft_permute(buf, n / 2);
+  nb = n / 2;
+  binhz = srate / n;
+  // power per bin into buf (in place, bins 1..nb-1), sine at 0 dBFS reads 0 dB
+  k = 1;
+  loop(nb - 1,
+    re = buf[2 * k]; im = buf[2 * k + 1];
+    buf[k] = (re * re + im * im) * 16 / (n * n);
+    k += 1;
+  );
+  i = 0;
+  loop(u_ncol,
+    x = i * u_step;
+    f0 = u_x2f(u_dx + x - u_step * 0.5); f1 = u_x2f(u_dx + x + u_step * 0.5);
+    k0 = f0 / binhz; k1 = f1 / binhz;
+    k1 - k0 < 1 ? (
+      fr = (f0 + f1) * 0.5 / binhz;
+      kk = floor(fr); fr -= kk;
+      kk < 1 ? ( kk = 1; fr = 0; );
+      pw = kk + 1 < nb ? buf[kk] * (1 - fr) + buf[kk + 1] * fr : 0;
+    ) : (
+      pw = 0; k = max(1, floor(k0));
+      loop(min(nb - 1, ceil(k1)) - k + 1, buf[k] > pw ? pw = buf[k]; k += 1; );
+    );
+    db = 10 * log10(max(pw, 0.0000000001)) + 4.5 * log((f0 + f1) * 0.5 / 1000) / log(2);
+    m = sm[i];
+    sm[i] = db > m ? db : m + (db - m) * 0.12;
+    i += 1;
+  );
+);
+function u_draw_spec(sm, c, fa, la) local(i, x, y, py, bot) (
+  bot = u_dy + u_dh;
+  i = 0;
+  loop(u_ncol,
+    x = u_dx + i * u_step;
+    y = max(u_dy, min(bot, u_a2y(sm[i])));
+    fa > 0 ? ( u_col(c, fa); gfx_rect(floor(x), floor(y), u_step, floor(bot - y)); );
+    i > 0 ? ( u_col(c, la); gfx_line(x - u_step, py, x, y, 1); );
+    py = y;
+    i += 1;
+  );
+);
+
+//------------------------------------------------------------------ curves
+// one band's response (dB) at f, from its sliders; dd = extra gain (dynamics)
+function u_band_db(b, f, dd) local(sh, g) (
+  sh = u_bp(b, F_SHAPE);
+  g = is_gain_shape(sh) ? u_bp(b, F_GAIN) * u_gs + dd : 0;
+  magdb(sh, u_bp(b, F_SLOPE), u_bp(b, F_FREQ), g, u_bp(b, F_Q), f);
+);
+function u_band_live(b) (
+  B_TDYN[b] ? B_DDB[b] : 0;
+);
+function u_curves() local(b, j, f, pl, d, dl, live, on, kf, k, sv) (
+  u_anydyn = 0;
+  memset(U_CST, 0, 5 * 2048);
+  memset(U_CLV, 0, 5 * 2048);
+  memset(U_GRP, 0, 5);
+  b = 0;
+  loop(NB,
+    on = u_bused(b) && u_bp(b, F_ENA) >= 0.5;
+    on ? (
+      pl = u_bp(b, F_PLACE) | 0;
+      U_GRP[pl] = 1;
+      live = u_band_live(b);
+      (B_TDYN[b] || B_SPECB[b]) && u_bp(b, F_DYN) >= 0.5 ? u_anydyn = 1;
+      j = 0;
+      loop(u_npt,
+        f = u_x2f(u_dx + j * u_pstep);
+        d = u_band_db(b, f, 0);
+        dl = abs(live) > 0.01 ? u_band_db(b, f, live) : d;
+        U_CST[pl * 2048 + j] += d;
+        U_CLV[pl * 2048 + j] += dl;
+        j += 1;
+      );
+    );
+    b += 1;
+  );
+  // groups add the stereo bands
+  pl = 1;
+  loop(4,
+    U_GRP[pl] ? (
+      j = 0; loop(u_npt, U_CST[pl * 2048 + j] += U_CST[j]; U_CLV[pl * 2048 + j] += U_CLV[j]; j += 1; );
+    );
+    pl += 1;
+  );
+  // spectral dynamics: the engine's per-bin change (averaged per point, smoothed over frames),
+  // on every curve in use
+  ANY_SPEC && STFT_ON && FFTN > 0 ? (
+    j = 0;
+    loop(u_npt,
+      f = u_x2f(u_dx + j * u_pstep);
+      kf = f * FFTN / srate;
+      k = max(0, floor(kf * 0.94)); d = min(FFTN / 2 - 1, ceil(kf * 1.06));
+      sv = 0; dl = 0;
+      loop(d - k + 1, sv += SPECV[k]; dl += 1; k += 1; );
+      sv /= max(1, dl);
+      U_SPV[j] += (sv - U_SPV[j]) * 0.3;
+      sv = U_SPV[j];
+      U_CLV[j] += sv;
+      pl = 1; loop(4, U_GRP[pl] ? U_CLV[pl * 2048 + j] += sv; pl += 1; );
+      j += 1;
+    );
+  ) : memset(U_SPV, 0, 2048);
+);
+function u_draw_curve(p, c, a, th) local(j, x, y, py, i) (
+  j = 0;
+  loop(u_npt,
+    x = u_dx + j * u_pstep;
+    y = max(u_dy - 2, min(u_dy + u_dh + 2, u_g2y(p[j])));
+    j > 0 ? (
+      u_col(c, a);
+      i = 0; loop(th, gfx_line(x - u_pstep, py + i, x, y + i, 1); i += 1; );
+    );
+    py = y;
+    j += 1;
+  );
+);
+// the main curve in the prism look: white, but near the mouse it refracts into the spectrum
+// (red lows to violet highs, by frequency), fading out over u_crv when the mouse leaves
+function u_draw_curve_prism(p, a, th) local(j, x, y, py, i, c, w) (
+  j = 0;
+  loop(u_npt,
+    x = u_dx + j * u_pstep;
+    y = max(u_dy - 2, min(u_dy + u_dh + 2, u_g2y(p[j])));
+    j > 0 ? (
+      w = u_crv * max(0, 1 - abs(x - u_mx) / (150 * u_s));
+      w > 0.01 ? (
+        c = u_spec(j / u_npt);
+        gfx_r = (242 + ((((c >> 16) & 255) * 0.8 + 51) - 242) * w) / 255;
+        gfx_g = (242 + ((((c >> 8) & 255) * 0.8 + 51) - 242) * w) / 255;
+        gfx_b = (242 + (((c & 255) * 0.8 + 51) - 242) * w) / 255; gfx_a = a;
+      ) : u_col(C_INK, a);
+      i = 0; loop(th, gfx_line(x - u_pstep, py + i, x, y + i, 1); i += 1; );
+    );
+    py = y;
+    j += 1;
+  );
+);
+// area between two curves (dynamics)
+function u_fill_between(p, q, c, a) local(j, x, y1, y2) (
+  u_col(c, a);
+  j = 0;
+  loop(u_npt,
+    x = u_dx + j * u_pstep;
+    y1 = u_g2y(p[j]); y2 = u_g2y(q[j]);
+    abs(y1 - y2) >= 1 ? gfx_rect(floor(x - u_pstep * 0.5), floor(min(y1, y2)), ceil(u_pstep), ceil(abs(y1 - y2)));
+    j += 1;
+  );
+);
+
+// normal-case names for menus
+function u_shape_title(s) (
+  s == 0 ? "Bell" : s == 1 ? "Low Shelf" : s == 2 ? "Low Cut" : s == 3 ? "High Shelf" : s == 4 ? "High Cut"
+  : s == 5 ? "Notch" : s == 6 ? "Band Pass" : s == 7 ? "Tilt Shelf" : s == 8 ? "Flat Tilt" : "All Pass";
+);
+function u_sat_title(t) (
+  t == 0 ? "Off" : t == 1 ? "Tape" : t == 2 ? "Tube" : t == 3 ? "Transistor" : t == 4 ? "Soft Clip"
+  : t == 5 ? "Hard Clip" : t == 6 ? "Diode" : t == 7 ? "Fold" : "Bitcrush";
+);
+function u_place_title(p) ( p == 0 ? "Stereo" : p == 1 ? "Left" : p == 2 ? "Right" : p == 3 ? "Mid" : "Side"; );
+
+// menus: build "#u_m" from a list function, n items, current item, then a trailing "|"
+function u_menu_add(kind, n, cur, last) local(i) (
+  i = 0;
+  loop(n,
+    (last && i == n - 1) ? strcat(#u_m, "<");
+    i == cur ? strcat(#u_m, "!");
+    kind == 0 ? strcat(#u_m, u_shape_title(i))
+    : kind == 1 ? ( i >= 9 ? strcat(#u_m, "Brickwall") : ( sprintf(#u_t, "%d dB/oct", SLOPE_DB[i]); strcat(#u_m, #u_t); ); )
+    : kind == 2 ? strcat(#u_m, u_place_title(i))
+    : strcat(#u_m, u_sat_title(i));
+    strcat(#u_m, "|");
+    i += 1;
+  );
+);
+
+// a new band at f / g (dB), returns its index or -1
+function u_newband(f, g) local(b, fb, sh) (
+  fb = -1; b = 0;
+  loop(NB, fb < 0 && !u_bused(b) ? fb = b; b += 1; );
+  fb >= 0 ? (
+    sh = f < 30 ? SH_LC : f > 16000 ? SH_HC : SH_BELL;
+    u_bset(fb, F_SHAPE, sh);
+    u_bset(fb, F_FREQ, min(30000, max(10, f)));
+    u_bset(fb, F_GAIN, sh == SH_BELL ? min(30, max(-30, g)) : 0);
+    u_bset(fb, F_Q, 1);
+    u_bset(fb, F_SLOPE, sh == SH_BELL ? 1 : 3);
+    u_bset(fb, F_PLACE, 0); u_bset(fb, F_SOLO, 0); u_bset(fb, F_DYN, 0); u_bset(fb, F_RANGE, 0);
+    u_bset(fb, F_THR, -20); u_bset(fb, F_SMIX, 100); u_bset(fb, F_SAT, 0); u_bset(fb, F_DRIVE, 25);
+    u_bset(fb, F_ENA, 1);
+    u_bset(fb, F_USED, 1);
+  );
+  fb;
+);
+
+function u_delband(b) ( u_bset(b, F_SOLO, 0); u_bset(b, F_USED, 0); u_sel == b ? u_sel = -1; );
+
+// solo one band at a time
+function u_solo(b) local(i, on) (
+  on = u_bp(b, F_SOLO) < 0.5;
+  i = 0; loop(NB, i != b && u_bp(i, F_SOLO) >= 0.5 ? u_bset(i, F_SOLO, 0); i += 1; );
+  u_bset(b, F_SOLO, on);
+);
+
+function u_node_menu(b) local(r) (
+  strcpy(#u_m, ">Shape|");
+  u_menu_add(0, 10, u_bp(b, F_SHAPE) | 0, 1);
+  strcat(#u_m, ">Slope|");
+  u_menu_add(1, 10, u_bp(b, F_SLOPE) | 0, 1);
+  strcat(#u_m, ">Placement|");
+  u_menu_add(2, 5, u_bp(b, F_PLACE) | 0, 1);
+  strcat(#u_m, ">Saturation|");
+  u_menu_add(3, 9, u_bp(b, F_SAT) | 0, 1);
+  strcat(#u_m, "|");
+  u_bp(b, F_DYN) >= 0.5 ? strcat(#u_m, "!"); strcat(#u_m, "Dynamic|");
+  u_bp(b, F_DYN) >= 1.5 ? strcat(#u_m, "!"); strcat(#u_m, "Spectral|");
+  u_bp(b, F_SOLO) >= 0.5 ? strcat(#u_m, "!"); strcat(#u_m, "Solo|");
+  u_bp(b, F_ENA) >= 0.5 ? strcat(#u_m, "!"); strcat(#u_m, "Enabled|");
+  strcat(#u_m, "|Delete");
+  gfx_x = u_mx; gfx_y = u_my;
+  r = gfx_showmenu(#u_m);
+  r >= 1 && r <= 10 ? u_bset(b, F_SHAPE, r - 1)
+  : r <= 20 && r > 10 ? u_bset(b, F_SLOPE, r - 11)
+  : r <= 25 && r > 20 ? u_bset(b, F_PLACE, r - 21)
+  : r <= 34 && r > 25 ? u_bset(b, F_SAT, r - 26)
+  : r == 35 ? u_bset(b, F_DYN, u_bp(b, F_DYN) < 0.5)
+  : r == 36 ? u_bset(b, F_DYN, u_bp(b, F_DYN) >= 1.5 ? 1 : 2)
+  : r == 37 ? u_solo(b)
+  : r == 38 ? u_bset(b, F_ENA, u_bp(b, F_ENA) < 0.5)
+  : r == 39 ? u_delband(b);
+);
+
+u_rng = 12; u_rngv = 12; u_urng = 12; u_an = 2; u_sel = -1; u_hov = -1; u_act = 0; u_lcap = 0; u_drag = -1;
+
+@slider
+// read in @block
+
+@block
+read_params();
+sat_level();
+CHAR != CH_LAST ? ( CH_LAST = CHAR; CE_I = 0; CE_O = 0; CH_G = 1; CH_GT = 1; );
+CE_K = 1 - exp(-1 / (0.3 * srate));
+CHAR && CE_I > 0.0000000001 && CE_O > 0.0000000001 ? CH_GT = max(0.5, min(2, sqrt(CE_I / CE_O)));
+KA = 1 - exp(-1 / (max(0.05, ATT_MS) * 0.001 * srate));
+KR = 1 - exp(-1 / (max(1, REL_MS) * 0.001 * srate));
+want = ANY_SPEC || (PHASE && ANY_TDYN);
+(want != STFT_ON || (want && RES_N != FFTN) || PHASE_CHG) ? (
+  want ? stft_setup(RES_N);
+  STFT_ON = want;
+  i = 0; loop(NB, B_DIRTY[i] = 1; B_CDIRTY[i] = 1; i += 1; );
+);
+(PHASE != FIR_ON || (PHASE && LPK != FIR_K)) ? (
+  PHASE ? fir_setup(LPK);
+  FIR_ON = PHASE;
+  i = 0; loop(NB, B_DIRTY[i] = 1; B_CDIRTY[i] = 1; i += 1; );
+);
+PHASE_CHG = 0;
+pdc_bot_ch = 0; pdc_top_ch = 2;
+pdc_delay = (FIR_ON ? FIR_K / 2 + FIR_B : 0) + (STFT_ON ? FFTN : 0);
+// bands that just came on are designed now, the rest wait in the queue (one per sample)
+i = 0; loop(NACT, b = ACTL[i]; B_ACT[b] && !B_DSN[b] ? design(b) : B_DIRTY[b] ? dq_push(b); i += 1; );
+// curves for the spectral / linear phase engines are refreshed one band every CU_PER samples
+CU_PER = max(1, floor(min(FIR_ON ? FIR_B : 4096, STFT_ON ? HOP : 4096) / NB));
+AG_DIRTY ? ( AUTO ? auto_gain() : AG_DB = 0; );
+
+// live gain changes for FX Devices, in this instance's gmem block (slot * 256, slot set by FXD):
+// +0 heartbeat, +1 spectral curve valid, +2..17 band dynamics dB, +18..33 band spectral max dB,
+// +40..167 total spectral change (dB) at 128 log points 10 Hz .. 30 kHz,
+// +168..183 threshold in use per band (dB, auto or set), +184..199 / +200..215 attack / release
+// in use per band (ms, auto or global), +216..231 detector level per dynamic band (dB), +232 = 1: levels written
+LV_BASE = floor(slider252 + 0.5) * 256;
+gmem[LV_BASE] = (gmem[LV_BASE] + 1) % 1000000;
+i = 0;
+loop(NB,
+  gmem[LV_BASE + 2 + i] = B_TDYN[i] ? B_DDB[i] : 0;
+  gmem[LV_BASE + 18 + i] = B_SPECB[i] ? B_SPECD[i] : 0;
+  gmem[LV_BASE + 168 + i] = auto_thr(i);
+  gmem[LV_BASE + 184 + i] = AUTO_AR & 1 ? B_AATT[i] : ATT_MS;
+  gmem[LV_BASE + 200 + i] = AUTO_AR & 2 ? B_AREL[i] : REL_MS;
+  gmem[LV_BASE + 216 + i] = B_TDYN[i] || B_SPECB[i] ? B_LVL[i] : -150;
+  i += 1;
+);
+gmem[LV_BASE + 232] = 1;
+ANY_SPEC && STFT_ON && FFTN > 0 ? (
+  gmem[LV_BASE + 1] = 1;
+  i = 0;
+  loop(128,
+    lv_kf = 10 * exp(log(3000) * i / 127) * FFTN / srate;
+    lv_k = max(0, floor(lv_kf * 0.94)); lv_ke = min(FFTN / 2 - 1, ceil(lv_kf * 1.06));
+    lv_s = 0; lv_n = 0;
+    lv_k <= lv_ke ? loop(lv_ke - lv_k + 1, lv_s += SPECV[lv_k]; lv_n += 1; lv_k += 1; );
+    gmem[LV_BASE + 40 + i] = lv_s / max(1, lv_n);
+    i += 1;
+  );
+) : gmem[LV_BASE + 1] = 0;
+
+@sample
+l = spl0; r = spl1;
+SC_EXT ? ( scl = spl2; scr = spl3; ) : ( scl = l; scr = r; );
+ANA_IN[ANA_WP] = (l + r) * 0.5;
+
+SUBC <= 0 ? (
+  SUBC = 32;
+  smooth_params();
+  ANY_TDYN ? dyn_update();
+  i = 0; loop(NACT, b = ACTL[i]; B_DIRTY[b] ? dq_push(b); i += 1; );
+);
+SUBC -= 1;
+// one band design per sample, so moving many bands at once never lands on one sample
+DQN > 0 ? (
+  b = DQ[DQH]; DQH = (DQH + 1) % (NB + 1); DQN -= 1; B_QD[b] = 0;
+  B_DIRTY[b] ? design(b);
+);
+(FIR_ON || STFT_ON) ? (
+  CU_C -= 1;
+  CU_C <= 0 ? (
+    CU_C = CU_PER;
+    B_CDIRTY[CU_B] ? curve_update(CU_B);
+    CU_B = (CU_B + 1) % NB;
+  );
+);
+
+// dynamics detectors (pre-EQ input or external side chain, filtered to the band's region)
+ANY_TDYN ? (
+  i = 0;
+  loop(NACT,
+    b = ACTL[i];
+    B_TDYN[b] ? (
+      pl = par(b, F_PLACE);
+      pl == 0 ? ( x0 = scl; x1 = scr; ) : pl == 1 ? x0 = scl : pl == 2 ? x0 = scr
+        : pl == 3 ? x0 = (scl + scr) * 0.5 : x0 = (scl - scr) * 0.5;
+      B_ISOT[b] ? (
+        x0 = bq(ISO + b * 5, DETST + b * 4, x0);
+        pl == 0 ? x1 = bq(ISO + b * 5, DETST + b * 4 + 2, x1);
+      );
+      // RMS over about 1.5 periods, then attack / release on that
+      krms = B_KRMS[b];
+      e = (B_RMS0[b] += (x0 * x0 - B_RMS0[b]) * krms);
+      e0 = B_ENV0[b]; B_ENV0[b] = e0 + (e - e0) * (e > e0 ? B_KA[b] : B_KR[b]);
+      pl == 0 ? (
+        e = (B_RMS1[b] += (x1 * x1 - B_RMS1[b]) * krms);
+        e0 = B_ENV1[b]; B_ENV1[b] = e0 + (e - e0) * (e > e0 ? B_KA[b] : B_KR[b]);
+      ) : B_ENV1[b] = 0;
+    );
+    i += 1;
+  );
+);
+
+// the bands, in order, each on its own channels; a band switched on or off fades over XFLEN
+i = 0;
+loop(NACT,
+  b = ACTL[i];
+  fd = B_FADE[b];
+  ((PHASE == 0 && (B_NSEC[b] > 0 || B_XF[b] > 0)) || B_SATT[b] > 0 || B_SXF[b] > 0) ? (
+    B_RAMP[b] > 0 ? ramp_step(b);
+    pl = par(b, F_PLACE);
+    (B_XF[b] > 0 || B_SATT[b] > 0 || B_SXF[b] > 0 || fd < 1) ? (
+      l0 = l; r0 = r;
+      pl == 0 ? (
+        l = band_ch(b, 0, l); r = band_ch(b, 1, r);
+      ) : pl == 1 ? (
+        l = band_ch(b, 0, l);
+      ) : pl == 2 ? (
+        r = band_ch(b, 1, r);
+      ) : (
+        m = (l + r) * 0.5; sd = (l - r) * 0.5;
+        pl == 3 ? m = band_ch(b, 0, m) : sd = band_ch(b, 1, sd);
+        l = m + sd; r = m - sd;
+      );
+      fd < 1 ? ( l = l0 + (l - l0) * fd; r = r0 + (r - r0) * fd; );
+    ) : (
+      // just the filter
+      pl == 0 ? (
+        l = run_secs(b, 0, l); r = run_secs(b, 1, r);
+      ) : pl == 1 ? (
+        l = run_secs(b, 0, l);
+      ) : pl == 2 ? (
+        r = run_secs(b, 1, r);
+      ) : (
+        m = (l + r) * 0.5; sd = (l - r) * 0.5;
+        pl == 3 ? m = run_secs(b, 0, m) : sd = run_secs(b, 1, sd);
+        l = m + sd; r = m - sd;
+      );
+    );
+    B_XF[b] > 0 ? B_XF[b] -= 1;
+    B_SXF[b] > 0 ? B_SXF[b] -= 1;
+    B_SAG[b] += B_SAGI[b];
+  );
+  B_ACT[b] ? (
+    fd < 1 ? B_FADE[b] = min(1, fd + FADE_STEP);
+  ) : (
+    B_FADE[b] = max(0, fd - FADE_STEP);
+    B_FADE[b] <= 0 ? B_DSN[b] = 0;
+  );
+  i += 1;
+);
+
+STFT_ON ? (
+  INB_L[WP] = l; INB_R[WP] = r; INB_SL[WP] = scl; INB_SR[WP] = scr;
+  l = OUT_L[WP]; r = OUT_R[WP];
+  OUT_L[WP] = 0; OUT_R[WP] = 0;
+  WP = (WP + 1) & (FFTN - 1);
+  HOPC += 1;
+  HOPC >= HOP ? ( HOPC = 0; stft_frame(); );
+);
+FIR_ON ? ( fir_sample(l, r); l = FIR_L; r = FIR_R; );
+
+// solo: only the soloed band's region
+SOLO_B >= 0 ? (
+  B_ISOT[SOLO_B] ? (
+    l = bq(ISO + SOLO_B * 5, SOLOST, l);
+    r = bq(ISO + SOLO_B * 5, SOLOST + 2, r);
+  );
+);
+
+// character, level-matched to its input (RMS over about 300 ms)
+CHAR ? (
+  l0 = l; r0 = r;
+  CHAR == 1 ? (
+    l = char_ch(1, 0.5, l, CHST, CHST + 4);
+    r = char_ch(1, 0.5, r, CHST + 2, CHST + 6);
+  ) : (
+    l = char_ch(2, 1.2, l, CHST, CHST + 4);
+    r = char_ch(2, 1.2, r, CHST + 2, CHST + 6);
+  );
+  CE_I += CE_K * (l0 * l0 + r0 * r0 - CE_I); CE_O += CE_K * (l * l + r * r - CE_O);
+  CH_G += (CH_GT - CH_G) * 0.0005;
+  l *= CH_G; r *= CH_G;
+);
+
+tg = exp((OUT_DB + (AUTO ? AG_DB : 0)) * LN10_20);
+OUT_G += (tg - OUT_G) * 0.002;
+spl0 = l * OUT_G * min(1, 1 - PAN);
+spl1 = r * OUT_G * min(1, 1 + PAN);
+ANA_OUT[ANA_WP] = (spl0 + spl1) * 0.5;
+ANA_WP = (ANA_WP + 1) & (ANA_N - 1);
+
+@gfx 1080 540
+u_s = max(1, gfx_ext_retina);
+u_fonts(u_s);
+
+//---------------------------------------------------------------- input
+u_mx = mouse_x; u_my = mouse_y;
+u_down = mouse_cap & 1;
+u_press = u_down && !(u_lcap & 1);
+u_rel = !u_down && (u_lcap & 1);
+u_rpress = (mouse_cap & 2) && !(u_lcap & 2);
+u_shift = mouse_cap & 8; u_alt = mouse_cap & 16;
+u_wheel = mouse_wheel / 120; mouse_wheel = 0;
+u_now = time_precise();
+u_dbl = 0;
+u_press ? (
+  u_dbl = u_now - u_lt < 0.32 && abs(u_mx - u_lx) < 5 * u_s && abs(u_my - u_ly) < 5 * u_s;
+  u_lt = u_dbl ? 0 : u_now; u_lx = u_mx; u_ly = u_my;
+);
+u_gs = slider(G_GS) / 100;
+u_sel >= 0 && !u_bused(u_sel) ? u_sel = -1;
+
+//---------------------------------------------------------------- layout
+u_pad = 10 * u_s;
+u_ph = 136 * u_s;                       // band panel
+u_dx = u_pad; u_dy = 42 * u_s;
+u_dw = gfx_w - 2 * u_pad;
+u_dh = gfx_h - u_dy - u_ph - 8 * u_s;
+u_py = gfx_h - u_ph - u_pad * 0.5;
+// the display range eases toward the chosen one; a dragged node keeps its gain meanwhile
+u_rngv != u_rng ? (
+  u_act == 1000 && u_drag >= 0 ? u_vg = u_y2g(u_vy);
+  u_rngv += (u_rng - u_rngv) * 0.18;
+  abs(u_rngv - u_rng) < 0.02 ? u_rngv = u_rng;
+  u_act == 1000 && u_drag >= 0 ? u_vy = u_g2y(u_vg);
+);
+
+u_col(C_CANVAS, 1); gfx_rect(0, 0, gfx_w, gfx_h);
+
+//---------------------------------------------------------------- header
+gfx_setfont(2);
+// a small prism (triangle) for the mark, and a spectral hairline under the title
+u_col(C_ACC, 1); gfx_triangle(u_pad, 22 * u_s, u_pad + 8 * u_s, 22 * u_s, u_pad + 4 * u_s, 14 * u_s);
+u_hty = (36 * u_s - gfx_texth) * 0.5 + 1 * u_s;
+u_col(C_INK, 1); u_text("PRISM EQ", u_pad + 15 * u_s, u_hty, 2 * u_s);
+u_tw0 = u_tw("PRISM EQ", 2 * u_s);
+u_prism_hline(u_pad + 15 * u_s, u_pad + 15 * u_s + u_tw0, u_hty + gfx_texth + 1 * u_s, 0.7, 3 * u_s);
+u_hx = u_pad + 15 * u_s + u_tw0 + 12 * u_s;
+gfx_setfont(3);
+u_col(C_INK3, 1); u_text("FX DEVICES", u_hx, (36 * u_s - gfx_texth) * 0.5 + 1 * u_s, u_s);
+
+u_bh = 20 * u_s; u_by = 8 * u_s;
+u_x = gfx_w - u_pad;
+// output level: drag box
+u_w = 104 * u_s; u_x -= u_w;
+u_hv = u_hit(u_x, u_by, u_w, u_bh) && (u_act == 0 || u_act == 900);
+u_press && u_hv ? ( u_dbl ? ( u_set(G_OUT, 0); u_set_end(G_OUT); ) : ( u_act = 900; u_ky = u_my; ); );
+u_act == 900 && u_down && u_my != u_ky ? (
+  u_set(G_OUT, min(36, max(-36, slider(G_OUT) + (u_ky - u_my) * (u_shift ? 0.01 : 0.1) / u_s)));
+  u_ky = u_my;
+);
+u_act == 900 && u_rel ? u_set_end(G_OUT);
+u_hv && u_wheel != 0 && u_act == 0 ? ( u_set(G_OUT, min(36, max(-36, slider(G_OUT) + u_wheel * (u_shift ? 0.1 : 0.5)))); u_set_end(G_OUT); u_wheel = 0; );
+u_col(C_BODY, 1); u_rect(u_x, u_by, u_w, u_bh);
+u_col(C_INK, u_hv || u_act == 900 ? 0.3 : 0.12); u_frame(u_x, u_by, u_w, u_bh);
+gfx_setfont(3); u_col(C_INK3, 1); u_text("OUT", u_x + 6 * u_s, u_by + (u_bh - gfx_texth) * 0.5, u_s);
+u_fmt(K_OUTG, slider(G_OUT));
+gfx_setfont(4); u_col(u_act == 900 ? C_ACC : C_INK, 1); u_text_r(#u_v, u_x + u_w - 6 * u_s, u_by + (u_bh - gfx_texth) * 0.5, 0);
+// auto gain
+u_w = 78 * u_s; u_x -= u_w + 6 * u_s;
+u_button(901, u_x, u_by, u_w, u_bh, "AUTO GAIN", slider(G_AUTO) >= 0.5, C_ACC) ? ( u_set(G_AUTO, slider(G_AUTO) < 0.5); u_set_end(G_AUTO); );
+// character
+u_w = 60 * u_s; u_x -= 3 * u_w + 14 * u_s;
+u_button(902, u_x, u_by, u_w, u_bh, "CLEAN", slider(G_CHAR) < 0.5, C_INK) ? ( u_set(G_CHAR, 0); u_set_end(G_CHAR); );
+u_button(903, u_x + u_w - u_s, u_by, u_w, u_bh, "SUBTLE", (slider(G_CHAR) | 0) == 1, C_AMB) ? ( u_set(G_CHAR, 1); u_set_end(G_CHAR); );
+u_button(904, u_x + 2 * u_w - 2 * u_s, u_by, u_w, u_bh, "WARM", (slider(G_CHAR) | 0) == 2, C_AMB) ? ( u_set(G_CHAR, 2); u_set_end(G_CHAR); );
+// phase mode
+u_w = 84 * u_s; u_x -= 2 * u_w + 14 * u_s;
+u_button(905, u_x, u_by, u_w, u_bh, "ZERO LAT", slider(G_PHASE) < 0.5, C_INK) ? ( u_set(G_PHASE, 0); u_set_end(G_PHASE); );
+u_button(906, u_x + u_w - u_s, u_by, u_w, u_bh, "LINEAR", slider(G_PHASE) >= 0.5, C_ACC) ? ( u_set(G_PHASE, 1); u_set_end(G_PHASE); );
+// display range and analyzer (GUI only)
+u_w = 70 * u_s; u_x -= u_w + 14 * u_s;
+sprintf(#u_t, "RANGE %d", u_rng);
+u_button(907, u_x, u_by, u_w, u_bh, #u_t, 0, C_INK) ? ( u_rng = u_rng == 3 ? 6 : u_rng == 6 ? 12 : u_rng == 12 ? 30 : 3; u_urng = u_rng; );
+u_w = 96 * u_s; u_x -= u_w + 6 * u_s;
+u_button(908, u_x, u_by, u_w, u_bh, u_an == 2 ? "PRE + POST" : u_an == 1 ? "POST" : "ANALYZER OFF", u_an > 0, C_INK) ? ( u_an = u_an == 0 ? 2 : u_an - 1; );
+
+//---------------------------------------------------------------- display
+u_col(C_BODY, 1); u_rect(u_dx, u_dy, u_dw, u_dh);
+// frequency grid
+gfx_setfont(3);
+u_f = 10; u_dec = 10;
+while (u_f <= 30000) (
+  u_x = u_f2x(u_f);
+  u_m = u_f == 100 || u_f == 1000 || u_f == 10000;
+  u_col(C_INK, u_m ? 0.085 : 0.035); u_vline(u_x, u_dy + 1, u_dy + u_dh - 2);
+  (u_f == 20 || u_f == 50 || u_f == 100 || u_f == 200 || u_f == 500 || u_f == 1000 || u_f == 2000 || u_f == 5000 || u_f == 10000 || u_f == 20000) ? (
+    u_f >= 1000 ? sprintf(#u_t, "%dK", u_f / 1000) : sprintf(#u_t, "%d", u_f);
+    u_col(C_INK3, 1); u_text(#u_t, u_x + 3 * u_s, u_dy + u_dh - gfx_texth - 3 * u_s, 0);
+  );
+  u_f += u_dec;
+  u_f >= u_dec * 10 ? u_dec *= 10;
+);
+// gain grid
+u_gstep = u_rng == 3 ? 1 : u_rng == 6 ? 2 : u_rng == 12 ? 3 : 6;
+u_g = -u_rng;
+while (u_g <= u_rng) (
+  u_y = u_g2y(u_g);
+  u_y > u_dy + 2 && u_y < u_dy + u_dh - 2 ? (
+  u_col(C_INK, u_g == 0 ? 0.16 : 0.045); u_hline(u_dx + 1, u_dx + u_dw - 2, u_y);
+  u_g == 0 ? strcpy(#u_t, "0") : sprintf(#u_t, "%+d", u_g);
+  u_col(u_g == 0 ? C_INK2 : C_INK3, 1); u_text_r(#u_t, u_dx + u_dw - 5 * u_s, u_y - gfx_texth - 1 * u_s, 0);
+  );
+  u_g += u_gstep;
+);
+
+// analyzer
+u_step = 2 * u_s;
+u_ncol = min(4096, floor(u_dw / u_step) + 1);
+u_an > 0 ? (
+  (play_state & 1) ? (
+    u_an == 2 ? u_analyze(ANA_IN, U_FFTA, U_SPRE);
+    u_analyze(ANA_OUT, U_FFTB, U_SPOST);
+  ) : (
+    u_i = 0; loop(u_ncol, U_SPRE[u_i] -= 1.2; U_SPOST[u_i] -= 1.2; u_i += 1; );
+  );
+  u_an == 2 ? u_draw_spec(U_SPRE, C_INK, 0, 0.2);
+  u_draw_spec(U_SPOST, C_INK, 0.05, 0.38);
+);
+
+// curves
+u_pstep = 2 * u_s;
+u_npt = min(2048, floor(u_dw / u_pstep) + 1);
+u_curves();
+
+// node positions and hover
+u_hov = -1; u_hd = 11 * u_s;
+u_b = 0;
+loop(NB,
+  u_bused(u_b) ? (
+    U_NX[u_b] = u_f2x(u_bp(u_b, F_FREQ));
+    U_NY[u_b] = is_gain_shape(u_bp(u_b, F_SHAPE)) ? u_g2y(u_bp(u_b, F_GAIN) * u_gs) : u_g2y(0);
+    U_NY[u_b] = max(u_dy + 8 * u_s, min(u_dy + u_dh - 8 * u_s, U_NY[u_b]));
+    u_d = max(abs(u_mx - U_NX[u_b]), abs(u_my - U_NY[u_b]));
+    u_d < u_hd && (u_act == 0 || u_act == 1000) ? ( u_hd = u_d; u_hov = u_b; );
+  );
+  u_b += 1;
+);
+u_act == 1000 && u_drag >= 0 ? u_hov = u_drag;
+
+// the focused band's own curve
+u_fb = u_hov >= 0 ? u_hov : u_sel;
+u_fb >= 0 && u_bp(u_fb, F_ENA) >= 0.5 ? (
+  u_j = 0;
+  loop(u_npt, U_BND[u_j] = u_band_db(u_fb, u_x2f(u_dx + u_j * u_pstep), 0); u_j += 1; );
+  u_c = u_bandc(u_fb);
+  u_fill_between(U_BND, U_ZERO, u_c, 0.09);
+  u_draw_curve(U_BND, u_c, 0.45, 1);
+);
+
+// dynamics: area between the static and the live curve
+u_multi = U_GRP[1] || U_GRP[2] || U_GRP[3] || U_GRP[4];
+u_anydyn ? (
+  u_pl = 0;
+  loop(5,
+    (u_pl == 0 || U_GRP[u_pl]) ? u_fill_between(U_CST + u_pl * 2048, U_CLV + u_pl * 2048, C_ACC, 0.22);
+    u_pl += 1;
+  );
+);
+// composite curves (the main one refracts near the mouse)
+u_crv += ((u_hit(u_dx, u_dy, u_dw, u_dh) || u_act == 1000) - u_crv) * 0.2;
+u_multi ? (
+  u_draw_curve(U_CST, C_INK, 0.35, 1);
+  u_pl = 1;
+  loop(4, U_GRP[u_pl] ? u_draw_curve(U_CST + u_pl * 2048, u_pcol(u_pl), 0.95, 2); u_pl += 1; );
+) : u_draw_curve_prism(U_CST, 1, 2);
+u_anydyn ? (
+  u_pl = 0;
+  loop(5, (u_pl == 0 || U_GRP[u_pl]) ? u_draw_curve(U_CLV + u_pl * 2048, C_ACC, 0.9, 1); u_pl += 1; );
+);
+
+// nodes
+u_ns = 7 * u_s;
+u_b = 0;
+loop(NB,
+  u_bused(u_b) ? (
+    u_x = U_NX[u_b]; u_y = U_NY[u_b];
+    u_on = u_bp(u_b, F_ENA) >= 0.5;
+    // its prism color shows near the mouse (and while selected); white otherwise
+    u_d = sqrt(sqr(u_mx - u_x) + sqr(u_my - u_y));
+    u_k = u_b == u_sel ? 1 : u_hit(u_dx, u_dy, u_dw, u_dh) ? min(1, max(0, 1 - (u_d - 12 * u_s) / (70 * u_s))) : 0;
+    U_RV[u_b] += (u_k - U_RV[u_b]) * 0.25;
+    u_rv = U_RV[u_b];
+    u_c = u_mix(C_INK, u_bandc(u_b), u_rv);
+    u_g = u_bp(u_b, F_GAIN) * u_gs;
+    // dynamic range bar and live position
+    u_on && u_bp(u_b, F_DYN) >= 0.5 && is_gain_shape(u_bp(u_b, F_SHAPE)) ? (
+      u_y2 = max(u_dy + 2, min(u_dy + u_dh - 2, u_g2y(u_g + u_bp(u_b, F_RANGE) * u_gs)));
+      u_col(C_ACC, 0.55); u_vline(u_x, u_y, u_y2); u_hline(u_x - 4 * u_s, u_x + 4 * u_s, u_y2);
+      u_lv = B_TDYN[u_b] ? B_DDB[u_b] : B_SPECB[u_b] ? B_SPECD[u_b] : 0;
+      abs(u_lv) > 0.05 ? ( u_col(C_ACC, 1); u_rect(u_x - 3 * u_s, u_g2y(u_g + u_lv) - 1 * u_s, 6 * u_s, 2 * u_s); );
+    );
+    // a prism gradient around the band's hue: faint, full when selected
+    u_col(C_BODY, 1); u_rect(u_x - u_ns, u_y - u_ns, 2 * u_ns, 2 * u_ns);
+    u_on && (u_b == u_sel || u_rv > 0.02) ? u_prism_rect(u_b, u_x - u_ns, u_y - u_ns, 2 * u_ns, 2 * u_ns, u_b == u_sel ? 1 : u_rv * (u_b == u_hov ? 0.3 : 0.22))
+    : u_b == u_sel ? ( u_col(C_INK3, 1); u_rect(u_x - u_ns, u_y - u_ns, 2 * u_ns, 2 * u_ns); );
+    !u_on ? u_c = C_INK3;
+    u_col(u_c, u_on ? (u_b == u_hov ? 1 : 0.8) : 0.8); u_frame(u_x - u_ns, u_y - u_ns, 2 * u_ns, 2 * u_ns);
+    // stereo placement: its letter by the node, in its color
+    u_pl = u_bp(u_b, F_PLACE) | 0;
+    u_pl > 0 ? (
+      gfx_setfont(3); u_col(u_pcol(u_pl), u_on ? 1 : 0.45);
+      u_text(u_pl == 1 ? "L" : u_pl == 2 ? "R" : u_pl == 3 ? "M" : "S", u_x + u_ns + 2 * u_s, u_y - u_ns - 7 * u_s, 0);
+    );
+    u_b == u_sel ? ( u_col(u_c, 0.7); u_ticks(u_x - u_ns - 4 * u_s, u_y - u_ns - 4 * u_s, 2 * u_ns + 8 * u_s, 2 * u_ns + 8 * u_s, 3 * u_s); );
+    gfx_setfont(5);
+    sprintf(#u_t, "%d", u_b + 1);
+    u_col(u_b == u_sel ? C_BODY : u_c, u_on ? 1 : 0.45);
+    u_text_c(#u_t, u_x + 0.5 * u_s, u_y - gfx_texth * 0.5, 0);
+    // saturation mark
+    u_bp(u_b, F_SAT) >= 0.5 ? ( u_col(C_AMB, u_on ? 1 : 0.4); u_rect(u_x - 2 * u_s, u_y + u_ns + 3 * u_s, 4 * u_s, 4 * u_s); );
+    // solo
+    u_bp(u_b, F_SOLO) >= 0.5 ? ( u_col(C_AMB, 1); u_frame(u_x - u_ns - 2 * u_s, u_y - u_ns - 2 * u_s, 2 * u_ns + 4 * u_s, 2 * u_ns + 4 * u_s); );
+  );
+  u_b += 1;
+);
+
+// display info
+gfx_setfont(3);
+u_col(C_INK3, 1);
+pdc_delay > 0 ? sprintf(#u_t, "%s  LATENCY %d", slider(G_PHASE) >= 0.5 ? "LINEAR PHASE" : "SPECTRAL", pdc_delay) : strcpy(#u_t, "ZERO LATENCY");
+u_text(#u_t, u_dx + 8 * u_s, u_dy + 7 * u_s, u_s);
+
+// hover readout
+u_hov >= 0 ? (
+  u_b = u_hov;
+  u_fmt(K_FREQ, u_bp(u_b, F_FREQ)); strcpy(#u_t2, #u_v);
+  is_gain_shape(u_bp(u_b, F_SHAPE)) ? ( u_fmt(K_GAIN, u_bp(u_b, F_GAIN)); strcat(#u_t2, "  "); strcat(#u_t2, #u_v); );
+  sprintf(#u_t, "  Q %.2f", u_bp(u_b, F_Q)); strcat(#u_t2, #u_t);
+  sprintf(#u_t, "%d %s", u_b + 1, u_shape_name(u_bp(u_b, F_SHAPE) | 0));
+  gfx_setfont(3);
+  u_w = max(u_tw(#u_t, u_s), u_tw(#u_t2, 0)) + 16 * u_s;
+  u_h = gfx_texth * 2 + 12 * u_s;
+  u_x = U_NX[u_b] + 14 * u_s; u_x + u_w > u_dx + u_dw ? u_x = U_NX[u_b] - 14 * u_s - u_w;
+  u_y = U_NY[u_b] - u_h - 10 * u_s; u_y < u_dy ? u_y = U_NY[u_b] + 14 * u_s;
+  u_col(0x000000, 0.92); u_rect(u_x, u_y, u_w, u_h);
+  u_col(C_INK, 0.18); u_frame(u_x, u_y, u_w, u_h);
+  u_col(u_bandc(u_b), 1); u_text(#u_t, u_x + 8 * u_s, u_y + 5 * u_s, u_s);
+  u_col(C_INK, 1); u_text(#u_t2, u_x + 8 * u_s, u_y + 7 * u_s + gfx_texth, 0);
+);
+
+u_col(C_INK, 0.12); u_frame(u_dx, u_dy, u_dw, u_dh);
+u_col(C_INK, 0.35); u_ticks(u_dx, u_dy, u_dw, u_dh, 6 * u_s);
+
+// display mouse
+u_ind = u_hit(u_dx, u_dy, u_dw, u_dh);
+u_ind && u_act == 0 ? (
+  u_press ? (
+    u_hov >= 0 ? (
+      u_alt ? u_delband(u_hov)
+      : u_dbl ? ( u_bset(u_hov, F_ENA, u_bp(u_hov, F_ENA) < 0.5); u_sel = u_hov; )
+      : ( u_sel = u_hov; u_drag = u_hov; u_act = 1000; u_vx = U_NX[u_hov]; u_vy = U_NY[u_hov]; u_lmx = u_mx; u_lmy = u_my; );
+    ) : u_dbl ? (
+      u_b = u_newband(u_x2f(u_mx), u_y2g(u_my) / max(0.01, u_gs));
+      u_b >= 0 ? ( u_sel = u_b; u_drag = u_b; u_act = 1000; u_vx = u_mx; u_vy = u_my; u_lmx = u_mx; u_lmy = u_my; );
+    ) : (
+      u_sel = -1; u_act = 1001;
+    );
+  );
+  u_rpress && u_hov >= 0 ? ( u_sel = u_hov; u_node_menu(u_hov); );
+  u_wheel != 0 ? (
+    u_b = u_hov >= 0 ? u_hov : u_sel;
+    u_b >= 0 ? (
+      u_bset(u_b, F_Q, min(40, max(0.025, u_bp(u_b, F_Q) * exp(u_wheel * (u_shift ? 0.02 : 0.12)))));
+      u_set_end(1 + u_b * NF + F_Q);
+    );
+    u_wheel = 0;
+  );
+);
+u_act == 1000 && u_drag >= 0 ? (
+  u_down ? (
+    u_k = u_shift ? 0.1 : 1;
+    u_vx += (u_mx - u_lmx) * u_k; u_vy += (u_my - u_lmy) * u_k;
+    u_lmx = u_mx; u_lmy = u_my;
+    u_vx = max(u_dx, min(u_dx + u_dw, u_vx));
+    u_bset(u_drag, F_FREQ, min(30000, max(10, u_x2f(u_vx))));
+    is_gain_shape(u_bp(u_drag, F_SHAPE)) && u_gs > 0.01 ? (
+      u_vy = max(u_g2y(30 * u_gs), min(u_g2y(-30 * u_gs), u_vy));
+      u_bset(u_drag, F_GAIN, min(30, max(-30, u_y2g(u_vy) / u_gs)));
+      // the range follows the highest node: wider when one goes past it, back (never below
+      // u_urng, the range picked with the RANGE button) once every node fits a smaller one
+      u_g = 0; u_i = 0;
+      loop(NB,
+        u_bused(u_i) && u_bp(u_i, F_ENA) >= 0.5 && is_gain_shape(u_bp(u_i, F_SHAPE)) ? u_g = max(u_g, abs(u_bp(u_i, F_GAIN) * u_gs));
+        u_i += 1;
+      );
+      u_g > u_rng * 1.1 ? ( u_rng = max(u_urng, u_rng_fit(u_g, 1)); )
+      : u_rng > u_urng ? ( u_rng = min(u_rng, max(u_urng, u_rng_fit(u_g, 0.95))); );
+    );
+  ) : (
+    u_set_end(1 + u_drag * NF + F_FREQ); u_set_end(1 + u_drag * NF + F_GAIN);
+    u_drag = -1;
+  );
+);
+u_c = gfx_getchar();
+(u_c == 6579564 || u_c == 8) && u_sel >= 0 ? u_delband(u_sel);
+
+//---------------------------------------------------------------- band panel
+u_col(C_BODY, 1); u_rect(u_pad, u_py, gfx_w - 2 * u_pad, u_ph);
+u_col(C_INK, 0.12); u_frame(u_pad, u_py, gfx_w - 2 * u_pad, u_ph);
+u_col(C_INK, 0.35); u_ticks(u_pad, u_py, gfx_w - 2 * u_pad, u_ph, 6 * u_s);
+
+u_ty = u_py + 12 * u_s;   // section titles
+u_kcy = u_py + 92 * u_s;  // knob centres
+u_x = u_pad + 14 * u_s;
+u_b = u_sel;
+u_b >= 0 ? (
+  // band
+  sprintf(#u_t, "BAND %02d", u_b + 1);
+  u_section(#u_t, u_x, u_ty, 150 * u_s);
+  u_bh = 20 * u_s;
+  u_r = u_menubox(1101, u_x, u_ty + 18 * u_s, 150 * u_s, u_bh, "SHAPE", u_shape_name(u_bp(u_b, F_SHAPE) | 0),
+    ( strcpy(#u_m, ""); u_menu_add(0, 10, u_bp(u_b, F_SHAPE) | 0, 0); #u_m; ));
+  u_r > 0 ? u_bset(u_b, F_SHAPE, u_r - 1);
+  u_slope_txt(u_bp(u_b, F_SLOPE) | 0); strcpy(#u_t2, #u_v);
+  u_r = u_menubox(1102, u_x, u_ty + 42 * u_s, 150 * u_s, u_bh, "SLOPE", #u_t2,
+    ( strcpy(#u_m, ""); u_menu_add(1, 10, u_bp(u_b, F_SLOPE) | 0, 0); #u_m; ));
+  u_r > 0 ? u_bset(u_b, F_SLOPE, u_r - 1);
+  u_r = u_menubox(1103, u_x, u_ty + 66 * u_s, 150 * u_s, u_bh, "PLACE", u_place_name(u_bp(u_b, F_PLACE) | 0),
+    ( strcpy(#u_m, ""); u_menu_add(2, 5, u_bp(u_b, F_PLACE) | 0, 0); #u_m; ));
+  u_r > 0 ? u_bset(u_b, F_PLACE, u_r - 1);
+  u_w = 48 * u_s;
+  u_button(1104, u_x, u_ty + 92 * u_s, u_w, u_bh, "ON", u_bp(u_b, F_ENA) >= 0.5, C_ACC) ? u_bset(u_b, F_ENA, u_bp(u_b, F_ENA) < 0.5);
+  u_button(1105, u_x + u_w + 3 * u_s, u_ty + 92 * u_s, u_w, u_bh, "SOLO", u_bp(u_b, F_SOLO) >= 0.5, C_AMB) ? u_solo(u_b);
+  u_button(1106, u_x + 2 * u_w + 6 * u_s, u_ty + 92 * u_s, u_w, u_bh, "DELETE", 0, C_INK) ? u_delband(u_b);
+  u_x += 174 * u_s;
+
+  // filter
+  u_section("FILTER", u_x, u_ty, 186 * u_s);
+  u_knob(1201, u_x + 28 * u_s, u_kcy, 19 * u_s, 1 + u_b * NF + F_FREQ, K_FREQ, "FREQ");
+  is_gain_shape(u_bp(u_b, F_SHAPE)) ? u_knob(1202, u_x + 92 * u_s, u_kcy, 19 * u_s, 1 + u_b * NF + F_GAIN, K_GAIN, "GAIN")
+  : ( gfx_setfont(3); u_col(C_INK3, 1); u_text_c("GAIN", u_x + 92 * u_s, u_kcy - 32 * u_s, u_s); u_text_c("--", u_x + 92 * u_s, u_kcy - 4 * u_s, 0); );
+  u_knob(1203, u_x + 156 * u_s, u_kcy, 19 * u_s, 1 + u_b * NF + F_Q, K_Q, "Q");
+  u_x += 210 * u_s;
+
+  // dynamics
+  u_section("DYNAMICS", u_x, u_ty, 190 * u_s);
+  u_gsh = is_gain_shape(u_bp(u_b, F_SHAPE));
+  u_w = 70 * u_s;
+  u_button(1301, u_x, u_ty + 18 * u_s, u_w, u_bh, "DYNAMIC", u_bp(u_b, F_DYN) >= 0.5, C_ACC) ? u_bset(u_b, F_DYN, u_bp(u_b, F_DYN) < 0.5);
+  u_button(1302, u_x + u_w + 3 * u_s, u_ty + 18 * u_s, u_w + 4 * u_s, u_bh, "SPECTRAL", u_bp(u_b, F_DYN) >= 1.5, C_ACC) ?
+    u_bset(u_b, F_DYN, u_bp(u_b, F_DYN) >= 1.5 ? 1 : 2);
+  u_knob(1303, u_x + 26 * u_s, u_kcy + 8 * u_s, 16 * u_s, 1 + u_b * NF + F_RANGE, K_RANGE, "RANGE");
+  u_knob(1304, u_x + 86 * u_s, u_kcy + 8 * u_s, 16 * u_s, 1 + u_b * NF + F_THR, K_THR, "THRESH");
+  // auto threshold: this band's bit in the mask
+  u_am = slider(G_ATHR) | 0; u_ab = (u_am >> u_b) & 1;
+  u_button(1309, u_x + 66 * u_s, u_ty + 42 * u_s, 40 * u_s, 13 * u_s, "AUTO", u_ab, C_ACC) ? (
+    u_set(G_ATHR, u_ab ? u_am - (1 << u_b) : u_am + (1 << u_b)); u_set_end(G_ATHR);
+  );
+  // detector meter with the threshold
+  u_mx0 = u_x + 128 * u_s; u_my0 = u_ty + 46 * u_s; u_mh = 66 * u_s;
+  u_col(0x000000, 1); u_rect(u_mx0, u_my0, 8 * u_s, u_mh);
+  u_col(C_INK, 0.12); u_frame(u_mx0, u_my0, 8 * u_s, u_mh);
+  u_lv = u_bp(u_b, F_DYN) >= 0.5 ? B_LVL[u_b] : -100;
+  u_t = min(1, max(0, (u_lv + 80) / 80));
+  u_t > 0 ? ( u_col(C_ACC, 0.8); u_rect(u_mx0 + 2 * u_s, u_my0 + u_mh * (1 - u_t), 4 * u_s, u_mh * u_t - 1 * u_s); );
+  u_t = ((((slider(G_ATHR) | 0) >> u_b) & 1 ? B_ATHR[u_b] : u_bp(u_b, F_THR)) + 80) / 80;
+  u_col(C_INK, 0.9); u_hline(u_mx0 - 3 * u_s, u_mx0 + 10 * u_s, u_my0 + u_mh * (1 - u_t));
+  !u_gsh ? ( gfx_setfont(3); u_col(C_INK3, 1); u_text("GAIN SHAPES ONLY", u_x, u_ty + 120 * u_s - gfx_texth, u_s); );
+  u_x += 166 * u_s;
+  // live change
+  u_lv = B_TDYN[u_b] ? B_DDB[u_b] : B_SPECB[u_b] ? B_SPECD[u_b] : 0;
+  gfx_setfont(4); u_col(abs(u_lv) > 0.05 ? C_ACC : C_INK3, 1);
+  sprintf(#u_t, "%+.1f", u_lv); u_text(#u_t, u_x - 22 * u_s, u_my0 + u_mh - gfx_texth, 0);
+  u_x += 28 * u_s;
+
+  // saturation
+  u_section("SATURATION", u_x, u_ty, 128 * u_s);
+  u_r = u_menubox(1401, u_x, u_ty + 18 * u_s, 128 * u_s, u_bh, "TYPE", u_sat_name(u_bp(u_b, F_SAT) | 0),
+    ( strcpy(#u_m, ""); u_menu_add(3, 9, u_bp(u_b, F_SAT) | 0, 0); #u_m; ));
+  u_r > 0 ? u_bset(u_b, F_SAT, u_r - 1);
+  u_knob(1402, u_x + 36 * u_s, u_kcy + 8 * u_s, 16 * u_s, 1 + u_b * NF + F_DRIVE, K_DRIVE, "DRIVE");
+  u_knob(1403, u_x + 92 * u_s, u_kcy + 8 * u_s, 16 * u_s, 1 + u_b * NF + F_SMIX, K_MIX, "MIX");
+) : (
+  gfx_setfont(3);
+  u_col(C_INK2, 1);
+  u_text("NO BAND SELECTED", u_x, u_ty, u_s);
+  u_col(C_INK3, 1);
+  u_text("DOUBLE-CLICK THE DISPLAY TO ADD A BAND", u_x, u_ty + 26 * u_s, u_s);
+  u_text("DRAG TO MOVE, SHIFT FOR FINE, WHEEL FOR Q", u_x, u_ty + 44 * u_s, u_s);
+  u_text("ALT-CLICK OR DEL TO REMOVE, RIGHT-CLICK FOR OPTIONS", u_x, u_ty + 62 * u_s, u_s);
+  u_text("DOUBLE-CLICK A BAND TO BYPASS IT", u_x, u_ty + 80 * u_s, u_s);
+);
+
+// globals, right aligned
+u_x = gfx_w - u_pad - 14 * u_s - 296 * u_s;
+u_section("GLOBAL", u_x, u_ty, 296 * u_s);
+u_bh = 20 * u_s;
+u_button(1501, u_x, u_ty + 18 * u_s, 56 * u_s, u_bh, "INT SC", slider(G_SC) < 0.5, C_INK) ? ( u_set(G_SC, 0); u_set_end(G_SC); );
+u_button(1502, u_x + 55 * u_s, u_ty + 18 * u_s, 56 * u_s, u_bh, "EXT SC", slider(G_SC) >= 0.5, C_ACC) ? ( u_set(G_SC, 1); u_set_end(G_SC); );
+u_rs = slider(G_RES) | 0;
+u_r = u_menubox(1503, u_x + 120 * u_s, u_ty + 18 * u_s, 176 * u_s, u_bh, "SPECTRAL RES",
+  u_rs == 0 ? "LOW" : u_rs == 1 ? "MEDIUM" : u_rs == 2 ? "HIGH" : "MAXIMUM",
+  u_rs == 0 ? "!Low|Medium|High|Maximum" : u_rs == 1 ? "Low|!Medium|High|Maximum" : u_rs == 2 ? "Low|Medium|!High|Maximum" : "Low|Medium|High|!Maximum");
+u_r > 0 ? ( u_set(G_RES, u_r - 1); u_set_end(G_RES); );
+u_knob(1504, u_x + 24 * u_s, u_kcy + 8 * u_s, 15 * u_s, G_ATT, K_ATT, "ATTACK");
+u_knob(1505, u_x + 86 * u_s, u_kcy + 8 * u_s, 15 * u_s, G_REL, K_REL, "RELEASE");
+// auto attack / release (bit 1 attack, bit 2 release)
+u_am = slider(G_AAR) | 0;
+u_button(1509, u_x + 4 * u_s, u_ty + 42 * u_s, 40 * u_s, 13 * u_s, "AUTO", u_am & 1, C_ACC) ? ( u_set(G_AAR, u_am ~ 1); u_set_end(G_AAR); );
+u_button(1510, u_x + 66 * u_s, u_ty + 42 * u_s, 40 * u_s, 13 * u_s, "AUTO", u_am & 2, C_ACC) ? ( u_set(G_AAR, u_am ~ 2); u_set_end(G_AAR); );
+u_knob(1506, u_x + 148 * u_s, u_kcy + 8 * u_s, 15 * u_s, G_RATIO, K_RATIO, "RATIO");
+u_knob(1507, u_x + 210 * u_s, u_kcy + 8 * u_s, 15 * u_s, G_GS, K_GSC, "SCALE");
+u_knob(1508, u_x + 272 * u_s, u_kcy + 8 * u_s, 15 * u_s, G_PAN, K_PAN, "PAN");
+u_col(C_INK, 0.09); u_vline(u_x + 179 * u_s, u_kcy - 30 * u_s, u_kcy + 36 * u_s);
+
+//---------------------------------------------------------------- end of frame
+u_rel ? ( u_act = 0; u_drag = -1; );
+!u_down && u_act != 0 ? u_act = 0;
+u_lcap = mouse_cap;

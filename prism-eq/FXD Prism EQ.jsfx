@@ -366,6 +366,10 @@ B_OSATC = m_alloc(NB);
 B_OSMIX = m_alloc(NB);
 B_OHOLD = m_alloc(NB);
 B_OQLV  = m_alloc(NB);
+B_SAG   = m_alloc(NB);      // level match in use (from the measured levels, see sat_level)
+B_SAGS  = m_alloc(NB);      // its smoothed target
+B_SAGI  = m_alloc(NB);      // its step per sample (ramped across the block)
+B_SAGY  = m_alloc(NB);      // the type it was measured for
 B_KA    = m_alloc(NB);      // attack / release coefficients in use (auto or global)
 B_KR    = m_alloc(NB);
 B_APK   = m_alloc(NB);      // auto: peak power (fast attack, 80 ms release)
@@ -983,6 +987,7 @@ function hb_down4(s, a, b) local(e, o, t) (
 //  0-1 region biquad (bitcrush)  2-3 ADAA  4-5 DC blocker  6-21 up 2x  22-37 down 2x
 //  38-45 up 4x  46-53 down 4x  54-57 Thiran  58-59 region biquad (oversampled)
 //  60-61 tape emphasis  62 tube level  63-64 bitcrush hold  65 delay  66 last region sample
+//  67-69 level match: region power, curve mean and power
 // The distortion of the band's region (half a sample late, from the ADAA), level-matched,
 // DC-blocked and scaled by the mix.
 function sat_core(rg, s) local(t, z, y, bias, a, del, x1, F) (
@@ -1002,7 +1007,10 @@ function sat_core(rg, s) local(t, z, y, bias, a, del, x1, F) (
   s[2] = z; s[3] = F;
   t == 1 ? ( y = (y + TP_G1 * s[61]) * TP_GN; s[61] += TP_A * (y - s[61]); )
   : t == 2 ? y -= sat_f(2, bias);
-  del = SA_C * y - 0.5 * (rg + s[66]);
+  // levels for the level match: the region in, the curve out (mean and power)
+  a = 0.5 * (rg + s[66]);
+  s[67] += SAG_K * (a * a - s[67]); s[68] += SAG_K * (y - s[68]); s[69] += SAG_K * (y * y - s[69]);
+  del = SA_C * y - a;
   s[66] = rg;
   y = del - s[4] + DC_R * s[5]; s[4] = del; s[5] = y;
   y * SA_M;
@@ -1049,7 +1057,7 @@ function sat_crush(b, x, s) local(rg, q) (
 // a type and its constants: the band's own, or (old = 1) the type that is fading out
 function sat_load(b, old) (
   old ? ( SA_T = B_OT[b]; SA_D = B_ODRV[b]; SA_C = B_OSATC[b]; SA_M = B_OSMIX[b]; SA_H = B_OHOLD[b]; SA_Q = B_OQLV[b]; )
-  : ( SA_T = B_SATT[b]; SA_D = B_DRV[b]; SA_C = B_SATC[b]; SA_M = B_SMIX[b]; SA_H = B_HOLD[b]; SA_Q = B_QLV[b]; );
+  : ( SA_T = B_SATT[b]; SA_D = B_DRV[b]; SA_C = B_SAG[b]; SA_M = B_SMIX[b]; SA_H = B_HOLD[b]; SA_Q = B_QLV[b]; );
 );
 function sat_run(b, ch, old, y) local(s) (
   sat_load(b, old);
@@ -1071,6 +1079,27 @@ function band_ch(b, ch, x) local(y, t) (
   y;
 );
 // character on the whole output: s = ADAA state, d = DC blocker state
+// Drive is level-matched on the band's real level: the curve's output is scaled so its RMS
+// (over about 300 ms, both channels) equals the region's, so turning Drive up adds harmonics
+// at a steady loudness. Until there is signal, the match at -18 dBFS (B_SATC) is used.
+function sat_level() local(i, b, t, s0, s1, ein, vy, g, kb) (
+  kb = 1 - exp(-max(1, samplesblock) / (0.05 * srate));
+  i = 0;
+  loop(NACT,
+    b = ACTL[i]; t = B_SATT[b];
+    t > 0 && t < 8 ? (
+      s0 = SST + (b * 2 + B_SSET[b]) * 2 * SSZ; s1 = s0 + SSZ;
+      ein = s0[67] + s1[67];
+      vy = max(0, s0[69] - s0[68] * s0[68]) + max(0, s1[69] - s1[68] * s1[68]);
+      g = ein > 0.000000001 && vy > 0.000000000001 ? sqrt(ein / vy) : B_SATC[b];
+      g = max(B_SATC[b] * 0.25, min(B_SATC[b] * 4, g));
+      B_SAGY[b] != t ? ( B_SAGY[b] = t; B_SAG[b] = B_SAGS[b] = B_SATC[b]; );
+      B_SAGS[b] += (g - B_SAGS[b]) * kb;
+      B_SAGI[b] = (B_SAGS[b] - B_SAG[b]) / max(1, samplesblock);
+    ) : ( B_SAG[b] = B_SAGS[b] = B_SATC[b]; B_SAGI[b] = 0; B_SAGY[b] = t; );
+    i += 1;
+  );
+);
 function char_ch(t, g, x, s, d) local(v, y) (
   v = sat_delta(t, x * g, s) / g;
   y = v - d[0] + DC_R1 * d[1]; d[0] = v; d[1] = y;
@@ -1088,6 +1117,7 @@ function os_setup(n) local(b) (
   TP_G1 = TP_G * (1 - TP_A); TP_GN = 1 / (1 + TP_G - TP_G * TP_A);
   TU_KA = 1 - exp(-1 / (0.005 * OSF * srate));
   TU_KR = 1 - exp(-1 / (0.06 * OSF * srate));
+  SAG_K = 1 - exp(-1 / (0.3 * OSF * srate));
   memset(SST, 0, NB * 4 * SSZ);
   b = 0; loop(NB, B_DIRTY[b] = 1; b += 1; );
 );
@@ -1607,7 +1637,7 @@ function read_params() local(b, f, i, v, ch, sh, act, gsh, tdyn, spec, na, aspec
     t = act ? (par(b, F_SAT) | 0) : B_SATT[b];
     t != B_SATT[b] ? (
       B_FADE[b] > 0 && INIT_DONE ? (
-        B_OT[b] = B_SATT[b]; B_ODRV[b] = B_DRV[b]; B_OSATC[b] = B_SATC[b]; B_OSMIX[b] = B_SMIX[b];
+        B_OT[b] = B_SATT[b]; B_ODRV[b] = B_DRV[b]; B_OSATC[b] = B_SAG[b]; B_OSMIX[b] = B_SMIX[b];
         B_OHOLD[b] = B_HOLD[b]; B_OQLV[b] = B_QLV[b];
         B_SXF[b] = SXLEN;
         B_SSET[b] = 1 - B_SSET[b];
@@ -2258,6 +2288,10 @@ u_rng = 12; u_rngv = 12; u_urng = 12; u_an = 2; u_sel = -1; u_hov = -1; u_act = 
 
 @block
 read_params();
+sat_level();
+CHAR != CH_LAST ? ( CH_LAST = CHAR; CE_I = 0; CE_O = 0; CH_G = 1; CH_GT = 1; );
+CE_K = 1 - exp(-1 / (0.3 * srate));
+CHAR && CE_I > 0.0000000001 && CE_O > 0.0000000001 ? CH_GT = max(0.5, min(2, sqrt(CE_I / CE_O)));
 KA = 1 - exp(-1 / (max(0.05, ATT_MS) * 0.001 * srate));
 KR = 1 - exp(-1 / (max(1, REL_MS) * 0.001 * srate));
 want = ANY_SPEC || (PHASE && ANY_TDYN);
@@ -2401,6 +2435,7 @@ loop(NACT,
     );
     B_XF[b] > 0 ? B_XF[b] -= 1;
     B_SXF[b] > 0 ? B_SXF[b] -= 1;
+    B_SAG[b] += B_SAGI[b];
   );
   B_ACT[b] ? (
     fd < 1 ? B_FADE[b] = min(1, fd + FADE_STEP);
@@ -2429,13 +2464,19 @@ SOLO_B >= 0 ? (
   );
 );
 
-// character
-CHAR == 1 ? (
-  l = char_ch(1, 0.5, l, CHST, CHST + 4);
-  r = char_ch(1, 0.5, r, CHST + 2, CHST + 6);
-) : CHAR == 2 ? (
-  l = char_ch(2, 1.2, l, CHST, CHST + 4);
-  r = char_ch(2, 1.2, r, CHST + 2, CHST + 6);
+// character, level-matched to its input (RMS over about 300 ms)
+CHAR ? (
+  l0 = l; r0 = r;
+  CHAR == 1 ? (
+    l = char_ch(1, 0.5, l, CHST, CHST + 4);
+    r = char_ch(1, 0.5, r, CHST + 2, CHST + 6);
+  ) : (
+    l = char_ch(2, 1.2, l, CHST, CHST + 4);
+    r = char_ch(2, 1.2, r, CHST + 2, CHST + 6);
+  );
+  CE_I += CE_K * (l0 * l0 + r0 * r0 - CE_I); CE_O += CE_K * (l * l + r * r - CE_O);
+  CH_G += (CH_GT - CH_G) * 0.0005;
+  l *= CH_G; r *= CH_G;
 );
 
 tg = exp((OUT_DB + (AUTO ? AG_DB : 0)) * LN10_20);

@@ -44,7 +44,17 @@ module.exports = {
 			'BryanChi_FX_Devices/src/FX Default Values',
 			'BryanChi_FX_Devices/src/Keyboard Shortcuts.ini',
 			'BryanChi_FX_Devices/src/ThemeColors.ini',
-			'BryanChi_FX_Devices/src/FX_Adder_Cache/fx_favorites.txt'
+			'BryanChi_FX_Devices/src/FX_Adder_Cache/fx_favorites.txt',
+			// people make and reorder their own shapes here: a shape already on disk is never replaced
+			'BryanChi_FX_Devices/src/LFO Shapes',
+			'BryanChi_FX_Devices/src/Envelope Shapes'
+		],
+		// shipped files people edit in the layout editor: when an update changes one they changed too,
+		// the Script Manager asks whether to keep theirs or take the new one
+		askIfChanged: [
+			'BryanChi_FX_Devices/src/FX Layouts/',
+			'BryanChi_FX_Devices/src/Layout Editor Item Styles/',
+			'BryanChi_FX_Devices/src/FX Layout Plugin Scripts/'
 		],
 		licenseSection: 'CRS_FX_Devices_License',
 		// main is an old build without the license check: only published releases are served

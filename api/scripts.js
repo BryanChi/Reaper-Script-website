@@ -100,6 +100,7 @@ function publicProduct(id, p) {
 		installDir: p.installDir,
 		mainScript: p.mainScript,
 		userData: p.userData,
+		askIfChanged: p.askIfChanged,
 		routes: p.routes,
 		licenseSection: p.licenseSection,
 		releasesOnly: !!p.releasesOnly,

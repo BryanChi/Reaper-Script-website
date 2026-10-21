@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.8.1
+-- @version 3.9.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
 --   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
 --   Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.9.0: an update no longer replaces layouts you changed without asking: keep yours or use the new
+--          one, file by file. FX Devices' LFO and envelope shapes are never replaced.
 --   3.8.1: Windows: no long freeze while downloading (8 files per step instead of 32).
 --   3.8.0: faster installs and updates: 8 downloads at a time, and an update only downloads the
 --          files that changed since the installed version.
@@ -36,7 +38,7 @@
 
 local r = reaper
 
-local VERSION = '3.8.1'
+local VERSION = '3.9.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -1199,7 +1201,10 @@ end
 
 local function WriteManifest(job)
   local m = job.manifest or {}
-  for _, item in ipairs(job.queue) do m[item.path] = item.sha end
+  for _, item in ipairs(job.queue) do
+    -- a file the person kept their own version of isn't this version's
+    m[item.path] = not (item.conflict and item.keep) and item.sha or nil
+  end
   for _, f in ipairs(job.failed) do m[f.path] = nil end
   local lines = {}
   for path, sha in pairs(m) do lines[#lines + 1] = sha .. '\t' .. path end
@@ -1238,8 +1243,70 @@ done < "$1" > "$2"
   return out
 end
 
+-- Git blob sha of a file on disk (SHA-1 of "blob <size>\0" and the bytes), as the site's file list
+-- has it. Only for the few files an update changes, so plain Lua is quick enough.
+local function Sha1(msg)
+  local function rol(x, n) return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF end
+  local h0, h1, h2, h3, h4 = 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0
+  local ml = #msg * 8
+  msg = msg .. '\128' .. string.rep('\0', (55 - #msg) % 64) .. string.pack('>I8', ml)
+  local w = {}
+  for chunk = 1, #msg, 64 do
+    for i = 0, 15 do w[i] = string.unpack('>I4', msg, chunk + i * 4) end
+    for i = 16, 79 do w[i] = rol(w[i - 3] ~ w[i - 8] ~ w[i - 14] ~ w[i - 16], 1) end
+    local a, b, c, d, e = h0, h1, h2, h3, h4
+    for i = 0, 79 do
+      local f, k
+      if i < 20 then f, k = (b & c) | ((~b) & d), 0x5A827999
+      elseif i < 40 then f, k = b ~ c ~ d, 0x6ED9EBA1
+      elseif i < 60 then f, k = (b & c) | (b & d) | (c & d), 0x8F1BBCDC
+      else f, k = b ~ c ~ d, 0xCA62C1D6 end
+      a, b, c, d, e = (rol(a, 5) + (f & 0xFFFFFFFF) + e + k + w[i]) & 0xFFFFFFFF, a, rol(b, 30), c, d
+    end
+    h0, h1, h2, h3, h4 = (h0 + a) & 0xFFFFFFFF, (h1 + b) & 0xFFFFFFFF, (h2 + c) & 0xFFFFFFFF, (h3 + d) & 0xFFFFFFFF, (h4 + e) & 0xFFFFFFFF
+  end
+  return string.format('%08x%08x%08x%08x%08x', h0, h1, h2, h3, h4)
+end
+
+local function GitSha(path)
+  local data = ReadFile(path)
+  return data and Sha1('blob ' .. #data .. '\0' .. data)
+end
+
+local function AskIfChanged(p, path)
+  for _, d in ipairs(p.askIfChanged or {}) do
+    if StartsWith(path, d) then return true end
+  end
+  return false
+end
+
+-- Sorts an update's files before anything downloads. old = path -> sha of what's installed now (the
+-- installed release's file list, or the manifest), nil when unknown. For files people edit (askIfChanged):
+--   the update doesn't change it            -> left alone, edited or not
+--   on disk as the installed version has it -> replaced
+--   on disk as the new version has it       -> skipped
+--   anything else (the person changed it)   -> a conflict: they choose keep theirs or take the new one
+local function PlanEdits(p, items, old)
+  local conflicts = {}
+  if not old then return conflicts end
+  for _, item in ipairs(items) do
+    if item.sha and AskIfChanged(p, item.path) and Exists(item.target) then
+      local o = old[item.path]
+      if o == item.sha then
+        item.keep = true
+      else
+        local h = GitSha(item.target)
+        if h == item.sha then item.keep = true
+        elseif h ~= o then conflicts[#conflicts + 1] = item end
+      end
+    end
+  end
+  return conflicts
+end
+
 -- true when the file on disk already is this version's
 local function Unchanged(job, item)
+  if item.keep then return true end
   if job.full or not item.sha or IsUserData(job.p, item.path) then return false end
   if job.manifest[item.path] == item.sha and FileSize(item.target) == item.size and Exists(item.target) then return true end
   return job.hashes[item.target] == item.sha
@@ -1278,8 +1345,27 @@ local function StartInstall(p)
   local all = {}
   for _, item in ipairs(queue) do all[#all + 1] = item end
   for _, item in ipairs(images or {}) do all[#all + 1] = item end
-  S.job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {}, unchanged = 0,
-    manifest = ReadManifest(p), hashes = not full and HashFiles(all, ReadManifest(p)) or {}, full = full }
+  local manifest = ReadManifest(p)
+  -- what's installed now: the installed release's own file list, else what the last install wrote
+  local old
+  if not full and p.installed and p.installed ~= 'installed' and not IsDev(p.installed) then
+    local was = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = p.installed })
+    if was and was.files then
+      old = {}
+      for _, f in ipairs(was.files) do old[f.path] = f.sha end
+    end
+  end
+  if not old and next(manifest) then old = manifest end
+  local job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {}, unchanged = 0,
+    manifest = manifest, hashes = not full and HashFiles(all, manifest) or {}, full = full }
+  local conflicts = not full and PlanEdits(p, all, old) or {}
+  if #conflicts > 0 then
+    -- ask first (ConflictPanel); each starts as "keep mine"
+    for _, c in ipairs(conflicts) do c.keep, c.conflict = true, true end
+    p.ask = { job = job, conflicts = conflicts }
+    return
+  end
+  S.job = job
 end
 
 -- A finished download of one queue item (in item.target .. '.download'): put it in place or note why not
@@ -1813,6 +1899,35 @@ local function VersionCombo(p, w)
   im.PopFont(ctx)
 end
 
+-- Files the person changed that the update changes too: keep theirs or take the new one, each or all
+local function ConflictPanel(dl, p, ix, cy, iw, busy)
+  local a = p.ask
+  local n = #a.conflicts
+  cy = cy + Banner(dl, ix, cy, iw, 'warn', ('You changed %d file%s that this update also changes. Keep your version, or use the new one '
+    .. '(your changes to it are then discarded)?'):format(n, n == 1 and '' or 's')) + 10
+  local kw, nw = Btn_W('Keep mine'), Btn_W('Use new')
+  for i, c in ipairs(a.conflicts) do
+    local bx = ix + iw - kw - 6 - nw
+    if Btn('##keep' .. p.id .. i, 'Keep mine', bx, cy, c.keep and 'go' or 'ghost', kw) then c.keep = true end
+    if Btn('##new' .. p.id .. i, 'Use new', bx + kw + 6, cy, c.keep and 'ghost' or 'go', nw) then c.keep = false end
+    im.DrawList_PushClipRect(dl, ix, cy - 2, bx - 10, cy + BTN_H, true)
+    Txt(dl, F.body, 13, ix, cy, P.ink, (c.path:match('([^/]+)$'):gsub('%.%w+$', '')))
+    Mono_Caps(dl, 10, ix, cy + 17, P.ink3, c.path:match('([^/]+)/[^/]+$') or '')
+    im.DrawList_PopClipRect(dl)
+    cy = cy + BTN_H + 8
+  end
+  cy = cy + 4
+  local aw, uw = Btn_W('Keep all mine'), Btn_W('Use all new')
+  if Btn('##keepall' .. p.id, 'Keep all mine', ix, cy, 'ghost', aw) then for _, c in ipairs(a.conflicts) do c.keep = true end end
+  if Btn('##newall' .. p.id, 'Use all new', ix + aw + 8, cy, 'ghost', uw) then for _, c in ipairs(a.conflicts) do c.keep = false end end
+  local gw, cw = Btn_W('Continue'), Btn_W('Cancel')
+  if Btn('##askgo' .. p.id, 'Continue', ix + iw - gw, cy, 'go', gw, busy) then
+    S.job, p.ask = a.job, nil
+  end
+  if Btn('##askcancel' .. p.id, 'Cancel', ix + iw - gw - 8 - cw, cy, 'ghost', cw) then p.ask = nil end
+  return cy + BTN_H + 12
+end
+
 local function ProductCard(p, x, y, w)
   local dl = im.GetWindowDrawList(ctx)
   if CardH[p.id] then Card_Bg(dl, x, y, w, CardH[p.id]) end
@@ -1899,6 +2014,7 @@ local function ProductCard(p, x, y, w)
       cy = cy + BTN_H + 6
     end
   end
+  if p.ask then cy = ConflictPanel(dl, p, ix, cy, iw, busy) end
 
   -- divider, then the version picker, license link and Run
   im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1)

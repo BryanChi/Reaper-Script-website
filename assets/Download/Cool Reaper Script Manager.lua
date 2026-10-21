@@ -7,7 +7,9 @@
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
 --   3.10.0: Prism EQ, the free 16-band EQ, installs and updates here too, no sign-in needed. It goes
---          where FX Devices puts it, so with both you still see one Prism EQ in the FX browser.
+--          where FX Devices puts it, so with both you still see one Prism EQ in the FX browser. A copy
+--          that's already there is kept when it's current and updated when it's older, and a second
+--          copy from the website download can be deleted from here.
 --   3.9.0: an update no longer replaces layouts you changed without asking: keep yours or use the new
 --          one, file by file. FX Devices' LFO and envelope shapes are never replaced.
 --   3.8.1: Windows: no long freeze while downloading (8 files per step instead of 32).
@@ -844,6 +846,26 @@ end
 
 local function IsDev(v) return v == 'development version' end
 
+-- Copies of a product's file that would show up twice in the FX browser: the website download of
+-- Prism EQ dropped straight in Effects while the Script Manager or FX Devices put it in its own
+-- folder. Only a file with the same "desc:" line counts.
+local function Desc(path)
+  return ((ReadFile(path) or ''):match('^%s*desc:%s*([^\r\n]+)') or ''):gsub('%s+$', '')
+end
+
+local function LooseCopies()
+  local list = {}
+  for _, p in ipairs(S.products) do
+    local file = p.installedFile and NativePath(RES .. '/' .. p.installedFile)
+    local name = p.installedFile and p.installedFile:match('([^/]+)$')
+    local loose = name and NativePath(RES .. '/Effects/' .. name)
+    if loose and loose ~= file and Exists(file) and Exists(loose) and Desc(loose) ~= '' and Desc(loose) == Desc(file) then
+      list[#list + 1] = { path = loose, name = name, product = p.name }
+    end
+  end
+  return list
+end
+
 -- the installed product this one comes with (Prism EQ with FX Devices): that one installs and
 -- updates it, so it has no buttons of its own
 local function Parent(p)
@@ -1060,6 +1082,7 @@ local function LoadProducts()
     S.products[#S.products + 1] = p
   end
   S.loaded = true
+  S.loose = nil
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1375,6 +1398,14 @@ local function StartInstall(p)
   if not old and next(manifest) then old = manifest end
   local job = { p = p, ref = ref, label = label, queue = queue, images = images, n = 0, failed = {}, unchanged = 0,
     manifest = manifest, hashes = not full and HashFiles(all, manifest) or {}, full = full }
+  -- a file two products share (Prism EQ, which FX Devices ships too) may be there from the other
+  -- one: its own sha says whether it's already this version (skipped) or older (updated)
+  for _, q in ipairs(S.products) do
+    local shared = q.installedFile and NativePath(RES .. '/' .. q.installedFile)
+    for _, item in ipairs(shared and not full and all or {}) do
+      if item.target == shared and not job.hashes[shared] and Exists(shared) then job.hashes[shared] = GitSha(shared) end
+    end
+  end
   local conflicts = not full and PlanEdits(p, all, old) or {}
   if #conflicts > 0 then
     -- ask first (ConflictPanel); each starts as "keep mine"
@@ -1526,16 +1557,14 @@ local function FinishInstall(job)
     and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
   local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
   local fx = not main and p.installedFile and p.installedFile:match('([^/]+)%.jsfx$')
-  -- a copy downloaded from the website and dropped straight in Effects would show up twice
-  local loose = fx and Exists(NativePath(RES .. '/Effects/' .. fx .. '.jsfx'))
-    and (' You also have "' .. fx .. '.jsfx" straight in your Effects folder (from the website download): delete that one so the FX browser shows a single ' .. p.name .. '.') or ''
-  p.msg = ok and fx and { kind = loose ~= '' and 'warn' or 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
-      .. '". Open the Script Manager again to update it.' .. loose, folders = InstallFolders(p) }
+  p.msg = ok and fx and { kind = 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
+      .. '". Open the Script Manager again to update it.', folders = InstallFolders(p) }
     or ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
       or (#job.queue .. ' files')) .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
       .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.', folders = InstallFolders(p) }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil
+  S.loose = nil
   -- next one of "Update all"
   if S.updateAll and #S.updateAll > 0 then StartInstall(table.remove(S.updateAll, 1)) end
 end
@@ -2195,6 +2224,21 @@ local function Content(cx, cy, avail)
   end
   y = y + 22
   if S.msg then y = y + Banner(dl, px, y, w, S.msg.kind, S.msg.text) + 14 end
+  -- a second copy of Prism EQ: offer to delete it (checked again after each install)
+  if S.loaded and not S.job then S.loose = S.loose or LooseCopies() end
+  for i, c in ipairs(S.loose or {}) do
+    y = y + Banner(dl, px, y, w, 'warn', 'You have ' .. c.product .. ' twice: "' .. c.name .. '" is also straight in your Effects folder '
+      .. '(the website download), so REAPER\'s FX browser lists it twice. Delete that extra copy? The one the Script Manager keeps up to date stays; '
+      .. 'projects that used the extra copy need ' .. c.product .. ' added again.') + 8
+    local bw = Btn_W('Delete extra copy')
+    if Btn('##loose' .. i, 'Delete extra copy', px, y, 'go', bw, S.busy ~= nil) then
+      local ok = os.remove(c.path)
+      S.loose = nil
+      S.msg = ok and { kind = 'ok', text = 'Deleted the extra ' .. c.name .. '. Projects that used that copy need ' .. c.product .. ' added again from the FX browser.' }
+        or { kind = 'err', text = 'Couldn\'t delete ' .. c.path .. '. Delete it yourself and reopen the FX browser.' }
+    end
+    y = y + BTN_H + 14
+  end
 
   Kicker(dl, px, y, 1, 'Scripts')
   y = y + 32

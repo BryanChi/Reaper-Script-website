@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.9.0
+-- @version 3.10.0
 -- @author bryan
 -- @about
---   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices) from
---   coolreaperscripts.com. Shows what's installed, what's newer, and which scripts you own, with a
---   Buy button for the ones you don't. Run it any time to update.
+--   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, and the free
+--   Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
+--   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.10.0: Prism EQ, the free 16-band EQ, installs and updates here too, no sign-in needed. It goes
+--          where FX Devices puts it, so with both you still see one Prism EQ in the FX browser.
 --   3.9.0: an update no longer replaces layouts you changed without asking: keep yours or use the new
 --          one, file by file. FX Devices' LFO and envelope shapes are never replaced.
 --   3.8.1: Windows: no long freeze while downloading (8 files per step instead of 32).
@@ -38,7 +40,7 @@
 
 local r = reaper
 
-local VERSION = '3.9.0'
+local VERSION = '3.10.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -46,8 +48,9 @@ local LINK_URL = SITE .. '/api/license/info'
 local FONT_URL = SITE .. '/assets/Fonts/'
 -- kept from the 2.0 installer: the scripts read what was installed from this section
 local EXT = 'CoolReaperScripts_Installer'
--- tells the site this client can put files outside the script's folder (FX Devices' JSFX)
-local CLIENT = 3
+-- tells the site what this client can do: 3 = files outside the script's folder (FX Devices' JSFX),
+-- 4 = free products that need no license (Prism EQ)
+local CLIENT = 4
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
@@ -834,10 +837,21 @@ local function InstalledVersion(p)
   -- installed some other way (ReaPack, a copy): there, but the version is unknown
   local main = MainScriptPath(p)
   if main and Exists(main) then return 'installed' end
+  -- products without a script (Prism EQ): their file is there, from FX Devices or a download
+  if p.installedFile and Exists(NativePath(RES .. '/' .. p.installedFile)) then return 'installed' end
   return nil
 end
 
 local function IsDev(v) return v == 'development version' end
+
+-- the installed product this one comes with (Prism EQ with FX Devices): that one installs and
+-- updates it, so it has no buttons of its own
+local function Parent(p)
+  if not p.includedIn then return nil end
+  for _, q in ipairs(S.products) do
+    if q.id == p.includedIn and q.installed then return q end
+  end
+end
 
 -- newest release when there is one
 local function Latest(p) return p.releases[1] and p.releases[1].tag or nil end
@@ -861,6 +875,7 @@ local function NeedsRenewal(p) return p.releases[1] ~= nil and not Included(p.re
 local function UpdateAvailable(p)
   local i = NewestIncluded(p)
   local inst, latest = p.installed, i and p.releases[i].tag
+  if Parent(p) then return false end
   if not inst or not latest or IsDev(inst) or inst == 'installed' then return false end
   return inst ~= latest
 end
@@ -878,6 +893,7 @@ local function StoredKey(p)
 end
 
 local function CheckLicense(p)
+  if p.free then p.key, p.lic = '', { status = 'free' } return end
   p.key = StoredKey(p)
   p.keyInput = p.keyInput or p.key
   if p.key == '' then p.lic = { status = 'none' } return end
@@ -901,7 +917,7 @@ local function CheckLicense(p)
 end
 
 local function Owned(p) return p.lic and p.lic.status == 'active' end
-local function HasValidKey(p) return p.lic and (p.lic.status == 'active' or p.lic.status == 'trial') end
+local function HasValidKey(p) return p.lic and (p.lic.status == 'active' or p.lic.status == 'trial' or p.lic.status == 'free') end
 
 -- saves a key that verified for this product, for the manager and for the script
 local function UseKey(p, key)
@@ -1062,7 +1078,8 @@ local function StartsWith(s, prefix) return s:sub(1, #prefix) == prefix end
 -- JSFX go to Effects)
 local function InstallFolders(p)
   local main = MainScriptPath(p)
-  local list = { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } }
+  -- a product without a script (Prism EQ) only has its routed files to show
+  local list = (main or not p.routes) and { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } } or {}
   for _, rt in ipairs(p.routes or {}) do
     local dir = NativePath(RES .. '/' .. rt.to:gsub('/+$', ''))
     list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or 'Files', dir = dir }
@@ -1483,6 +1500,8 @@ local function FinishInstall(job)
     if job.n < #job.queue then return end
   end
   local p = job.p
+  -- a product without a script (Prism EQ) puts nothing else in its folder
+  r.RecursiveCreateDirectory(NativePath(RES .. '/' .. p.installDir), 0)
   WriteManifest(job)
   local main = MainScriptPath(p)
   if main and Exists(main) then r.AddRemoveReaScript(true, 0, main, true) end
@@ -1506,7 +1525,13 @@ local function FinishInstall(job)
   local skipped = (job.skipped or 0) > 0
     and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
   local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
-  p.msg = ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
+  local fx = not main and p.installedFile and p.installedFile:match('([^/]+)%.jsfx$')
+  -- a copy downloaded from the website and dropped straight in Effects would show up twice
+  local loose = fx and Exists(NativePath(RES .. '/Effects/' .. fx .. '.jsfx'))
+    and (' You also have "' .. fx .. '.jsfx" straight in your Effects folder (from the website download): delete that one so the FX browser shows a single ' .. p.name .. '.') or ''
+  p.msg = ok and fx and { kind = loose ~= '' and 'warn' or 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
+      .. '". Open the Script Manager again to update it.' .. loose, folders = InstallFolders(p) }
+    or ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
       or (#job.queue .. ' files')) .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
       .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.', folders = InstallFolders(p) }
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
@@ -1846,6 +1871,7 @@ end
 
 local function StatusBadge(p)
   local st = p.lic and p.lic.status or 'none'
+  if st == 'free' then return 'Free', P.acc end
   if st == 'active' then return 'Owned', P.acc end
   if st == 'trial' then
     local d = DaysLeft(p.lic.expiresAt)
@@ -1858,7 +1884,9 @@ end
 
 local function VersionLine(p)
   local parts = {}
-  if not p.installed then parts[#parts + 1] = 'Not installed'
+  local parent = Parent(p)
+  if parent then parts[#parts + 1] = 'Installed with ' .. parent.name
+  elseif not p.installed then parts[#parts + 1] = 'Not installed'
   elseif p.installed == 'installed' then parts[#parts + 1] = 'Installed \194\183 version unknown'
   elseif IsDev(p.installed) then parts[#parts + 1] = 'Installed \194\183 dev build'
   else parts[#parts + 1] = 'Installed \194\183 v' .. p.installed:gsub('^[vV]', '') end
@@ -1955,12 +1983,19 @@ local function ProductCard(p, x, y, w)
   if p.installed and p.choice ~= NewestIncluded(p) and p.releases[p.choice] and p.releases[p.choice].tag ~= p.installed then
     primary, kind = 'Install this version', 'ghost'
   end
-  local pw = Btn_W(primary)
-  bx = bx - pw
-  if Btn('##prim' .. p.id, primary, bx, cy, kind, pw, busy) then
-    Busy('Getting the file list...', function() StartInstall(p) end)
+  local parent = Parent(p)
+  if not parent then
+    local pw = Btn_W(primary)
+    bx = bx - pw
+    if Btn('##prim' .. p.id, primary, bx, cy, kind, pw, busy) then
+      Busy('Getting the file list...', function() StartInstall(p) end)
+    end
   end
-  if not Owned(p) or NeedsRenewal(p) then
+  if p.free and p.pageUrl then
+    local bw = Btn_W('About')
+    bx = bx - 8 - bw
+    if Btn('##page' .. p.id, 'About', bx, cy, 'ghost', bw) then OpenUrl(p.pageUrl) end
+  elseif not p.free and (not Owned(p) or NeedsRenewal(p)) then
     -- buying again with the same email renews the updates on the same key
     local buy = Owned(p) and 'Renew' or 'Buy'
     local bw = Btn_W(buy)
@@ -2019,6 +2054,14 @@ local function ProductCard(p, x, y, w)
   -- divider, then the version picker, license link and Run
   im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1)
   cy = cy + 12
+  if parent then
+    Txt(dl, F.body, 13, ix, cy, P.ink2, 'Comes with ' .. parent.name .. ': updating ' .. parent.name .. ' updates ' .. p.name .. ' too.')
+    cy = cy + 21
+    CardH[p.id] = cy + CARD_PY - 4 - y
+    im.SetCursorScreenPos(ctx, x, y + CardH[p.id])
+    im.Dummy(ctx, w, 0)
+    return CardH[p.id]
+  end
   Mono_Caps(dl, 10, ix, cy + 9, P.ink3, 'Version')
   local rx = ix + iw
   if p.installed and p.mainScript then
@@ -2027,14 +2070,16 @@ local function ProductCard(p, x, y, w)
     if Btn('##run' .. p.id, 'Run', rx, cy, 'ghost', rw, busy) then RunScript(p) end
     rx = rx - 8
   end
-  -- without a license, signing in is the next step: a full button, filled
-  local licensed = HasValidKey(p)
-  local keyLabel = p.showKey and 'Hide license' or (licensed and 'License' or 'Sign in / free trial')
-  local kw = Btn_W(keyLabel)
-  rx = rx - kw
-  if Btn('##keylink' .. p.id, keyLabel, rx, cy, (licensed or p.showKey) and 'ghost' or 'go', kw) then
-    p.showKey = not p.showKey
-    p.msg = nil
+  -- without a license, signing in is the next step: a full button, filled (free products have none)
+  if not p.free then
+    local licensed = HasValidKey(p)
+    local keyLabel = p.showKey and 'Hide license' or (licensed and 'License' or 'Sign in / free trial')
+    local kw = Btn_W(keyLabel)
+    rx = rx - kw
+    if Btn('##keylink' .. p.id, keyLabel, rx, cy, (licensed or p.showKey) and 'ghost' or 'go', kw) then
+      p.showKey = not p.showKey
+      p.msg = nil
+    end
   end
   im.SetCursorScreenPos(ctx, ix + 70, cy)
   if busy then im.BeginDisabled(ctx) end
@@ -2043,7 +2088,7 @@ local function ProductCard(p, x, y, w)
   cy = cy + BTN_H + 4
 
   -- sign-in: the license or free trial comes from the person's account on the site
-  if p.showKey or p.link then
+  if not p.free and (p.showKey or p.link) then
     cy = cy + 10
     local k = p.link
     local function Lines(text, c)

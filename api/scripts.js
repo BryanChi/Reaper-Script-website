@@ -5,9 +5,10 @@
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
-// Every download needs a license or trial key that verifies (a free trial is enough), so the
-// repos can be private and each copy can be traced: the main script of every download carries a
-// code naming the key it was downloaded with (downloadStamp; the admin page traces it back).
+// Every download needs a license or trial key that verifies (a free trial is enough; free products
+// like Prism EQ need none), so the repos can be private and each copy can be traced: the main
+// script of every download carries a code naming the key it was downloaded with
+// (downloadStamp; the admin page traces it back).
 // Only published releases and the product's main branch are served, never other branches.
 // A license includes the releases published until its updates end (2 years per purchase): newer
 // ones answer 403 with updatesEnded, and once updates end the main branch isn't served either.
@@ -104,7 +105,11 @@ function publicProduct(id, p) {
 		routes: p.routes,
 		licenseSection: p.licenseSection,
 		releasesOnly: !!p.releasesOnly,
-		buyUrl: p.buyUrl
+		buyUrl: p.buyUrl,
+		free: !!p.free,
+		includedIn: p.includedIn,
+		installedFile: p.installedFile,
+		pageUrl: p.pageUrl
 	};
 }
 
@@ -143,11 +148,12 @@ module.exports = async function handler(req, res) {
 		if (!isRelease && product.releasesOnly && action !== 'releases') {
 			return res.status(404).json({ ok: false, error: 'Install the newest release; the development version isn\'t available for ' + product.name + '.' });
 		}
-		// files and downloads are for license and trial holders (device activation isn't needed to download)
+		// files and downloads are for license and trial holders (device activation isn't needed to download);
+		// free products (Prism EQ) need no key
 		const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
 		// when this license's updates end (ms), null for trials
 		let until = null;
-		if (action !== 'releases') {
+		if (action !== 'releases' && !product.free) {
 			if (!key) return res.status(401).json({ ok: false, error: 'License key required. Start a free trial or enter your license key.' });
 			const lic = await verifyLicense(key, null, input.product);
 			if (!lic || !lic.ok) {
@@ -169,7 +175,7 @@ module.exports = async function handler(req, res) {
 
 		if (action === 'releases') {
 			// a key is optional here: with one, each release says whether the license includes it
-			if (key) {
+			if (key && !product.free) {
 				const lic = await verifyLicense(key, null, input.product);
 				if (lic && lic.ok && lic.status === 'active') until = lic.updatesUntil || null;
 			}

@@ -63,5 +63,28 @@ module.exports = {
 		buyUrl: 'https://www.coolreaperscripts.com/#pricing',
 		// installers before the Script Manager (3) can't put the JSFX in the Effects folder
 		minClient: 3
+	},
+	'prism-eq': {
+		name: 'Prism EQ',
+		// no license: anyone can install it, nothing is stamped
+		free: true,
+		description: 'A free 16-band EQ: any band can go dynamic, spectral, saturated or mid/side. One JSFX.',
+		// FX Devices ships it, so it comes from FX Devices' releases
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		include: ['BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx'],
+		// the same file FX Devices installs, so people with both get one Prism EQ in the FX browser,
+		// not two; the Script Manager keeps its notes (version.txt, manifest) in installDir
+		installDir: 'Scripts/CoolReaperScripts/Prism EQ',
+		routes: [{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
+		// with FX Devices installed, the Script Manager shows it as part of FX Devices instead
+		includedIn: 'fx-devices',
+		// there is no script to look for: this file being there means it's installed
+		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx',
+		pageUrl: 'https://www.coolreaperscripts.com/prism-eq',
+		// Script Managers before 3.10 (4) ask for a license for everything
+		minClient: 4
 	}
 };

@@ -66,6 +66,9 @@ module.exports = {
 	},
 	'prism-eq': {
 		name: 'Prism EQ',
+		// the Script Manager lists JSFX in their own section, as smaller cards with a GUI preview
+		kind: 'jsfx',
+		preview: '/assets/Previews/prism-eq.png',
 		// no license: anyone can install it, nothing is stamped
 		free: true,
 		description: 'A free 16-band EQ: any band can go dynamic, spectral, saturated or mid/side. One JSFX.',

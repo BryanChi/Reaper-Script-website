@@ -107,6 +107,8 @@ function publicProduct(id, p) {
 		releasesOnly: !!p.releasesOnly,
 		buyUrl: p.buyUrl,
 		free: !!p.free,
+		kind: p.kind,
+		preview: p.preview,
 		includedIn: p.includedIn,
 		installedFile: p.installedFile,
 		pageUrl: p.pageUrl

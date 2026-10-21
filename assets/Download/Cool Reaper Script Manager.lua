@@ -9,7 +9,8 @@
 --   3.10.0: Prism EQ, the free 16-band EQ, installs and updates here too, no sign-in needed. It goes
 --          where FX Devices puts it, so with both you still see one Prism EQ in the FX browser. A copy
 --          that's already there is kept when it's current and updated when it's older, and a second
---          copy from the website download can be deleted from here.
+--          copy from the website download can be deleted from here. JSFX have their own section,
+--          with smaller cards that show a preview of each one's window.
 --   3.9.0: an update no longer replaces layouts you changed without asking: keep yours or use the new
 --          one, file by file. FX Devices' LFO and envelope shapes are never replaced.
 --   3.8.1: Windows: no long freeze while downloading (8 files per step instead of 32).
@@ -769,6 +770,7 @@ local im = require 'imgui' '0.9.3'
 ---------------------------------------------------------------------------------------------------
 
 local FONT_DIR = NativePath(RES .. '/Scripts/CoolReaperScripts/Script Manager/Fonts')
+local PREVIEW_DIR = NativePath(RES .. '/Scripts/CoolReaperScripts/Script Manager/Previews')
 local FONT_FILES = { 'Anton-Regular.ttf', 'JetBrainsMono-Medium.ttf', 'JetBrainsMono-SemiBold.ttf' }
 
 local function EnsureFonts()
@@ -1063,7 +1065,14 @@ local function LoadProducts()
   S.products = {}
   for _, p in ipairs(list.products or {}) do
     local prev = old[p.id]
-    if prev then p.keyInput, p.showKey, p.link = prev.keyInput, prev.showKey, prev.link end
+    if prev then p.keyInput, p.showKey, p.link, p.previewImg = prev.keyInput, prev.showKey, prev.link, prev.previewImg end
+    -- a JSFX's GUI preview, downloaded once (a new picture gets a new name)
+    if p.preview then
+      r.RecursiveCreateDirectory(PREVIEW_DIR, 0)
+      p.previewFile = PREVIEW_DIR .. SEP .. p.preview:match('([^/]+)$')
+      if not Exists(p.previewFile) then Get(SITE .. p.preview, p.previewFile) end
+      if prev and prev.previewFile ~= p.previewFile then p.previewImg = nil end
+    end
     CheckLicense(p)
     -- with the key, the site says which releases the license includes
     local rel = Api(API, { action = 'releases', product = p.id, licenseKey = Owned(p) and p.key or nil })
@@ -1985,13 +1994,62 @@ local function ConflictPanel(dl, p, ix, cy, iw, busy)
   return cy + BTN_H + 12
 end
 
+-- the install button: its label and look
+local function PrimaryAction(p)
+  local primary, kind
+  if not p.installed then primary, kind = 'Install', 'go'
+  elseif UpdateAvailable(p) and p.choice == NewestIncluded(p) then primary, kind = 'Update', 'go'
+  elseif IsDev(p.installed) and p.choice > #p.releases then primary, kind = 'Update', 'ghost'
+  else primary, kind = 'Reinstall', 'ghost' end
+  if p.installed and p.choice ~= NewestIncluded(p) and p.releases[p.choice] and p.releases[p.choice].tag ~= p.installed then
+    primary, kind = 'Install this version', 'ghost'
+  end
+  return primary, kind
+end
+
+-- under a card's top part: install progress, the message with its folders, the keep-or-replace question
+local function CardStatus(dl, p, ix, cy, iw, busy)
+  local job = S.job and S.job.p == p and S.job
+  if job then
+    local n, total = job.n, #job.queue
+    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw, cy + 2, P.soft)
+    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw * (total > 0 and n / total or 1), cy + 2, P.acc)
+    cy = cy + 10
+    local item = job.queue[n + 1]
+    local text = ('%d / %d  '):format(n, total) .. (item and item.path or 'finishing')
+    im.DrawList_PushClipRect(dl, ix, cy - 2, ix + iw, cy + 16, true)
+    Mono_Caps(dl, 10, ix, cy, P.ink2, text)
+    im.DrawList_PopClipRect(dl)
+    cy = cy + 22
+  end
+  if p.msg then
+    cy = cy + Banner(dl, ix, cy, iw, p.msg.kind, p.msg.text) + 10
+    -- where it went, each folder with a button that opens it
+    for i, d in ipairs(p.msg.folders or {}) do
+      local bw = Btn_W(REVEAL_LABEL)
+      if Btn('##reveal' .. p.id .. i, REVEAL_LABEL, ix + iw - bw, cy, 'ghost', bw) then RevealFolder(d.dir) end
+      Mono_Caps(dl, 10, ix, cy, P.ink3, 'Installed to  \194\183  ' .. d.label)
+      -- long paths keep their end, which is the part that tells them apart
+      local font, room, path = F_Mono(11), iw - bw - 16, d.dir
+      if TextW(path, font) > room then
+        while #path > 1 and TextW('...' .. path, font) > room do path = path:sub(2) end
+        path = '...' .. path
+      end
+      Txt(dl, font, 11, ix, cy + 15, P.ink2, path)
+      if path ~= d.dir and im.IsMouseHoveringRect(ctx, ix, cy, ix + room, cy + BTN_H) then im.SetTooltip(ctx, d.dir) end
+      cy = cy + BTN_H + 6
+    end
+  end
+  if p.ask then cy = ConflictPanel(dl, p, ix, cy, iw, busy) end
+  return cy
+end
+
 local function ProductCard(p, x, y, w)
   local dl = im.GetWindowDrawList(ctx)
   if CardH[p.id] then Card_Bg(dl, x, y, w, CardH[p.id]) end
   local ix, iw = x + CARD_PX, w - CARD_PX * 2
   local cy = y + CARD_PY
   local busy = S.job ~= nil or S.busy ~= nil
-  local job = S.job and S.job.p == p and S.job
 
   -- name and license badge
   local fa = F_Anton(26)
@@ -2004,14 +2062,7 @@ local function ProductCard(p, x, y, w)
 
   -- buttons on the right: Buy (when not owned), then install / update / reinstall
   local bx = ix + iw
-  local primary, kind
-  if not p.installed then primary, kind = 'Install', 'go'
-  elseif UpdateAvailable(p) and p.choice == NewestIncluded(p) then primary, kind = 'Update', 'go'
-  elseif IsDev(p.installed) and p.choice > #p.releases then primary, kind = 'Update', 'ghost'
-  else primary, kind = 'Reinstall', 'ghost' end
-  if p.installed and p.choice ~= NewestIncluded(p) and p.releases[p.choice] and p.releases[p.choice].tag ~= p.installed then
-    primary, kind = 'Install this version', 'ghost'
-  end
+  local primary, kind = PrimaryAction(p)
   local parent = Parent(p)
   if not parent then
     local pw = Btn_W(primary)
@@ -2045,40 +2096,8 @@ local function ProductCard(p, x, y, w)
   end
   cy = cy + 22
 
-  -- installing
-  if job then
-    local n, total = job.n, #job.queue
-    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw, cy + 2, P.soft)
-    im.DrawList_AddRectFilled(dl, ix, cy, ix + iw * (total > 0 and n / total or 1), cy + 2, P.acc)
-    cy = cy + 10
-    local item = job.queue[n + 1]
-    local text = ('%d / %d  '):format(n, total) .. (item and item.path or 'finishing')
-    im.DrawList_PushClipRect(dl, ix, cy - 2, ix + iw, cy + 16, true)
-    Mono_Caps(dl, 10, ix, cy, P.ink2, text)
-    im.DrawList_PopClipRect(dl)
-    cy = cy + 22
-  end
-
-  -- message for this script
-  if p.msg then
-    cy = cy + Banner(dl, ix, cy, iw, p.msg.kind, p.msg.text) + 10
-    -- where it went, each folder with a button that opens it
-    for i, d in ipairs(p.msg.folders or {}) do
-      local bw = Btn_W(REVEAL_LABEL)
-      if Btn('##reveal' .. p.id .. i, REVEAL_LABEL, ix + iw - bw, cy, 'ghost', bw) then RevealFolder(d.dir) end
-      Mono_Caps(dl, 10, ix, cy, P.ink3, 'Installed to  \194\183  ' .. d.label)
-      -- long paths keep their end, which is the part that tells them apart
-      local font, room, path = F_Mono(11), iw - bw - 16, d.dir
-      if TextW(path, font) > room then
-        while #path > 1 and TextW('...' .. path, font) > room do path = path:sub(2) end
-        path = '...' .. path
-      end
-      Txt(dl, font, 11, ix, cy + 15, P.ink2, path)
-      if path ~= d.dir and im.IsMouseHoveringRect(ctx, ix, cy, ix + room, cy + BTN_H) then im.SetTooltip(ctx, d.dir) end
-      cy = cy + BTN_H + 6
-    end
-  end
-  if p.ask then cy = ConflictPanel(dl, p, ix, cy, iw, busy) end
+  -- installing, the message for this script, the keep-or-replace question
+  cy = CardStatus(dl, p, ix, cy, iw, busy)
 
   -- divider, then the version picker, license link and Run
   im.DrawList_AddLine(dl, ix, cy, ix + iw, cy, P.soft, 1)
@@ -2163,6 +2182,96 @@ local function ProductCard(p, x, y, w)
   return CardH[p.id]
 end
 
+-- a JSFX's GUI preview as an image, nil until it's downloaded (or when it can't be read)
+local function PreviewImage(p)
+  if p.previewImg == nil and p.previewFile and Exists(p.previewFile) then
+    local ok, img = pcall(im.CreateImage, p.previewFile)
+    p.previewImg = ok and img or false
+    if p.previewImg then im.Attach(ctx, p.previewImg) end
+  end
+  return p.previewImg or nil
+end
+
+-- A JSFX: a smaller card, its GUI in miniature on the left; installs the newest release
+local PREVIEW_W = 200
+local function JsfxCard(p, x, y, w)
+  local dl = im.GetWindowDrawList(ctx)
+  if CardH[p.id] then Card_Bg(dl, x, y, w, CardH[p.id]) end
+  local ix, iw = x + 14, w - 28
+  local top = y + 14
+  local busy = S.job ~= nil or S.busy ~= nil
+
+  -- the GUI preview, framed (an empty frame until the picture is there)
+  local img = PreviewImage(p)
+  local pw, ph = PREVIEW_W, math.floor(PREVIEW_W * 0.54)
+  if img then
+    local iw0, ih0 = im.Image_GetSize(img)
+    if iw0 and iw0 > 0 then ph = math.floor(pw * ih0 / iw0) end
+    im.DrawList_AddImage(dl, img, ix, top, ix + pw, top + ph)
+  else
+    im.DrawList_AddRectFilled(dl, ix, top, ix + pw, top + ph, 0x111111FF)
+  end
+  if p.pageUrl then
+    local clicked, hov = Hit('##prev' .. p.id, ix, top, pw, ph)
+    if hov then im.SetTooltip(ctx, 'See ' .. p.name .. ' in action') end
+    if clicked then OpenUrl(p.pageUrl) end
+    im.DrawList_AddRect(dl, ix, top, ix + pw, top + ph, hov and 0xFFFFFF80 or P.line2)
+  else
+    im.DrawList_AddRect(dl, ix, top, ix + pw, top + ph, P.line2)
+  end
+
+  -- name, badge and buttons, then what it is and its version
+  local tx = ix + pw + 16
+  local tw = ix + iw - tx
+  local cy = top
+  local parent = Parent(p)
+  local bx = ix + iw
+  if not parent then
+    local primary, kind = PrimaryAction(p)
+    local bw = Btn_W(primary)
+    bx = bx - bw
+    if Btn('##prim' .. p.id, primary, bx, cy, kind, bw, busy) then
+      Busy('Getting the file list...', function() StartInstall(p) end)
+    end
+    bx = bx - 8
+  end
+  if p.pageUrl then
+    local bw = Btn_W('About')
+    bx = bx - bw
+    if Btn('##page' .. p.id, 'About', bx, cy, 'ghost', bw) then OpenUrl(p.pageUrl) end
+  end
+  local fa = F_Anton(18)
+  Txt(dl, fa, 18, tx, cy + 4, P.ink, p.name:upper())
+  local label, clr = StatusBadge(p)
+  Badge(dl, tx + TextW(p.name:upper(), fa) + 10, cy + 5, label, clr)
+  cy = cy + BTN_H + 8
+  if p.description then
+    for _, l in ipairs(Wrap(p.description, F.body, tw)) do Txt(dl, F.body, 13, tx, cy, P.ink2, l); cy = cy + 17 end
+  end
+  cy = cy + 6
+  -- its releases are FX Devices' (it ships there), so no version numbers here
+  local vline = parent and ('Installed with ' .. parent.name) or not p.installed and 'Not installed'
+    or UpdateAvailable(p) and 'Installed \194\183 update available' or 'Installed'
+  im.DrawList_PushClipRect(dl, tx, cy - 2, tx + tw, cy + 14, true)
+  Mono_Caps(dl, 10, tx, cy, UpdateAvailable(p) and P.acc or P.ink3, vline)
+  im.DrawList_PopClipRect(dl)
+  cy = cy + 18
+  if parent then
+    for _, l in ipairs(Wrap('Comes with ' .. parent.name .. ': updating ' .. parent.name .. ' updates it too.', F.body, tw)) do
+      Txt(dl, F.body, 13, tx, cy, P.ink3, l); cy = cy + 17
+    end
+  end
+
+  -- below both: progress, message, questions, full width
+  cy = math.max(cy, top + ph) + 12
+  cy = CardStatus(dl, p, ix, cy, iw, busy)
+
+  CardH[p.id] = cy + 2 - y
+  im.SetCursorScreenPos(ctx, x, y + CardH[p.id])
+  im.Dummy(ctx, w, 0)
+  return CardH[p.id]
+end
+
 local function ExtensionsCard(x, y, w)
   local dl = im.GetWindowDrawList(ctx)
   if CardH.ext then Card_Bg(dl, x, y, w, CardH.ext) end
@@ -2240,18 +2349,27 @@ local function Content(cx, cy, avail)
     y = y + BTN_H + 14
   end
 
-  Kicker(dl, px, y, 1, 'Scripts')
-  y = y + 32
-  if not S.loaded and #S.products == 0 then
-    y = y + 10
+  -- scripts first, then JSFX (smaller cards with a GUI preview), then the extensions
+  local n = 0
+  for _, sec in ipairs({ { title = 'Scripts', jsfx = false }, { title = 'JSFX', jsfx = true } }) do
+    local list = {}
+    for _, p in ipairs(S.products) do
+      if (p.kind == 'jsfx') == sec.jsfx then list[#list + 1] = p end
+    end
+    if #list > 0 or (not sec.jsfx) then
+      n = n + 1
+      Kicker(dl, px, y, n, sec.title)
+      y = y + 32
+      if not S.loaded and #S.products == 0 then y = y + 10 end
+      for _, p in ipairs(list) do
+        im.PushID(ctx, p.id)
+        y = y + (sec.jsfx and JsfxCard(p, px, y, w) or ProductCard(p, px, y, w)) + (sec.jsfx and 10 or 14)
+        im.PopID(ctx)
+      end
+      y = y + 12
+    end
   end
-  for _, p in ipairs(S.products) do
-    im.PushID(ctx, p.id)
-    y = y + ProductCard(p, px, y, w) + 14
-    im.PopID(ctx)
-  end
-  y = y + 12
-  Kicker(dl, px, y, 2, 'Free extensions the scripts need')
+  Kicker(dl, px, y, n + 1, 'Free extensions the scripts need')
   y = y + 32
   y = y + ExtensionsCard(px, y, w) + 20
 

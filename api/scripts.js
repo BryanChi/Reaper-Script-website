@@ -6,7 +6,7 @@
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
 // Every download needs a license or trial key that verifies (a free trial is enough; free products
-// like Prism EQ need none), so the repos can be private and each copy can be traced: the main
+// like Prism EQ need none; FX Devices' own JSFX take FX Devices' key), so the repos can be private and each copy can be traced: the main
 // script of every download carries a code naming the key it was downloaded with
 // (downloadStamp; the admin page traces it back).
 // Only published releases and the product's main branch are served, never other branches.
@@ -60,6 +60,26 @@ async function listFiles(product, ref) {
 	return { ok: true, files, truncated: !!data.truncated };
 }
 
+// Is a product's file in the newest release? FX Devices' JSFX items show only once it is, so one still
+// in development stays hidden. Unknown (GitHub didn't answer) counts as yes.
+const treeCache = new Map();
+
+async function inNewestRelease(product) {
+	if (!product.inRelease) return true;
+	const releases = await fetchReleases(product);
+	const newest = releases && releases.find(r => !r.prerelease);
+	if (!newest) return true;
+	const key = product.repo + '@' + newest.tag_name;
+	let paths = treeCache.get(key);
+	if (!paths) {
+		const listed = await listFiles({ owner: product.owner, repo: product.repo }, newest.tag_name);
+		if (!listed.ok) return true;
+		paths = new Set(listed.files.map(f => f.path));
+		treeCache.set(key, paths);
+	}
+	return paths.has(product.inRelease);
+}
+
 async function fetchRaw(product, path, ref) {
 	const url = `${GH}/repos/${product.owner}/${product.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(ref)}`;
 	return fetch(url, { headers: ghHeaders('application/vnd.github.raw') });
@@ -111,7 +131,9 @@ function publicProduct(id, p) {
 		preview: p.preview,
 		includedIn: p.includedIn,
 		installedFile: p.installedFile,
-		pageUrl: p.pageUrl
+		pageUrl: p.pageUrl,
+		licenseOf: p.licenseOf,
+		optional: p.optional
 	};
 }
 
@@ -128,9 +150,16 @@ module.exports = async function handler(req, res) {
 	const offered = p => p.installable !== false && client >= (p.minClient || 0);
 
 	if (action === 'products') {
+		const list = Object.entries(PRODUCTS).filter(([, p]) => offered(p));
+		let shown;
+		try {
+			shown = await Promise.all(list.map(([, p]) => inNewestRelease(p)));
+		} catch (err) {
+			shown = list.map(() => true);
+		}
 		return res.status(200).json({
 			ok: true,
-			products: Object.entries(PRODUCTS).filter(([, p]) => offered(p)).map(([id, p]) => publicProduct(id, p))
+			products: list.filter((_, i) => shown[i]).map(([id, p]) => publicProduct(id, p))
 		});
 	}
 
@@ -157,7 +186,7 @@ module.exports = async function handler(req, res) {
 		let until = null;
 		if (action !== 'releases' && !product.free) {
 			if (!key) return res.status(401).json({ ok: false, error: 'License key required. Start a free trial or enter your license key.' });
-			const lic = await verifyLicense(key, null, input.product);
+			const lic = await verifyLicense(key, null, product.licenseOf || input.product);
 			if (!lic || !lic.ok) {
 				return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
 			}
@@ -166,10 +195,12 @@ module.exports = async function handler(req, res) {
 			const ended = until && (rel ? new Date(rel.published_at).getTime() > until : Date.now() > until);
 			if (ended) {
 				const newest = releases.find(r => !r.prerelease && new Date(r.published_at).getTime() <= until);
+				// FX Devices' JSFX: the license and its renewal are FX Devices'
+				const owner = PRODUCTS[product.licenseOf] || product;
 				const date = new Date(until).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 				return res.status(403).json({
-					ok: false, updatesEnded: true, updatesUntil: until, newestIncluded: newest ? newest.tag_name : null, buyUrl: product.buyUrl,
-					error: `Your ${product.name} updates ended on ${date}, before this version came out. Buy ${product.name} again to renew them for 2 years` +
+					ok: false, updatesEnded: true, updatesUntil: until, newestIncluded: newest ? newest.tag_name : null, buyUrl: owner.buyUrl,
+					error: `Your ${owner.name} updates ended on ${date}, before this version came out. Buy ${owner.name} again to renew them for 2 years` +
 						(newest ? `, or install ${newest.tag_name}.` : '.')
 				});
 			}
@@ -178,7 +209,7 @@ module.exports = async function handler(req, res) {
 		if (action === 'releases') {
 			// a key is optional here: with one, each release says whether the license includes it
 			if (key && !product.free) {
-				const lic = await verifyLicense(key, null, input.product);
+				const lic = await verifyLicense(key, null, product.licenseOf || input.product);
 				if (lic && lic.ok && lic.status === 'active') until = lic.updatesUntil || null;
 			}
 			return res.status(200).json({

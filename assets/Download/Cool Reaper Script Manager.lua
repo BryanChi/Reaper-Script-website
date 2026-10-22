@@ -1,11 +1,15 @@
 -- @description Cool Reaper Script Manager
--- @version 3.10.0
+-- @version 3.11.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, and the free
 --   Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.11.0: installing FX Devices no longer brings every FX Devices effect along: each JSFX (Patina,
+--          Note Echo, Step Engine...) is its own item in the JSFX section, installed with your FX Devices
+--          license or trial. The ones you already have keep updating with FX Devices. The Scripts and
+--          JSFX sections each have an Install all button.
 --   3.10.0: Prism EQ, the free 16-band EQ, installs and updates here too, no sign-in needed. It goes
 --          where FX Devices puts it, so with both you still see one Prism EQ in the FX browser. A copy
 --          that's already there is kept when it's current and updated when it's older, and a second
@@ -43,7 +47,7 @@
 
 local r = reaper
 
-local VERSION = '3.10.0'
+local VERSION = '3.11.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -52,8 +56,8 @@ local FONT_URL = SITE .. '/assets/Fonts/'
 -- kept from the 2.0 installer: the scripts read what was installed from this section
 local EXT = 'CoolReaperScripts_Installer'
 -- tells the site what this client can do: 3 = files outside the script's folder (FX Devices' JSFX),
--- 4 = free products that need no license (Prism EQ)
-local CLIENT = 4
+-- 4 = free products that need no license (Prism EQ), 5 = FX Devices' JSFX as their own items
+local CLIENT = 5
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
@@ -868,13 +872,34 @@ local function LooseCopies()
   return list
 end
 
--- the installed product this one comes with (Prism EQ with FX Devices): that one installs and
--- updates it, so it has no buttons of its own
+-- the installed product this one comes with (Prism EQ and FX Devices' other JSFX, with FX Devices):
+-- when its file is on disk, that one updates it, so it has no buttons of its own. Without the file
+-- (FX Devices from 3.11 leaves these out) it installs on its own.
 local function Parent(p)
-  if not p.includedIn then return nil end
+  if not p.includedIn or not p.onDisk then return nil end
   for _, q in ipairs(S.products) do
     if q.id == p.includedIn and q.installed then return q end
   end
+end
+
+-- whether each product's own file (installedFile) is there; after loading and after each install
+local function RefreshOnDisk()
+  for _, p in ipairs(S.products) do
+    p.onDisk = p.installedFile and Exists(NativePath(RES .. '/' .. p.installedFile)) or false
+  end
+end
+
+-- FX Devices' JSFX use FX Devices' license: the same key, status and releases
+local function LicenseOwner(p)
+  if not p.licenseOf then return nil end
+  for _, q in ipairs(S.products) do
+    if q.id == p.licenseOf then return q end
+  end
+end
+
+local function ShareLicense(p)
+  local q = LicenseOwner(p)
+  if q then p.key, p.lic = q.key, q.lic end
 end
 
 -- newest release when there is one
@@ -1073,15 +1098,21 @@ local function LoadProducts()
       if not Exists(p.previewFile) then Get(SITE .. p.preview, p.previewFile) end
       if prev and prev.previewFile ~= p.previewFile then p.previewImg = nil end
     end
-    CheckLicense(p)
-    -- with the key, the site says which releases the license includes
-    local rel = Api(API, { action = 'releases', product = p.id, licenseKey = Owned(p) and p.key or nil })
-    p.releases = {}
-    for _, x in ipairs(rel and rel.releases or {}) do
-      -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
-      if not x.prerelease and tostring(x.tag):match('^%a*%d') then p.releases[#p.releases + 1] = x end
+    local owner = LicenseOwner(p)
+    if owner then
+      -- an FX Devices JSFX: FX Devices' license and releases (it ships in them), no requests of its own
+      p.key, p.lic, p.releases, p.branch = owner.key, owner.lic, owner.releases, owner.branch
+    else
+      if p.licenseOf then p.key, p.lic = '', { status = 'none' } else CheckLicense(p) end
+      -- with the key, the site says which releases the license includes
+      local rel = Api(API, { action = 'releases', product = p.id, licenseKey = Owned(p) and p.key or nil })
+      p.releases = {}
+      for _, x in ipairs(rel and rel.releases or {}) do
+        -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
+        if not x.prerelease and tostring(x.tag):match('^%a*%d') then p.releases[#p.releases + 1] = x end
+      end
+      p.branch = rel and rel.branch or 'main'
     end
-    p.branch = rel and rel.branch or 'main'
     -- newest release the license includes, or the development version when there are none
     p.choice = NewestIncluded(p) or #p.releases + 1
     p.installed = InstalledVersion(p)
@@ -1090,6 +1121,7 @@ local function LoadProducts()
     if #p.releases == 0 and not HasValidKey(p) and p.showKey == nil then p.showKey = true end
     S.products[#S.products + 1] = p
   end
+  RefreshOnDisk()
   S.loaded = true
   S.loose = nil
 end
@@ -1369,7 +1401,15 @@ local function StartInstall(p)
   end
   local ref, label = ChosenRef(p)
   -- every download needs a license or trial key (the site stamps each copy with the key it went to)
+  ShareLicense(p)
   if not HasValidKey(p) then
+    local owner = LicenseOwner(p)
+    if owner then
+      owner.showKey = true
+      p.msg = { kind = 'info', text = p.name .. ' comes with an FX Devices license or trial. Sign in on the ' .. owner.name
+        .. ' card above (no license yet? the sign-in page starts your free 30-day trial), then install it here.' }
+      return
+    end
     p.showKey = true
     p.msg = { kind = 'info', text = 'Sign in to install ' .. p.name .. '. No license yet? The sign-in page starts your free 30-day trial.' }
     return
@@ -1379,9 +1419,12 @@ local function StartInstall(p)
   local queue, spec = {}, LAYOUT_IMAGES[p.id]
   -- layout images wait until the layouts are in (QueueLayoutImages)
   local images = spec and {} or nil
+  -- JSFX that are their own items (FX Devices' effects): only the ones already on disk, to update them
+  local optional = {}
+  for _, path in ipairs(p.optional or {}) do optional[path] = true end
   for _, f in ipairs(list.files or {}) do
     local target = TargetFor(p, f.path)
-    if not (IsUserData(p, f.path) and Exists(target)) then
+    if not (IsUserData(p, f.path) and Exists(target)) and not (optional[f.path] and not Exists(target)) then
       local item = { path = f.path, target = target, size = f.size, sha = f.sha }
       if images and IsLayoutImage(spec, f.path) then images[#images + 1] = item else queue[#queue + 1] = item end
     end
@@ -1574,8 +1617,16 @@ local function FinishInstall(job)
     or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
   S.job = nil
   S.loose = nil
-  -- next one of "Update all"
-  if S.updateAll and #S.updateAll > 0 then StartInstall(table.remove(S.updateAll, 1)) end
+  RefreshOnDisk()
+end
+
+-- "Update all" and "Install all": the next one once nothing else runs or waits on a question
+local function QueueTick()
+  if not S.updateAll or S.job or S.busy then return end
+  for _, p in ipairs(S.products) do if p.ask then return end end
+  local p = table.remove(S.updateAll, 1)
+  if not p then S.updateAll = nil return end
+  Busy('Getting the file list...', function() StartInstall(p) end)
 end
 
 local function RunScript(p)
@@ -1896,19 +1947,20 @@ local function Header(dl, x, y, w)
   local rx = cx - 12
   local pending = {}
   for _, p in ipairs(S.products) do if UpdateAvailable(p) then pending[#pending + 1] = p end end
-  if #pending > 0 and not S.job and not S.busy then
+  if #pending > 0 and not S.job and not S.busy and not S.updateAll then
     local label = 'Update all (' .. #pending .. ')'
     local bw = Btn_W(label)
     if Btn('##updall', label, rx - bw, y + (HEADER_H - BTN_H) / 2, 'go', bw) then
       for _, p in ipairs(pending) do p.choice = NewestIncluded(p) or 1 end
       S.updateAll = pending
-      Busy('Getting the file list...', function() StartInstall(table.remove(S.updateAll, 1)) end)
     end
   end
 end
 
 local function StatusBadge(p)
   local st = p.lic and p.lic.status or 'none'
+  -- FX Devices' JSFX: FX Devices' license
+  if p.licenseOf and not HasValidKey(p) then return 'Needs FX Devices', P.ink2 end
   if st == 'free' then return 'Free', P.acc end
   if st == 'active' then return 'Owned', P.acc end
   if st == 'trial' then
@@ -2201,17 +2253,19 @@ local function JsfxCard(p, x, y, w)
   local top = y + 14
   local busy = S.job ~= nil or S.busy ~= nil
 
-  -- the GUI preview, framed (an empty frame until the picture is there)
+  -- the GUI preview, framed (an empty frame until the picture is there); none for a JSFX without one
   local img = PreviewImage(p)
   local pw, ph = PREVIEW_W, math.floor(PREVIEW_W * 0.54)
-  if img then
+  if not p.preview then pw, ph = 0, 0
+  elseif img then
     local iw0, ih0 = im.Image_GetSize(img)
     if iw0 and iw0 > 0 then ph = math.floor(pw * ih0 / iw0) end
     im.DrawList_AddImage(dl, img, ix, top, ix + pw, top + ph)
   else
     im.DrawList_AddRectFilled(dl, ix, top, ix + pw, top + ph, 0x111111FF)
   end
-  if p.pageUrl then
+  if not p.preview then
+  elseif p.pageUrl then
     local clicked, hov = Hit('##prev' .. p.id, ix, top, pw, ph)
     if hov then im.SetTooltip(ctx, 'See ' .. p.name .. ' in action') end
     if clicked then OpenUrl(p.pageUrl) end
@@ -2221,7 +2275,7 @@ local function JsfxCard(p, x, y, w)
   end
 
   -- name, badge and buttons, then what it is and its version
-  local tx = ix + pw + 16
+  local tx = ix + (pw > 0 and pw + 16 or 0)
   local tw = ix + iw - tx
   local cy = top
   local parent = Parent(p)
@@ -2351,14 +2405,27 @@ local function Content(cx, cy, avail)
 
   -- scripts first, then JSFX (smaller cards with a GUI preview), then the extensions
   local n = 0
+  for _, p in ipairs(S.products) do ShareLicense(p) end
   for _, sec in ipairs({ { title = 'Scripts', jsfx = false }, { title = 'JSFX', jsfx = true } }) do
-    local list = {}
+    local list, missing = {}, {}
     for _, p in ipairs(S.products) do
-      if (p.kind == 'jsfx') == sec.jsfx then list[#list + 1] = p end
+      if (p.kind == 'jsfx') == sec.jsfx then
+        list[#list + 1] = p
+        if not p.installed and not Parent(p) then missing[#missing + 1] = p end
+      end
     end
     if #list > 0 or (not sec.jsfx) then
       n = n + 1
       Kicker(dl, px, y, n, sec.title)
+      -- every one of this section that isn't installed yet, one after another
+      if #missing > 0 and not S.job and not S.busy and not S.updateAll then
+        local label = 'Install all (' .. #missing .. ')'
+        local bw = Btn_W(label)
+        if Btn('##install' .. n, label, px + w - bw, y - 6, 'ghost', bw) then
+          for _, p in ipairs(missing) do p.choice = NewestIncluded(p) or 1 end
+          S.updateAll = missing
+        end
+      end
       y = y + 32
       if not S.loaded and #S.products == 0 then y = y + 10 end
       for _, p in ipairs(list) do
@@ -2405,6 +2472,8 @@ local function Frame()
     end
   elseif S.job then
     if InstallBusy(S.job) then InstallNext(S.job) else FinishInstall(S.job) end
+  else
+    QueueTick()
   end
   for _, p in ipairs(S.products) do LinkTick(p) end
   -- extension downloads: one file per frame, after the progress line has drawn once

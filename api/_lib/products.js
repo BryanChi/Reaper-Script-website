@@ -62,7 +62,12 @@ module.exports = {
 		// no FX Devices checkout on the site yet, so this is the shared pricing section
 		buyUrl: 'https://www.coolreaperscripts.com/#pricing',
 		// installers before the Script Manager (3) can't put the JSFX in the Effects folder
-		minClient: 3
+		minClient: 3,
+		// JSFX that are their own items (FXD_JSFX below, and Prism EQ): Script Managers from 3.11 (5)
+		// leave them out of an FX Devices install and only update the ones already on disk. The JSFX
+		// FX Devices itself runs on (Macros, Container Macros, the splitters, Analyzer, Gain Reduction
+		// Scope, ReSpectrum, RackMixer, Clash Finder, the .jsfx-inc files) always come with it.
+		optional: []
 	},
 	'prism-eq': {
 		name: 'Prism EQ',
@@ -91,3 +96,54 @@ module.exports = {
 		minClient: 4
 	}
 };
+
+// FX Devices' own effects, each installable on its own from the Script Manager's JSFX section. They
+// come from FX Devices' releases and need an FX Devices license or trial (licenseOf); one only shows
+// once the newest release has its file (inRelease), so a JSFX still in development stays hidden.
+const FXD_JSFX_DIR = 'BryanChi_FX_Devices/FXD JSFXs/';
+const NOTE_TOOLS = FXD_JSFX_DIR + 'FXD Note Tools.jsfx-inc';
+const FXD_JSFX = [
+	['Algorithmic Reverb', 'A room reverb you shape by its material, its size, and where the mic and the source stand.'],
+	['Analog Drive', 'Six saturation circuits (tube, transformer, console and more), oversampled, with the bloom and sag of real gear.'],
+	['Analog Filter', 'Five analog filter models (ladder, MS-20, SEM, diode, 303) that stay in tune at full resonance.'],
+	['Audio To Notes', 'Turns the audio on a track into MIDI notes and CC in real time: drums to triggers, a voice to a synth line.', [NOTE_TOOLS]],
+	['Bucket Brigade', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.'],
+	['Compressor', 'One compressor, 24 models: from transparent digital to the feel of the classic analog units.'],
+	['ControlFreakDelay', 'A multi-tap delay with a step sequencer for its taps.'],
+	['Kaleido Chorus', 'One chorus engine, eight flavors, from a classic two-voice chorus to an octave shimmer.'],
+	['Note Echo', 'Repeats incoming notes in time, with pitch steps, strum and decay.', [NOTE_TOOLS]],
+	['Note Generator', 'Makes notes on its own with four engines, from balls bouncing in a polygon to Euclidean rhythms.', [NOTE_TOOLS]],
+	['Note Shaper', 'Rewrites incoming notes: filter them, snap them to a scale, add chord voices and more.', [NOTE_TOOLS]],
+	['Patina', 'Analog character in nine modules, from a little warmth to gear falling apart.'],
+	['Step Engine', 'An arpeggiator and a step sequencer in one, with five independent step lanes.', [NOTE_TOOLS]],
+	['Surface Noise', 'Layered vinyl, tape and electrical noise: hiss, crackle, hum and static, each with its own level.'],
+	['Tape Glitch', 'Stutters, reverses and tape stops on the beat grid, played from a tape loop.'],
+	['Tape Machine', 'A whole tape machine: noise reduction, record EQ, tape saturation, wow and flutter.'],
+	['Vintage Sampler', 'The converters of a 1980s sampler: the aliasing, the bit depth and the steps they leave.'],
+	['Vintage Space', 'Six vintage spaces, each modelled as the thing itself: room, hall, chamber, plate, spring and tape echo.'],
+	['Wow Flutter', 'The pitch wobble of old tape and vinyl transports, up to a tape stop.']
+];
+
+for (const [name, description, deps] of FXD_JSFX) {
+	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';
+	module.exports['fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-')] = {
+		name,
+		kind: 'jsfx',
+		description,
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		licenseOf: 'fx-devices',
+		include: [file].concat(deps || []),
+		inRelease: file,
+		installDir: 'Scripts/CoolReaperScripts/FXD JSFX/' + name,
+		routes: [{ from: FXD_JSFX_DIR, to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
+		includedIn: 'fx-devices',
+		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD ' + name + '.jsfx',
+		// Script Managers before 3.11 (5) install every FX Devices JSFX with FX Devices
+		minClient: 5
+	};
+	module.exports['fx-devices'].optional.push(file);
+}
+module.exports['fx-devices'].optional.push(module.exports['prism-eq'].include[0]);

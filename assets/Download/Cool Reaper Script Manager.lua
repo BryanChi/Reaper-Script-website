@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.11.0
+-- @version 3.12.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, and the free
 --   Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.12.0: the Script Manager updates itself: when a newer one is out, a button at the top installs
+--          it and reopens the window. JSFX are a grid of cards, each with a picture of its FX
+--          Devices device. The window is at most 700 px wide.
 --   3.11.0: installing FX Devices no longer brings every FX Devices effect along: each JSFX (Patina,
 --          Note Echo, Step Engine...) is its own item in the JSFX section, installed with your FX Devices
 --          license or trial. The ones you already have keep updating with FX Devices. The Scripts and
@@ -47,7 +50,7 @@
 
 local r = reaper
 
-local VERSION = '3.11.0'
+local VERSION = '3.12.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -1079,10 +1082,72 @@ local function LinkTick(p)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- The Script Manager's own updates: the site's copy, when it's newer than this one
+---------------------------------------------------------------------------------------------------
+
+local MANAGER_URL = SITE .. '/assets/Download/Cool%20Reaper%20Script%20Manager.lua'
+
+-- true when version a is newer than b ("3.12.0" > "3.11.2")
+local function Newer(a, b)
+  local ta, tb = {}, {}
+  for n in tostring(a):gmatch('%d+') do ta[#ta + 1] = tonumber(n) end
+  for n in tostring(b):gmatch('%d+') do tb[#tb + 1] = tonumber(n) end
+  for i = 1, math.max(#ta, #tb) do
+    if (ta[i] or 0) ~= (tb[i] or 0) then return (ta[i] or 0) > (tb[i] or 0) end
+  end
+  return false
+end
+
+-- downloads the site's copy; S.selfUpdate = { version, file, notes } when it's newer and loads
+local function CheckManagerUpdate()
+  if S.selfUpdate then os.remove(S.selfUpdate.file) end
+  S.selfUpdate = nil
+  local file = TempFile('manager.lua')
+  if not Get(MANAGER_URL, file) then return end
+  local code = ReadFile(file) or ''
+  local v = code:match("\nlocal VERSION = '([%d%.]+)'")
+  if not (v and Newer(v, VERSION) and load(code)) then os.remove(file) return end
+  -- what's new: its changelog entry, joined into one paragraph
+  local notes, on = {}, false
+  for line in code:gmatch('[^\n]+') do
+    local ver, text = line:match('^%-%-%s+(%d[%d%.]*):%s*(.*)$')
+    if ver then
+      if on then break end
+      on = ver == v
+      if on then notes[#notes + 1] = text end
+    elseif on then
+      local more = line:match('^%-%-%s+(.*)$')
+      if not more or line:match('^%-%- @') then break end
+      notes[#notes + 1] = more
+    end
+  end
+  S.selfUpdate = { version = v, file = file, notes = #notes > 0 and table.concat(notes, ' ') or nil }
+end
+
+-- puts the new copy where the scripts and the Actions list run it from, then reopens it
+local function UpdateManager()
+  local u = S.selfUpdate
+  local data = u and ReadFile(u.file)
+  if not data then S.msg = { kind = 'err', text = 'Couldn\'t read the downloaded Script Manager. Try again with Check for updates.' } return end
+  local targets = { ManagerPath() }
+  local _, self = r.get_action_context()
+  if self and self ~= '' and Exists(self) and NativePath(self) ~= ManagerPath() then targets[#targets + 1] = self end
+  for _, t in ipairs(targets) do
+    r.RecursiveCreateDirectory(DirOf(t), 0)
+    if not WriteFile(t, data) then S.msg = { kind = 'err', text = 'Couldn\'t write ' .. t .. '. Download the Script Manager from coolreaperscripts.com instead.' } return end
+  end
+  os.remove(u.file)
+  S.selfUpdate = nil
+  S.restart = ManagerPath()
+  S.close = true
+end
+
+---------------------------------------------------------------------------------------------------
 -- Loading the script list
 ---------------------------------------------------------------------------------------------------
 
 local function LoadProducts()
+  CheckManagerUpdate()
   local list, err = Api(API, { action = 'products', client = CLIENT })
   if not list then S.msg = { kind = 'err', text = err } S.loaded = true return end
   local old = {}
@@ -2244,85 +2309,98 @@ local function PreviewImage(p)
   return p.previewImg or nil
 end
 
--- A JSFX: a smaller card, its GUI in miniature on the left; installs the newest release
-local PREVIEW_W = 200
-local function JsfxCard(p, x, y, w)
+-- A JSFX: a card in a two-column grid, its GUI in miniature across the top; installs the newest
+-- release. rowH is the tallest card of its row (last frame), so the buttons line up along the row.
+local PREVIEW_RATIO = 0.3
+local function JsfxCard(p, x, y, w, rowH)
   local dl = im.GetWindowDrawList(ctx)
-  if CardH[p.id] then Card_Bg(dl, x, y, w, CardH[p.id]) end
-  local ix, iw = x + 14, w - 28
-  local top = y + 14
+  local h = math.max(CardH[p.id] or 0, rowH or 0)
+  if h > 0 then Card_Bg(dl, x, y, w, h) end
+  local pad = 14
+  local ix, iw = x + pad, w - pad * 2
   local busy = S.job ~= nil or S.busy ~= nil
 
-  -- the GUI preview, framed (an empty frame until the picture is there); none for a JSFX without one
+  -- the GUI preview, edge to edge (an empty frame until the picture is there): a taller picture
+  -- shows its middle, a wider one sits centered on black
+  local px, py, pw = x + 1, y + 1, w - 2
+  local ph = math.floor(pw * PREVIEW_RATIO)
+  im.DrawList_AddRectFilled(dl, px, py, px + pw, py + ph, 0x050505FF)
   local img = PreviewImage(p)
-  local pw, ph = PREVIEW_W, math.floor(PREVIEW_W * 0.54)
-  if not p.preview then pw, ph = 0, 0
-  elseif img then
+  if img then
     local iw0, ih0 = im.Image_GetSize(img)
-    if iw0 and iw0 > 0 then ph = math.floor(pw * ih0 / iw0) end
-    im.DrawList_AddImage(dl, img, ix, top, ix + pw, top + ph)
-  else
-    im.DrawList_AddRectFilled(dl, ix, top, ix + pw, top + ph, 0x111111FF)
-  end
-  if not p.preview then
-  elseif p.pageUrl then
-    local clicked, hov = Hit('##prev' .. p.id, ix, top, pw, ph)
-    if hov then im.SetTooltip(ctx, 'See ' .. p.name .. ' in action') end
-    if clicked then OpenUrl(p.pageUrl) end
-    im.DrawList_AddRect(dl, ix, top, ix + pw, top + ph, hov and 0xFFFFFF80 or P.line2)
-  else
-    im.DrawList_AddRect(dl, ix, top, ix + pw, top + ph, P.line2)
-  end
-
-  -- name, badge and buttons, then what it is and its version
-  local tx = ix + (pw > 0 and pw + 16 or 0)
-  local tw = ix + iw - tx
-  local cy = top
-  local parent = Parent(p)
-  local bx = ix + iw
-  if not parent then
-    local primary, kind = PrimaryAction(p)
-    local bw = Btn_W(primary)
-    bx = bx - bw
-    if Btn('##prim' .. p.id, primary, bx, cy, kind, bw, busy) then
-      Busy('Getting the file list...', function() StartInstall(p) end)
+    if iw0 and iw0 > 0 and ih0 > 0 then
+      local fit = pw * ih0 / iw0
+      if fit >= ph then
+        local v = ph / fit
+        im.DrawList_AddImage(dl, img, px, py, px + pw, py + ph, 0, (1 - v) / 2, 1, (1 + v) / 2)
+      else
+        local oy = math.floor((ph - fit) / 2)
+        im.DrawList_AddImage(dl, img, px, py + oy, px + pw, py + oy + fit)
+      end
     end
-    bx = bx - 8
   end
   if p.pageUrl then
-    local bw = Btn_W('About')
-    bx = bx - bw
-    if Btn('##page' .. p.id, 'About', bx, cy, 'ghost', bw) then OpenUrl(p.pageUrl) end
+    local clicked, hov = Hit('##prev' .. p.id, px, py, pw, ph)
+    if hov then im.SetTooltip(ctx, 'See ' .. p.name .. ' in action') end
+    if clicked then OpenUrl(p.pageUrl) end
+    if hov then im.DrawList_AddRect(dl, px, py, px + pw, py + ph, 0xFFFFFF80) end
   end
+  im.DrawList_AddLine(dl, px, py + ph, px + pw, py + ph, P.line, 1)
+
+  -- name and badge, what it is, whether it's installed
+  local cy = py + ph + 12
   local fa = F_Anton(18)
-  Txt(dl, fa, 18, tx, cy + 4, P.ink, p.name:upper())
   local label, clr = StatusBadge(p)
-  Badge(dl, tx + TextW(p.name:upper(), fa) + 10, cy + 5, label, clr)
-  cy = cy + BTN_H + 8
+  local bw = Badge_W(label)
+  im.DrawList_PushClipRect(dl, ix, cy - 6, ix + iw - bw - 8, cy + 28, true)
+  Txt(dl, fa, 18, ix, cy, P.ink, p.name:upper())
+  im.DrawList_PopClipRect(dl)
+  Badge(dl, ix + iw - bw, cy + 1, label, clr)
+  cy = cy + 30
   if p.description then
-    for _, l in ipairs(Wrap(p.description, F.body, tw)) do Txt(dl, F.body, 13, tx, cy, P.ink2, l); cy = cy + 17 end
+    for _, l in ipairs(Wrap(p.description, F.body, iw)) do Txt(dl, F.body, 13, ix, cy, P.ink2, l); cy = cy + 17 end
   end
   cy = cy + 6
   -- its releases are FX Devices' (it ships there), so no version numbers here
+  local parent = Parent(p)
   local vline = parent and ('Installed with ' .. parent.name) or not p.installed and 'Not installed'
     or UpdateAvailable(p) and 'Installed \194\183 update available' or 'Installed'
-  im.DrawList_PushClipRect(dl, tx, cy - 2, tx + tw, cy + 14, true)
-  Mono_Caps(dl, 10, tx, cy, UpdateAvailable(p) and P.acc or P.ink3, vline)
+  im.DrawList_PushClipRect(dl, ix, cy - 2, ix + iw, cy + 14, true)
+  Mono_Caps(dl, 10, ix, cy, UpdateAvailable(p) and P.acc or P.ink3, vline)
   im.DrawList_PopClipRect(dl)
   cy = cy + 18
   if parent then
-    for _, l in ipairs(Wrap('Comes with ' .. parent.name .. ': updating ' .. parent.name .. ' updates it too.', F.body, tw)) do
-      Txt(dl, F.body, 13, tx, cy, P.ink3, l); cy = cy + 17
+    for _, l in ipairs(Wrap('Updating ' .. parent.name .. ' updates it too.', F.body, iw)) do
+      Txt(dl, F.body, 13, ix, cy, P.ink3, l); cy = cy + 17
     end
   end
 
-  -- below both: progress, message, questions, full width
-  cy = math.max(cy, top + ph) + 12
-  cy = CardStatus(dl, p, ix, cy, iw, busy)
+  -- progress, message, questions
+  cy = CardStatus(dl, p, ix, cy + 6, iw, busy)
 
-  CardH[p.id] = cy + 2 - y
-  im.SetCursorScreenPos(ctx, x, y + CardH[p.id])
-  im.Dummy(ctx, w, 0)
+  -- the buttons, along the bottom of the row
+  local hasBtn = not parent or p.pageUrl
+  if hasBtn then
+    local natural = cy + 6
+    local by = math.max(natural, y + h - pad - BTN_H)
+    local bx = ix + iw
+    if not parent then
+      local primary, kind = PrimaryAction(p)
+      local w1 = Btn_W(primary)
+      bx = bx - w1
+      if Btn('##prim' .. p.id, primary, bx, by, kind, w1, busy) then
+        Busy('Getting the file list...', function() StartInstall(p) end)
+      end
+      bx = bx - 8
+    end
+    if p.pageUrl then
+      local w2 = Btn_W('About')
+      if Btn('##page' .. p.id, 'About', bx - w2, by, 'ghost', w2) then OpenUrl(p.pageUrl) end
+    end
+    cy = natural + BTN_H
+  end
+
+  CardH[p.id] = cy + pad - y
   return CardH[p.id]
 end
 
@@ -2387,6 +2465,15 @@ local function Content(cx, cy, avail)
   end
   y = y + 22
   if S.msg then y = y + Banner(dl, px, y, w, S.msg.kind, S.msg.text) + 14 end
+  -- a newer Script Manager on the site
+  if S.selfUpdate then
+    local u = S.selfUpdate
+    y = y + Banner(dl, px, y, w, 'info', 'Script Manager ' .. u.version .. ' is out (you have ' .. VERSION .. ').'
+      .. (u.notes and ('\n' .. u.notes) or '')) + 8
+    local label = 'Update the Script Manager'
+    if Btn('##selfupd', label, px, y, 'go', Btn_W(label), S.busy ~= nil or S.job ~= nil or S.updateAll ~= nil) then UpdateManager() end
+    y = y + BTN_H + 14
+  end
   -- a second copy of Prism EQ: offer to delete it (checked again after each install)
   if S.loaded and not S.job then S.loose = S.loose or LooseCopies() end
   for i, c in ipairs(S.loose or {}) do
@@ -2428,10 +2515,32 @@ local function Content(cx, cy, avail)
       end
       y = y + 32
       if not S.loaded and #S.products == 0 then y = y + 10 end
-      for _, p in ipairs(list) do
-        im.PushID(ctx, p.id)
-        y = y + (sec.jsfx and JsfxCard(p, px, y, w) or ProductCard(p, px, y, w)) + (sec.jsfx and 10 or 14)
-        im.PopID(ctx)
+      if sec.jsfx then
+        -- two to a row, each row as tall as its tallest card
+        local gap = 10
+        local cw = math.floor((w - gap) / 2)
+        for i = 1, #list, 2 do
+          local a, b = list[i], list[i + 1]
+          local rowH = math.max(CardH[a.id] or 0, b and CardH[b.id] or 0)
+          im.PushID(ctx, a.id)
+          local ha = JsfxCard(a, px, y, cw, rowH)
+          im.PopID(ctx)
+          local hb = 0
+          if b then
+            im.PushID(ctx, b.id)
+            hb = JsfxCard(b, px + w - cw, y, cw, rowH)
+            im.PopID(ctx)
+          end
+          y = y + math.max(ha, hb, rowH) + gap
+        end
+        im.SetCursorScreenPos(ctx, px, y)
+        im.Dummy(ctx, w, 0)
+      else
+        for _, p in ipairs(list) do
+          im.PushID(ctx, p.id)
+          y = y + ProductCard(p, px, y, w) + 14
+          im.PopID(ctx)
+        end
       end
       y = y + 12
     end
@@ -2501,8 +2610,8 @@ local function Frame()
   im.PushStyleColor(ctx, im.Col_ScrollbarGrabActive, P.acc)
   Widgets_Push()
   im.PushFont(ctx, F.body)
-  im.SetNextWindowSize(ctx, 720, 760, im.Cond_FirstUseEver)
-  im.SetNextWindowSizeConstraints(ctx, 600, 420, 1400, 1600)
+  im.SetNextWindowSize(ctx, 700, 760, im.Cond_FirstUseEver)
+  im.SetNextWindowSizeConstraints(ctx, 600, 420, 700, 1600)
   local visible, open = im.Begin(ctx, TITLE, true,
     im.WindowFlags_NoCollapse | im.WindowFlags_NoTitleBar | im.WindowFlags_NoScrollbar | im.WindowFlags_NoScrollWithMouse)
   if visible then
@@ -2531,7 +2640,12 @@ local function Frame()
   Widgets_Pop()
   im.PopStyleColor(ctx, 7)
   im.PopStyleVar(ctx, 6)
-  if open and not S.close then r.defer(Frame) end
+  if open and not S.close then r.defer(Frame)
+  elseif S.restart then
+    -- the updated Script Manager, in a fresh window
+    local path = S.restart
+    r.defer(function() dofile(path) end)
+  end
 end
 
 S.msg = SETTLE_NOTE

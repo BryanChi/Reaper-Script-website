@@ -103,13 +103,11 @@ module.exports = {
 const FXD_JSFX_DIR = 'BryanChi_FX_Devices/FXD JSFXs/';
 const NOTE_TOOLS = FXD_JSFX_DIR + 'FXD Note Tools.jsfx-inc';
 const FXD_JSFX = [
-	['Algorithmic Reverb', 'A room reverb you shape by its material, its size, and where the mic and the source stand.'],
 	['Analog Drive', 'Six saturation circuits (tube, transformer, console and more), oversampled, with the bloom and sag of real gear.'],
 	['Analog Filter', 'Five analog filter models (ladder, MS-20, SEM, diode, 303) that stay in tune at full resonance.'],
 	['Audio To Notes', 'Turns the audio on a track into MIDI notes and CC in real time: drums to triggers, a voice to a synth line.', [NOTE_TOOLS]],
 	['Bucket Brigade', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.'],
 	['Compressor', 'One compressor, 24 models: from transparent digital to the feel of the classic analog units.'],
-	['ControlFreakDelay', 'A multi-tap delay with a step sequencer for its taps.'],
 	['Kaleido Chorus', 'One chorus engine, eight flavors, from a classic two-voice chorus to an octave shimmer.'],
 	['Note Echo', 'Repeats incoming notes in time, with pitch steps, strum and decay.', [NOTE_TOOLS]],
 	['Note Generator', 'Makes notes on its own with four engines, from balls bouncing in a polygon to Euclidean rhythms.', [NOTE_TOOLS]],
@@ -126,9 +124,12 @@ const FXD_JSFX = [
 
 for (const [name, description, deps] of FXD_JSFX) {
 	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';
-	module.exports['fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-')] = {
+	const id = 'fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	module.exports[id] = {
 		name,
 		kind: 'jsfx',
+		// its FX Devices device, rendered from the layout script
+		preview: '/assets/Previews/' + id + '.png',
 		description,
 		owner: 'BryanChi',
 		repo: 'BryanChi-FX-Devices',
@@ -147,3 +148,5 @@ for (const [name, description, deps] of FXD_JSFX) {
 	module.exports['fx-devices'].optional.push(file);
 }
 module.exports['fx-devices'].optional.push(module.exports['prism-eq'].include[0]);
+// not offered on their own yet, and still left out of an FX Devices install
+for (const name of ['Algorithmic Reverb', 'ControlFreakDelay']) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');

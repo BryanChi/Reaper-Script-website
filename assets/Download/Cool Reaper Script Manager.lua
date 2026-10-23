@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.12.0
+-- @version 3.12.1
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, and the free
 --   Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.12.1: the update check gives up after a few seconds on a slow or dead connection instead of
+--          holding the window.
 --   3.12.0: the Script Manager updates itself: when a newer one is out, a button at the top installs
 --          it and reopens the window. JSFX are a grid of cards, each with a picture of its FX
 --          Devices device. The window is at most 700 px wide.
@@ -50,7 +52,7 @@
 
 local r = reaper
 
-local VERSION = '3.12.0'
+local VERSION = '3.12.1'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -339,18 +341,20 @@ local function GetFinish(tmp, path, code)
   return false, (code == 200 and 'empty download') or (code and ('HTTP ' .. code)) or 'no connection'
 end
 
--- Download url to path (follows redirects); true when it got a non-empty file with HTTP 200
-local function Get(url, path)
+-- Download url to path (follows redirects); true when it got a non-empty file with HTTP 200.
+-- maxTime caps the whole download (120 s when not given); a dead connection gives up after 4 s.
+local function Get(url, path, maxTime)
+  maxTime = maxTime or 120
   local tmp = path .. '.download'
   os.remove(tmp)
   local code
   if IS_WIN then
-    local res = r.ExecProcess(string.format('curl -sS -L -f --max-time 120 -o "%s" -w "%%{http_code}" "%s"', tmp, url), 130000)
+    local res = r.ExecProcess(string.format('curl -sS -L -f --connect-timeout 4 --max-time %d -o "%s" -w "%%{http_code}" "%s"', maxTime, tmp, url), (maxTime + 10) * 1000)
     code = tonumber((res or ''):match('(%d%d%d)%s*$'))
   else
     local codeFile, sh = TempFile('code.txt'), TempFile('get.sh')
-    WriteFile(sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --max-time 120 -o %s -w '%%{http_code}' %s > %s 2>/dev/null\n",
-      ShellQuote(tmp), ShellQuote(url), ShellQuote(codeFile)))
+    WriteFile(sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --connect-timeout 4 --max-time %d -o %s -w '%%{http_code}' %s > %s 2>/dev/null\n",
+      maxTime, ShellQuote(tmp), ShellQuote(url), ShellQuote(codeFile)))
     os.execute('/bin/sh ' .. ShellQuote(sh))
     code = tonumber((ReadFile(codeFile) or ''):match('(%d%d%d)'))
     os.remove(codeFile) os.remove(sh)
@@ -1103,7 +1107,8 @@ local function CheckManagerUpdate()
   if S.selfUpdate then os.remove(S.selfUpdate.file) end
   S.selfUpdate = nil
   local file = TempFile('manager.lua')
-  if not Get(MANAGER_URL, file) then return end
+  -- a quick check: on a slow or dead connection it's skipped, not waited for
+  if not Get(MANAGER_URL, file, 8) then return end
   local code = ReadFile(file) or ''
   local v = code:match("\nlocal VERSION = '([%d%.]+)'")
   if not (v and Newer(v, VERSION) and load(code)) then os.remove(file) return end

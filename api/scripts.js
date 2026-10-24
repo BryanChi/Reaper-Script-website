@@ -164,7 +164,7 @@ async function fetchCatalog() {
 function catalogVersion(catalog, path) {
 	for (const layout of Object.values(catalog.layouts || {})) {
 		for (const v of layout.versions || []) {
-			if ((v.files || []).includes(path)) return v;
+			if ((v.files || []).some(f => f.path === path)) return v;
 		}
 	}
 	return null;

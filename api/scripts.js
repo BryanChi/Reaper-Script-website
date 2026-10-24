@@ -7,6 +7,7 @@
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
+//   action=layouts / layout -> FX Devices' plugin layouts published between releases (layoutsAction)
 // Every download needs a license or trial key that verifies (a free trial is enough; free products
 // like Prism EQ need none; FX Devices' own JSFX take FX Devices' key), so the repos can be private and each copy can be traced: the main
 // script of every download carries a code naming the key it was downloaded with
@@ -140,6 +141,73 @@ function publicProduct(id, p) {
 	};
 }
 
+// FX Devices' plugin layouts, published between releases: FX Devices' repo keeps them on its
+// "layouts" branch, each version as its own file (Layouts/<Name>/<version>.lua) and all of them in
+// catalog.json there. FX Devices checks the catalog once a day and offers the layouts of the plugins
+// people have.
+//   action=layouts -> the catalog (no key needed)
+//   action=layout  -> one file of a published version (path from the catalog), with an FX Devices
+//                     license or trial key; a .lua is stamped like the main script
+const LAYOUTS = { owner: 'BryanChi', repo: 'BryanChi-FX-Devices', ref: 'layouts', license: 'fx-devices' };
+let catalogCache = null;
+
+async function fetchCatalog() {
+	if (catalogCache && Date.now() - catalogCache.at < RELEASE_TTL) return catalogCache.catalog;
+	const resp = await fetchRaw(LAYOUTS, 'catalog.json', LAYOUTS.ref);
+	if (!resp.ok) return resp.status === 404 ? {} : null;
+	const catalog = await resp.json();
+	catalogCache = { at: Date.now(), catalog };
+	return catalog;
+}
+
+// the published version a catalog path belongs to, so only those files are served
+function catalogVersion(catalog, path) {
+	for (const layout of Object.values(catalog.layouts || {})) {
+		for (const v of layout.versions || []) {
+			if ((v.files || []).some(f => f.path === path)) return v;
+		}
+	}
+	return null;
+}
+
+async function layoutsAction(action, input, res) {
+	try {
+		const catalog = await fetchCatalog();
+		if (!catalog) return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
+		if (action === 'layouts') {
+			res.setHeader('Cache-Control', 'public, max-age=300');
+			return res.status(200).json({ ok: true, layouts: catalog.layouts || {} });
+		}
+
+		const path = input.path;
+		const version = typeof path === 'string' && !path.includes('..') && catalogVersion(catalog, path);
+		if (!version) return res.status(404).json({ ok: false, error: 'Unknown layout' });
+		const key = typeof input.licenseKey === 'string' ? input.licenseKey.trim() : '';
+		if (!key) return res.status(401).json({ ok: false, error: 'License key required. Start a free trial or enter your license key.' });
+		const lic = await verifyLicense(key, null, LAYOUTS.license);
+		if (!lic || !lic.ok) {
+			return res.status(403).json({ ok: false, status: lic && lic.status, error: (lic && lic.reason) || 'License not valid' });
+		}
+		// like releases: a license includes the versions published while its updates last
+		const until = lic.status === 'active' ? lic.updatesUntil || null : null;
+		if (until && new Date(version.date).getTime() > until) {
+			const owner = PRODUCTS[LAYOUTS.license];
+			return res.status(403).json({ ok: false, updatesEnded: true, updatesUntil: until, buyUrl: owner.buyUrl,
+				error: `Your ${owner.name} updates ended before this layout version came out. Buy ${owner.name} again to renew them for 2 years, or pick an older version.` });
+		}
+		const resp = await fetchRaw(LAYOUTS, path, LAYOUTS.ref);
+		if (!resp.ok) return res.status(resp.status === 404 ? 404 : 502).json({ ok: false, error: `GitHub ${resp.status}` });
+		let buf = Buffer.from(await resp.arrayBuffer());
+		if (path.endsWith('.lua')) buf = stampScript(buf, downloadStamp(key));
+		res.setHeader('Content-Type', 'application/octet-stream');
+		res.setHeader('Cache-Control', 'no-store');
+		return res.status(200).send(buf);
+	} catch (err) {
+		console.error('layouts api error', err);
+		return res.status(502).json({ ok: false, error: 'Could not reach GitHub' });
+	}
+}
+
 module.exports = async function handler(req, res) {
 	if (req.method !== 'POST' && req.method !== 'GET') {
 		res.setHeader('Allow', ['GET', 'POST']);
@@ -167,6 +235,8 @@ module.exports = async function handler(req, res) {
 			products: list.filter((_, i) => shown[i]).map(([id, p]) => publicProduct(id, p))
 		});
 	}
+
+	if (action === 'layouts' || action === 'layout') return layoutsAction(action, input, res);
 
 	const product = PRODUCTS[input.product] && PRODUCTS.forPlatform(PRODUCTS[input.product], platform);
 	if (!product || product.installable === false) return res.status(404).json({ ok: false, error: 'Unknown product' });

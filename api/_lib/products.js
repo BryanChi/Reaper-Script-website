@@ -22,7 +22,7 @@ module.exports = {
 		// extstate section the script reads its license key and email from
 		licenseSection: 'FXD_Vertical_FX_List_License',
 		// where the Script Manager's Buy button goes
-		buyUrl: 'https://www.coolreaperscripts.com/#pricing'
+		buyUrl: 'https://www.coolreaperscripts.com/pricing#vertical-fx-list'
 	},
 	'fx-devices': {
 		name: 'FX Devices',
@@ -59,8 +59,7 @@ module.exports = {
 		licenseSection: 'CRS_FX_Devices_License',
 		// main is an old build without the license check: only published releases are served
 		releasesOnly: true,
-		// no FX Devices checkout on the site yet, so this is the shared pricing section
-		buyUrl: 'https://www.coolreaperscripts.com/#pricing',
+		buyUrl: 'https://www.coolreaperscripts.com/pricing#fx-devices',
 		// installers before the Script Manager (3) can't put the JSFX in the Effects folder
 		minClient: 3,
 		// JSFX that are their own items (FXD_JSFX below): Script Managers from 3.11 (5)

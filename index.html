@@ -24,6 +24,9 @@
 	<meta name="twitter:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
 	<meta name="twitter:image" content="https://example.com/og-image.jpg">
 
+	<!-- Pricing moved to /pricing; old links to /#pricing (older scripts and Script Managers) land there -->
+	<script>if (location.hash === '#pricing') location.replace('/pricing' + location.search);</script>
+
 	<link rel="icon" href="/favicon.ico">
 	<link rel="stylesheet" href="./styles.css">
 
@@ -46,7 +49,7 @@
 			"priceCurrency": "USD",
 			"price": "89",
 			"availability": "https://schema.org/InStock",
-			"url": "https://example.com/#pricing"
+			"url": "https://www.coolreaperscripts.com/pricing#vertical-fx-list"
 		}
 	}
 	</script>
@@ -65,7 +68,7 @@
 				<a href="#demo">Demo</a>
 				<a href="#how-it-works">Installation</a>
 				<a href="#license">License</a>
-				<a href="#pricing">Pricing</a>
+				<a href="/pricing">Pricing</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
 				<a href="/fx-devices">FX Devices</a>
@@ -101,7 +104,7 @@
 						</div>
 					</div>
 				</div>
-				<a class="btn btn-primary buy-now" href="#pricing" id="buyNowTop">Buy Now</a>
+				<a class="btn btn-primary buy-now" href="/pricing" id="buyNowTop">Buy Now</a>
 			</div>
 		</div>
 	</header>
@@ -713,32 +716,6 @@
 		</section>
 
 
-		<section id="pricing" class="section alt">
-			<div class="container">
-				<h2>Pricing</h2>
-				<div class="pricing">
-					<div class="price-card">
-						<h3>Standard License</h3>
-						<p class="price"><s class="price-was" id="priceWas" hidden>$89</s><span class="currency">$</span><span class="amount" id="priceAmount">89</span></p>
-						<ul class="list">
-							<li>1 user, lifetime license</li>
-							<li>2 years of updates included</li>
-							<li>Email support</li>
-						</ul>
-						<form class="discount-row" id="discountForm" autocomplete="off">
-							<input type="text" id="discountCode" placeholder="Discount code" aria-label="Discount code" maxlength="40">
-							<button class="btn btn-ghost" type="submit" id="discountApply">Apply</button>
-						</form>
-						<p class="tiny muted discount-msg" id="discountMsg" aria-live="polite"></p>
-						<p class="tiny muted discount-msg" id="pricingSignedIn"></p>
-						<div id="paypal-button-container" style="margin-top: 16px;"></div>
-						<p class="muted tiny">30-day money-back guarantee.</p>
-					</div>
-				</div>
-			</div>
-		</section>
-
-
 		<section id="faq" class="section alt">
 			<div class="container">
 				<h2>FAQ</h2>
@@ -775,7 +752,7 @@
 		<div class="container footer-inner">
 			<p class="muted">© <span id="year">2026</span> CoolReaperScripts. Not affiliated with Cockos Incorporated.</p>
 			<nav class="footer-nav">
-				<a href="#pricing">Buy</a>
+				<a href="/pricing">Buy</a>
 				<a href="#license">License</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>

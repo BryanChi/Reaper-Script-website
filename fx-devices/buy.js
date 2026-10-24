@@ -130,19 +130,25 @@
     if (loading) return; loading = true;
     if (window.paypal && window.paypal.Buttons) { render(); return; }
     const fail = text => { host.textContent = ''; say(text, true); };
-    // The client id comes from the server, so the button uses the same PayPal app as the checkout
-    fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
+    // The client id comes from the server, so the button uses the same PayPal app as the checkout.
+    // Shared with script.js: the pricing page has both checkouts and must load the SDK once.
+    window.crsPayPalSdk = window.crsPayPalSdk || fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
       if (!cfg.ok || !cfg.clientId) throw new Error(cfg.error || 'no client id');
-      const s = document.createElement('script');
-      s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
-      s.onload = render;
-      s.onerror = () => fail('PayPal could not load. Check your connection or ad blocker, then refresh.');
-      document.head.appendChild(s);
-    }).catch(() => fail('The checkout is not available right now. Please try again later.'));
+      return new Promise((ok, bad) => {
+        const s = document.createElement('script');
+        s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
+        s.onload = ok;
+        s.onerror = () => bad(new Error('sdk'));
+        document.head.appendChild(s);
+      });
+    });
+    window.crsPayPalSdk.then(render, err => fail(err && err.message === 'sdk'
+      ? 'PayPal could not load. Check your connection or ad blocker, then refresh.'
+      : 'The checkout is not available right now. Please try again later.'));
   }
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: '800px 0px' });
     io.observe(host);
   } else load();
-  if (location.hash === '#buy') load();
+  if (location.hash === '#buy' || location.hash === '#fx-devices') load();
 })();

@@ -127,7 +127,7 @@ input {
     <h1>No <span class="pname"></span> license on this account</h1>
     <p><b class="who"></b> has no <span class="pname"></span> license or trial yet. Start a trial or buy a license here and REAPER picks it up while it's waiting.</p>
     <button class="btn go" id="trial" type="button">Start a 30-day free trial</button>
-    <a class="btn" id="buy" href="/#pricing" target="_blank" rel="noopener">Buy a license</a>
+    <a class="btn" id="buy" href="/pricing" target="_blank" rel="noopener">Buy a license</a>
     <p class="small">Bought it with another email? <button class="linkbtn switch" type="button">Use a different account</button></p>
   </section>
 
@@ -139,7 +139,7 @@ input {
 (function () {
   'use strict';
   var PENDING_KEY = 'crs_link_pending';
-  var BUY = { 'fx-devices': '/fx-devices#buy', 'vertical-fx-list': '/#pricing' };
+  var BUY = { 'fx-devices': '/pricing#fx-devices', 'vertical-fx-list': '/pricing#vertical-fx-list' };
   var $ = function (id) { return document.getElementById(id); };
   var views = ['loading', 'bad', 'signin', 'confirm', 'done', 'none'];
   var info = null, client = null;
@@ -195,7 +195,7 @@ input {
       clearPending();
       show('done');
     } else {
-      $('buy').href = BUY[info.product] || '/#pricing';
+      $('buy').href = BUY[info.product] || '/pricing';
       show('none');
     }
   }

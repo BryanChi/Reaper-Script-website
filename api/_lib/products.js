@@ -67,7 +67,19 @@ module.exports = {
 		// leave them out of an FX Devices install and only update the ones already on disk. The JSFX
 		// FX Devices itself runs on (Macros, Container Macros, the splitters, Analyzer, Gain Reduction
 		// Scope, ReSpectrum, RackMixer, Clash Finder, the .jsfx-inc files) always come with it.
-		optional: []
+		optional: [],
+		// the FXD Macros CLAP comes with FX Devices where there's a build of it (Script Managers from
+		// 3.13 put it in the CLAP folder); FX Devices' own include and routes everywhere else
+		platforms: {
+			mac: {
+				include: ['BryanChi_FX_Devices/', 'CLAP/macOS/FXD Macros.clap/'],
+				routes: [
+					{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' },
+					{ from: 'CLAP/macOS/', to: '{CLAP}/' }
+				]
+			},
+			default: {}
+		}
 	},
 	'prism-eq': {
 		name: 'Prism EQ',
@@ -137,7 +149,8 @@ function clapPlatforms(name) {
 // when it has no build for that platform (or the client didn't say which it is).
 function forPlatform(product, platform) {
 	if (!product.platforms) return product;
-	const build = platform && product.platforms[platform];
+	// platforms.default: what every other platform (and a Manager that doesn't say) gets
+	const build = (platform && product.platforms[platform]) || product.platforms.default;
 	return build ? Object.assign({}, product, build) : null;
 }
 Object.defineProperty(module.exports, 'forPlatform', { value: forPlatform, enumerable: false });

@@ -63,7 +63,7 @@ module.exports = {
 		buyUrl: 'https://www.coolreaperscripts.com/#pricing',
 		// installers before the Script Manager (3) can't put the JSFX in the Effects folder
 		minClient: 3,
-		// JSFX that are their own items (FXD_JSFX below, and Prism EQ): Script Managers from 3.11 (5)
+		// JSFX that are their own items (FXD_JSFX below): Script Managers from 3.11 (5)
 		// leave them out of an FX Devices install and only update the ones already on disk. The JSFX
 		// FX Devices itself runs on (Macros, Container Macros, the splitters, Analyzer, Gain Reduction
 		// Scope, ReSpectrum, RackMixer, Clash Finder, the .jsfx-inc files) always come with it.
@@ -71,31 +71,77 @@ module.exports = {
 	},
 	'prism-eq': {
 		name: 'Prism EQ',
-		// the Script Manager lists JSFX in their own section, as smaller cards with a GUI preview
-		kind: 'jsfx',
+		// a CLAP plugin (the JSFX is discontinued): the Script Manager lists plugins in their own
+		// section, as cards with a preview, like the JSFX
+		kind: 'clap',
 		preview: '/assets/Previews/prism-eq.png',
 		// no license: anyone can install it, nothing is stamped
 		free: true,
-		description: 'A free 16-band EQ: any band can go dynamic, spectral, saturated or mid/side. One JSFX.',
-		// FX Devices ships it, so it comes from FX Devices' releases
+		description: 'A free 16-band EQ: any band can go dynamic, spectral, saturated or mid/side. A CLAP plugin with its own window.',
 		owner: 'BryanChi',
 		repo: 'BryanChi-FX-Devices',
 		branch: 'main',
 		releasesOnly: true,
-		include: ['BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx'],
-		// the same file FX Devices installs, so people with both get one Prism EQ in the FX browser,
-		// not two; the Script Manager keeps its notes (version.txt, manifest) in installDir
+		// the Script Manager keeps its notes (version.txt, manifest) in installDir; the plugin goes in
+		// the user's CLAP folder (CLAP_DIRS)
 		installDir: 'Scripts/CoolReaperScripts/Prism EQ',
-		routes: [{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
-		// with FX Devices installed, the Script Manager shows it as part of FX Devices instead
-		includedIn: 'fx-devices',
-		// there is no script to look for: this file being there means it's installed
-		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx',
+		platforms: clapPlatforms('FXD Prism EQ'),
+		// the discontinued JSFX: deleted once the plugin is in (FX Devices' copy and the website download)
+		replaces: ['Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx', 'Effects/FXD Prism EQ.jsfx'],
 		pageUrl: 'https://www.coolreaperscripts.com/prism-eq',
-		// Script Managers before 3.10 (4) ask for a license for everything
-		minClient: 4
+		// Script Managers before 3.13 (6) can't install plugins
+		minClient: 6
+	},
+	'fxd-waveshaper': {
+		name: 'Waveshaper',
+		kind: 'clap',
+		description: 'A 16-point waveshaper with an analog stage, from warm saturation to wavefolding, with eight built-in modulators.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		// FX Devices' license or trial, for the download and inside the plugin (it reads FX Devices' saved license)
+		licenseOf: 'fx-devices',
+		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Waveshaper',
+		platforms: clapPlatforms('FXD Waveshaper'),
+		minClient: 6
 	}
 };
+
+// The CLAP plugins' builds, per platform, from FX Devices' repo (CLAP/<platform>/, built by
+// "Native Plugins/stage.sh"), installed in the user's CLAP folder ('{CLAP}/'; the Script Manager
+// knows where that is). The Script Manager says which platform it runs on: a platform without a
+// build doesn't get the plugin, and a plugin only shows once the newest release has its build
+// (inRelease), so nothing is offered before it's released.
+//   mac: a .clap bundle (a folder, universal arm64 + x86_64)   win64: one .clap file (x64)
+function clapPlatforms(name) {
+	const mac = 'CLAP/macOS/' + name + '.clap/';
+	const win = 'CLAP/Windows/' + name + '.clap';
+	return {
+		mac: {
+			include: [mac],
+			routes: [{ from: 'CLAP/macOS/', to: '{CLAP}/' }],
+			inRelease: mac + 'Contents/MacOS/' + name,
+			installedFile: '{CLAP}/' + name + '.clap/Contents/MacOS/' + name
+		},
+		win64: {
+			include: [win],
+			routes: [{ from: 'CLAP/Windows/', to: '{CLAP}/' }],
+			inRelease: win,
+			installedFile: '{CLAP}/' + name + '.clap'
+		}
+	};
+}
+
+// A product as one platform gets it: its platform's include, routes and files over the rest. null
+// when it has no build for that platform (or the client didn't say which it is).
+function forPlatform(product, platform) {
+	if (!product.platforms) return product;
+	const build = platform && product.platforms[platform];
+	return build ? Object.assign({}, product, build) : null;
+}
+Object.defineProperty(module.exports, 'forPlatform', { value: forPlatform, enumerable: false });
+Object.defineProperty(module.exports, 'clapPlatforms', { value: clapPlatforms, enumerable: false });
 
 // FX Devices' own effects, each installable on its own from the Script Manager's JSFX section. They
 // come from FX Devices' releases and need an FX Devices license or trial (licenseOf); one only shows
@@ -147,6 +193,6 @@ for (const [name, description, deps] of FXD_JSFX) {
 	};
 	module.exports['fx-devices'].optional.push(file);
 }
-module.exports['fx-devices'].optional.push(module.exports['prism-eq'].include[0]);
 // not offered on their own yet, and still left out of an FX Devices install
-for (const name of ['Algorithmic Reverb', 'ControlFreakDelay']) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');
+// Prism EQ's discontinued JSFX: never installed again
+for (const name of ['Prism EQ', 'Algorithmic Reverb', 'ControlFreakDelay']) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');

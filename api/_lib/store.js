@@ -1111,6 +1111,87 @@ async function pollLink(deviceCode, deviceId) {
 	return { ok: true, status: 'no-license', email: row.email, licenseStatus: lic.status || 'inactive' };
 }
 
+// Native plugins (FX Devices' CLAP plugins) check the license themselves: they can't trust anything
+// a script saved on the computer, since anyone can write that. So with a verify request they ask for
+// a token this server signs (Ed25519, key in LICENSE_TOKEN_KEY: base64 PKCS8 DER), and the plugin
+// checks the signature with the public key built into it. The token names the product, status,
+// computer (device ID + the plugin's hardware hash) and when it stops counting: at most
+// NATIVE_TOKEN_DAYS ahead (the plugins' offline grace: they ask again once a day), never past a
+// trial's or license's end.
+// A computer's hardware hash is saved with its activation the first time a plugin asks
+// (device_activations.hw, supabase_native_token_migration.sql), and a token for that device ID is
+// only ever signed for that hash again: a key + device ID copied to another computer gets nothing.
+const NATIVE_TOKEN_DAYS = 14;
+
+function b64url(buf) {
+	return Buffer.from(buf).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+let tokenKey;
+function nativeTokenKey() {
+	if (tokenKey !== undefined) return tokenKey;
+	tokenKey = null;
+	const raw = process.env.LICENSE_TOKEN_KEY;
+	if (raw) {
+		try {
+			tokenKey = crypto.createPrivateKey({ key: Buffer.from(raw.trim(), 'base64'), format: 'der', type: 'pkcs8' });
+		} catch (err) {
+			console.error('LICENSE_TOKEN_KEY is not a base64 PKCS8 Ed25519 key:', err.message);
+		}
+	}
+	return tokenKey;
+}
+
+// lic = verifyLicense's ok answer for this key + device. retry = try again later (the plugin keeps
+// its token meanwhile), otherwise ok: false = no token for this computer.
+async function issueNativeToken(licenseKey, deviceId, productInput, hwInput, lic) {
+	const key = nativeTokenKey();
+	if (!key) return { ok: false, retry: true, reason: 'License tokens are not set up on the server' };
+	if (!deviceId) return { ok: false, status: 'invalid', reason: 'Sign in on this computer first.' };
+	const product = normalizeProduct(productInput);
+	const hw = String(hwInput || '').replace(/[^0-9a-f]/gi, '').slice(0, 64).toLowerCase();
+
+	if (supabase) {
+		const { data: row, error } = await supabase
+			.from('device_activations')
+			.select('*')
+			.eq('license_key', licenseKey)
+			.eq('device_id', deviceId)
+			.eq('active', true)
+			.maybeSingle();
+		if (error) {
+			console.error('Error reading device activation for a token:', error);
+			return { ok: false, retry: true, reason: 'License check unavailable, try again later' };
+		}
+		if (!row) return { ok: false, status: 'invalid', reason: 'This computer is not activated. Sign in from FX Devices.' };
+		if (hw && row.hw && row.hw !== hw) {
+			return { ok: false, status: 'other-computer', reason: 'This license was activated on another computer. Sign in from FX Devices on this one.' };
+		}
+		if (hw && !row.hw && Object.prototype.hasOwnProperty.call(row, 'hw')) {
+			const { error: upErr } = await supabase.from('device_activations').update({ hw }).eq('id', row.id);
+			if (upErr) console.error('Error saving the hardware hash:', upErr);
+		}
+	}
+
+	const now = Math.floor(Date.now() / 1000);
+	let exp = now + NATIVE_TOKEN_DAYS * 86400;
+	if (lic.expiresAt) exp = Math.min(exp, Math.floor(Number(lic.expiresAt) / 1000));
+	if (exp <= now) return { ok: false, status: 'expired', reason: lic.status === 'trial' ? 'Trial expired' : 'License expired' };
+	const payload = {
+		v: 1,
+		p: product,
+		s: lic.status,
+		k: crypto.createHash('sha512').update(String(licenseKey)).digest('hex').slice(0, 16),
+		d: String(deviceId),
+		h: hw,
+		i: now,
+		e: exp
+	};
+	const body = b64url(JSON.stringify(payload));
+	const sig = crypto.sign(null, Buffer.from(body), key);
+	return { ok: true, token: body + '.' + b64url(sig), tokenExpiresAt: exp * 1000 };
+}
+
 // The code stamped into every script download (api/scripts.js): who downloaded it, without
 // putting the key or email in the file. The admin page's "Trace a leaked copy" finds the
 // license or trial a code belongs to by computing it for each key.
@@ -1121,6 +1202,7 @@ function downloadStamp(licenseKey) {
 
 module.exports = {
 	downloadStamp,
+	issueNativeToken,
 	startLink,
 	linkEmail,
 	linkInfo,

@@ -105,19 +105,6 @@ module.exports = {
 		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Waveshaper',
 		platforms: clapPlatforms('FXD Waveshaper'),
 		minClient: 6
-	},
-	'fxd-macros': {
-		name: 'Macros CLAP',
-		kind: 'clap',
-		description: 'Runs a track\'s FX Devices modulators in a plugin instead of the FXD Macros JSFX. Turn it on in FX Devices: Settings > General > Modulation.',
-		owner: 'BryanChi',
-		repo: 'BryanChi-FX-Devices',
-		branch: 'main',
-		releasesOnly: true,
-		licenseOf: 'fx-devices',
-		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Macros',
-		platforms: clapPlatforms('FXD Macros'),
-		minClient: 6
 	}
 };
 

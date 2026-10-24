@@ -117,7 +117,7 @@ function VST3.Dir()
   local la = os.getenv('LOCALAPPDATA')
   if not la or la == '' then la = (os.getenv('USERPROFILE') or '') .. '\\AppData\\Local' end
   local user = la .. '\\Programs\\Common\\VST3'
-  local function has(dir) local f = io.open(dir .. '\\FXD Prism EQ.vst3', 'rb') if f then f:close() return true end end
+  local function has(dir) local f = io.open(dir .. '\\FXD Prism EQ.vst3\\Contents\\x86_64-win\\FXD Prism EQ.vst3', 'rb') if f then f:close() return true end end
   local function writable(dir)
     r.RecursiveCreateDirectory(dir, 0)
     local t = dir .. '\\.crs_write_test'

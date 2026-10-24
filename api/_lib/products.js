@@ -129,7 +129,7 @@ module.exports = {
 // user's VST3 folder ('{VST3}/'), for Script Managers that know that folder (VST3_CLIENT): one card,
 // both formats. Its files come from the release like the rest, so a release without the VST3 build
 // just installs the CLAP.
-//   mac: a .vst3 bundle (universal)   win64: one .vst3 file (x64)
+//   mac: a .vst3 bundle (universal)   win64: a .vst3 bundle folder (Contents/x86_64-win/<name>.vst3)
 const VST3_CLIENT = 7;
 function clapPlatforms(name, opts) {
 	const mac = 'CLAP/macOS/' + name + '.clap/';
@@ -153,9 +153,9 @@ function clapPlatforms(name, opts) {
 			inRelease: win,
 			installedFile: '{CLAP}/' + name + '.clap',
 			vst3: vst3 ? {
-				include: ['VST3/Windows/' + name + '.vst3'],
+				include: ['VST3/Windows/' + name + '.vst3/'],
 				routes: [{ from: 'VST3/Windows/', to: '{VST3}/' }],
-				installedFile: '{VST3}/' + name + '.vst3'
+				installedFile: '{VST3}/' + name + '.vst3/Contents/x86_64-win/' + name + '.vst3'
 			} : undefined
 		}
 	};

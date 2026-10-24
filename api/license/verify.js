@@ -1,4 +1,4 @@
-const { verifyLicense, getLicenseOrTrialStatus, emailFromAccessToken } = require('../_lib/store');
+const { verifyLicense, getLicenseOrTrialStatus, emailFromAccessToken, issueNativeToken } = require('../_lib/store');
 
 module.exports = async function handler(req, res) {
 	if (req.method !== 'POST') {
@@ -38,6 +38,21 @@ module.exports = async function handler(req, res) {
 		});
 	}
 
+	// a native plugin's own check (native: 1, hw = its hardware hash): a signed token on top
+	let token = null, tokenExpiresAt = null;
+	if (licenseKey && !email && body.native && result.ok !== false) {
+		const t = await issueNativeToken(licenseKey, deviceId, product, body.hw, result);
+		if (t.retry) {
+			res.setHeader('Content-Type', 'text/plain');
+			return res.status(503).send(t.reason);
+		}
+		if (!t.ok) {
+			return res.status(400).json({ ok: false, status: t.status || 'invalid', reason: t.reason || null, expiresAt: result.expiresAt || null });
+		}
+		token = t.token;
+		tokenExpiresAt = t.tokenExpiresAt;
+	}
+
 	const statusCode = result.ok === false ? 400 : 200;
 	return res.status(statusCode).json({
 		ok: result.ok !== false,
@@ -45,7 +60,8 @@ module.exports = async function handler(req, res) {
 		expiresAt: result.expiresAt || null,
 		updatesUntil: result.updatesUntil || null,
 		reason: result.reason || null,
-		licenseKey: result.licenseKey || null
+		licenseKey: result.licenseKey || null,
+		...(token ? { token, tokenExpiresAt } : {})
 	});
 };
 

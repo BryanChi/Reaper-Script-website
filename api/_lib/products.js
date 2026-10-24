@@ -181,8 +181,15 @@ const FXD_JSFX = [
 	['Wow Flutter', 'The pitch wobble of old tape and vinyl transports, up to a tape stop.']
 ];
 
+// held back from the releases for now (bryan, 2026-10-24): Patina and its nine modules aren't offered,
+// and an FX Devices install leaves them out too. Take a name out of here to offer it again.
+const HELD = new Set(['Patina', 'Analog Drive', 'Tape Machine', 'Wow Flutter', 'Vintage Sampler', 'Vintage Space',
+	'Surface Noise', 'Analog Filter', 'Bucket Brigade', 'Tape Glitch']);
+
 for (const [name, description, deps] of FXD_JSFX) {
 	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';
+	module.exports['fx-devices'].optional.push(file);
+	if (HELD.has(name)) continue;
 	const id = 'fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 	module.exports[id] = {
 		name,
@@ -204,7 +211,6 @@ for (const [name, description, deps] of FXD_JSFX) {
 		// Script Managers before 3.11 (5) install every FX Devices JSFX with FX Devices
 		minClient: 5
 	};
-	module.exports['fx-devices'].optional.push(file);
 }
 // not offered on their own yet, and still left out of an FX Devices install
 // Prism EQ's discontinued JSFX: never installed again

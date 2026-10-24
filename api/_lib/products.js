@@ -181,10 +181,14 @@ const FXD_JSFX = [
 	['Wow Flutter', 'The pitch wobble of old tape and vinyl transports, up to a tape stop.']
 ];
 
-// held back from the releases for now (bryan, 2026-10-24): Patina and its nine modules aren't offered,
-// and an FX Devices install leaves them out too. Take a name out of here to offer it again.
+// Held back from the releases (bryan, 2026-10-24: new native FX Devices devices only ship once he
+// says so): not offered, and an FX Devices install leaves their files out too. Take a name out of
+// here to offer it again; one that isn't in FXD_JSFX then also needs its own entry there (or, for a
+// file FX Devices itself runs on, taking it out of HELD_CORE is enough).
 const HELD = new Set(['Patina', 'Analog Drive', 'Tape Machine', 'Wow Flutter', 'Vintage Sampler', 'Vintage Space',
-	'Surface Noise', 'Analog Filter', 'Bucket Brigade', 'Tape Glitch']);
+	'Surface Noise', 'Analog Filter', 'Bucket Brigade', 'Tape Glitch', 'Compressor']);
+const HELD_CORE = ['Poise', 'Noise Splitter'];
+for (const name of HELD_CORE) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');
 
 for (const [name, description, deps] of FXD_JSFX) {
 	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';

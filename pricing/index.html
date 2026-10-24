@@ -1,0 +1,272 @@
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Pricing – Vertical FX List and FX Devices for REAPER</title>
+	<meta name="description" content="Buy a lifetime license for Vertical FX List or FX Devices for REAPER. 2 years of updates, 3 computers, 30-day money-back guarantee.">
+	<link rel="canonical" href="https://www.coolreaperscripts.com/pricing">
+	<meta name="theme-color" content="#07110c">
+
+	<!-- Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+	<!-- Open Graph -->
+	<meta property="og:title" content="Reaper Script – Boost Your Workflow">
+	<meta property="og:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta property="og:type" content="product">
+	<meta property="og:url" content="https://example.com/">
+	<meta property="og:image" content="https://example.com/og-image.jpg">
+
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Reaper Script – Boost Your Workflow">
+	<meta name="twitter:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta name="twitter:image" content="https://example.com/og-image.jpg">
+
+	<link rel="icon" href="/favicon.ico">
+	<link rel="stylesheet" href="/styles.css">
+
+	<!-- Product structured data -->
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "Product",
+		"name": "Vertical FX List for REAPER",
+		"description": "A vertical FX manager for REAPER with multi-select, parallel grouping, container-aware UI, and in-place sends/pan controls.",
+		"brand": {
+			"@type": "Brand",
+			"name": "BryanChi"
+		},
+		"sku": "RS-001",
+		"url": "https://example.com/",
+		"image": "https://example.com/og-image.jpg",
+		"offers": {
+			"@type": "Offer",
+			"priceCurrency": "USD",
+			"price": "89",
+			"availability": "https://schema.org/InStock",
+			"url": "https://www.coolreaperscripts.com/pricing#vertical-fx-list"
+		}
+	}
+	</script>
+
+	<!-- PayPal SDK (Sandbox/Test Mode) -->
+
+	<!-- Analytics (optional) -->
+	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
+</head>
+<body data-api-base="" data-supabase-url="https://txevakkpyrnbrwbqizov.supabase.co" data-supabase-anon-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZXZha2tweXJuYnJ3YnFpem92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNDQ4MzcsImV4cCI6MjA4MDcyMDgzN30.T7PDcDzQ5Vn9NqRG6-34wizqznMWHt0aHKc0Osv2D7w" data-supabase-redirect="">
+	<header class="site-header scrolled">
+		<div class="container header-inner">
+			<a class="brand" href="/">Reaper Script</a>
+			<nav class="nav">
+				<a href="/#features">Features</a>
+				<a href="/#demo">Demo</a>
+				<a href="/#how-it-works">Installation</a>
+				<a href="/#license">License</a>
+				<a href="/pricing" aria-current="page">Pricing</a>
+				<a href="/#faq">FAQ</a>
+				<a href="/#contact">Contact</a>
+				<a href="/fx-devices">FX Devices</a>
+				<a href="/prism-eq">Prism EQ</a>
+			</nav>
+			<div class="header-actions">
+				<div class="auth-controls">
+					<button class="btn btn-ghost" id="loginButton" type="button">Log in</button>
+					<div class="user-menu" id="userMenu" hidden="">
+						<button class="user-chip" id="userMenuButton" type="button">
+							<div class="user-avatar" id="userAvatar">U</div>
+							<div class="user-meta">
+								<span class="user-label">Signed in</span>
+								<span class="user-email" id="userEmailDisplay"></span>
+							</div>
+							<span class="chevron" aria-hidden="true">▾</span>
+						</button>
+						<div class="user-menu-panel" id="userMenuPanel" hidden="">
+							<div class="user-menu-row">
+								<div class="user-avatar small" id="userAvatarSmall">U</div>
+								<div class="user-email-full" id="userEmailFull"></div>
+							</div>
+							<div class="license-management-section" id="licenseManagementSection">
+								<div class="license-section-header">
+									<h4>License Information</h4>
+									<button class="btn-refresh-license" id="refreshLicenseBtn" type="button" title="Refresh license info">↻</button>
+								</div>
+								<div class="license-status-display" id="licenseStatusDisplay">
+									<div class="license-loading">Loading license information...</div>
+								</div>
+							</div>
+							<button class="user-menu-item" id="logoutButton" type="button">Sign out</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</header>
+
+	<main id="home">
+		<section id="pricing" class="section pricing-page">
+			<div class="container">
+				<h1 class="pricing-title">Pricing</h1>
+				<p class="lead-text pricing-lead">One payment, yours for good. Every license includes 2 years of updates and works on up to 3 computers.</p>
+				<div class="pricing pricing-grid">
+					<div class="price-card" id="vertical-fx-list">
+						<h3>Vertical FX List</h3>
+						<p class="tiny muted">Standard License</p>
+						<p class="price"><s class="price-was" id="priceWas" hidden>$89</s><span class="currency">$</span><span class="amount" id="priceAmount">89</span></p>
+						<ul class="list">
+							<li>1 user, lifetime license</li>
+							<li>2 years of updates included</li>
+							<li>Email support</li>
+						</ul>
+						<form class="discount-row" id="discountForm" autocomplete="off">
+							<input type="text" id="discountCode" placeholder="Discount code" aria-label="Discount code for Vertical FX List" maxlength="40">
+							<button class="btn btn-ghost" type="submit" id="discountApply">Apply</button>
+						</form>
+						<p class="tiny muted discount-msg" id="discountMsg" aria-live="polite"></p>
+						<p class="tiny muted discount-msg" id="pricingSignedIn"></p>
+						<div id="paypal-button-container" style="margin-top: 16px;"></div>
+						<p class="muted tiny">30-day money-back guarantee.</p>
+					</div>
+
+					<div class="price-card" id="fx-devices">
+						<h3>FX Devices</h3>
+						<p class="tiny muted">Standard License</p>
+						<p class="price"><s class="price-was" id="fxd-was" hidden>$93</s><span class="currency">$</span><span class="amount" id="fxd-price">93</span></p>
+						<ul class="list">
+							<li>1 user, lifetime license</li>
+							<li>2 years of updates included</li>
+							<li>Email support</li>
+						</ul>
+						<form class="discount-row buy-code" id="fxd-code-form" autocomplete="off">
+							<input type="text" id="fxd-code" placeholder="Discount code" aria-label="Discount code for FX Devices" maxlength="40">
+							<button class="btn btn-ghost" type="submit">Apply</button>
+						</form>
+						<p class="tiny muted discount-msg buy-code-msg" id="fxd-code-msg" aria-live="polite"></p>
+						<p class="tiny muted discount-msg buy-signed-in" id="fxd-signed-in"></p>
+						<div id="fxd-paypal" class="buy-paypal" style="margin-top: 16px;" aria-live="polite"><p class="tiny muted">Loading PayPal…</p></div>
+						<p class="tiny buy-msg" id="fxd-buy-msg" role="status"></p>
+						<div class="buy-done" id="fxd-buy-done" hidden>
+							<p class="buy-done-h">Thanks for buying FX Devices</p>
+							<p class="tiny muted">Your license key:</p>
+							<div class="license-key"><span id="fxd-key"></span><button class="copy-btn" type="button" id="fxd-copy">Copy</button></div>
+							<p class="tiny muted" id="fxd-key-mail"></p>
+						</div>
+						<p class="muted tiny">30-day money-back guarantee. <a href="/fx-devices">About FX Devices</a></p>
+					</div>
+				</div>
+
+				<!-- FX Devices setup steps, shown after an FX Devices purchase (buy.js) -->
+				<div class="price-card pricing-setup" id="setup" hidden tabindex="-1">
+					<h3>Set up FX Devices</h3>
+					<ol class="success-steps">
+						<li><b>1</b><div><h4>Download the Script Manager</h4><p>The free installer that installs and updates your scripts.</p>
+							<a class="btn btn-primary success-dl" href="/assets/Download/Cool Reaper Script Manager.lua" download="Cool Reaper Script Manager.lua">Download the Script Manager</a></div></li>
+						<li><b>2</b><div><h4>Load and run it in REAPER</h4><p>Open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, pick the <code>Cool Reaper Script Manager.lua</code> you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.</p></div></li>
+						<li><b>3</b><div><h4>Sign in and install</h4><p>Next to FX Devices, click <kbd>Sign in with browser</kbd>. The activation page opens with a code. Sign in with <strong class="setup-email">the email your key was sent to</strong>, using Google, a password or <em>Email me a sign-in link</em>. Check that the code matches the one in REAPER, click <kbd>Activate</kbd>, then click Install in the Script Manager.</p></div></li>
+						<li><b>4</b><div><h4>Run FX Devices</h4><p>Search the Actions list for <code>BryanChi_FX Devices</code> and run it. It opens already activated. Updates live under Scripts and updates in FX Devices' settings, so you won't need the Script Manager file again.</p></div></li>
+					</ol>
+					<p class="tiny muted">Installed it for the free trial? Open Settings, License and sign in. Your license works on up to 3 computers. We emailed these steps to you too.</p>
+				</div>
+
+				<p class="tiny muted pricing-trial">Not sure yet? <a href="/#license">Start a 30-day free trial</a> of either script, no card required.</p>
+			</div>
+		</section>
+	</main>
+
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<p class="muted">© <span id="year">2026</span> CoolReaperScripts. Not affiliated with Cockos Incorporated.</p>
+			<nav class="footer-nav">
+				<a href="/pricing">Buy</a>
+				<a href="/#license">License</a>
+				<a href="/#faq">FAQ</a>
+				<a href="/#contact">Contact</a>
+				<a href="/privacy/">Privacy</a>
+				<a href="/terms/">Terms</a>
+			</nav>
+		</div>
+	</footer>
+
+	<noscript>
+		<div class="noscript">This site works best with JavaScript enabled.</div>
+	</noscript>
+
+	<!-- Auth Modal -->
+	<div id="auth-modal" class="modal" style="display: none;">
+		<div class="modal-content auth-modal-content">
+			<div class="auth-modal-header">
+				<div>
+					<p class="muted tiny">Welcome back</p>
+					<h3 style="margin-bottom: 8px;">Access your account</h3>
+				</div>
+				<button class="btn btn-secondary" id="closeAuthModal" type="button" aria-label="Close auth modal">Close</button>
+			</div>
+			<div class="auth-tabs" role="tablist">
+				<button class="auth-tab active" data-mode="signin" type="button">Log in</button>
+				<button class="auth-tab" data-mode="signup" type="button">Create account</button>
+			</div>
+			<div class="auth-body">
+				<button class="btn btn-google" id="googleSignIn" type="button">
+					<span class="google-mark">G</span>
+					<span>Continue with Google</span>
+				</button>
+				<!-- Temporarily disabled: Email authentication -->
+				<!-- <div class="auth-divider"><span>or use email</span></div>
+				<form id="emailAuthForm" class="auth-form">
+					<label class="sr-only" for="authEmail">Email</label>
+					<input id="authEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required="">
+					<label class="sr-only" for="authPassword">Password</label>
+					<input id="authPassword" name="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" required="">
+					<label class="sr-only" for="authPasswordConfirm">Confirm Password</label>
+					<input id="authPasswordConfirm" name="passwordConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" style="display: none;">
+					<button class="btn btn-primary" id="emailSubmit" type="submit">Log in</button>
+				</form> -->
+				<p class="tiny muted" id="authMessage"></p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Success Modal -->
+	<div id="success-modal" class="modal" style="display: none;">
+		<div class="modal-content success-content" role="dialog" aria-labelledby="success-h">
+			<div class="success-icon">✅</div>
+			<h2 id="success-h">Payment Successful!</h2>
+			<p id="success-sent">Thank you for your purchase. Your license key is below.</p>
+			<div class="success-mail">
+				<p class="success-label">Activate with this email</p>
+				<p class="success-addr success-email">the email your key was sent to</p>
+				<p class="success-note">Your license is linked to this address. When the Script Manager asks you to sign in, use this same email and the script unlocks on its own.</p>
+			</div>
+			<div class="license-info">
+				<p class="success-label">Your license key</p>
+				<div class="license-key" id="license-key-display">
+					<span id="license-key-text">Loading...</span>
+					<button id="copy-license-btn" class="copy-btn">Copy</button>
+				</div>
+				<p class="success-note">You won't need to type it: signing in finds it for you. Keep it as your proof of purchase.</p>
+			</div>
+			<div class="next-steps">
+				<h3>Set it up</h3>
+				<ol class="success-steps">
+					<li><b>1</b><div><h4>Download the Script Manager</h4><p>The free installer that installs and updates your scripts.</p>
+						<a class="btn btn-primary success-dl" href="/assets/Download/Cool Reaper Script Manager.lua" download="Cool Reaper Script Manager.lua">Download the Script Manager</a></div></li>
+					<li><b>2</b><div><h4>Load and run it in REAPER</h4><p>Open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, pick the <code>Cool Reaper Script Manager.lua</code> you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.</p></div></li>
+					<li><b>3</b><div><h4>Sign in and install</h4><p>Next to Vertical FX List, click <kbd>Sign in with browser</kbd>. The activation page opens with a code. Sign in with <strong class="success-email">the email your key was sent to</strong>, using Google, a password or <em>Email me a sign-in link</em>. Check that the code matches the one in REAPER, click <kbd>Activate</kbd>, then click Install in the Script Manager.</p></div></li>
+					<li><b>4</b><div><h4>Run Vertical FX List</h4><p>Search the Actions list for <code>CRS_vertical fx list</code> and run it. It opens already activated. Updates live under Scripts and updates in its settings, so you won't need the Script Manager file again.</p></div></li>
+				</ol>
+				<p class="success-note">Installed it for the free trial? Open its license settings and click Sign in with browser. Your license works on up to 3 computers. We emailed these steps to you too.</p>
+			</div>
+			<div class="modal-actions">
+				<button id="close-modal-btn" class="secondary-button">Close</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Supabase CDN (for auth) -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js"></script>
+	<script src="/script.js" defer=""></script>
+	<script src="/fx-devices/buy.js" defer=""></script>
+	</body>
+</html>

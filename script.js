@@ -684,6 +684,16 @@
 		setupUserMenuListeners();
 	}
 
+	// Licensing elements: looked up before setupAuthUI, which already fills in the signed-in text
+	const apiBase = (document.body && document.body.dataset.apiBase) || '';
+	const licenseStatusEl = document.getElementById('licenseStatus');
+	const licenseDetailEl = document.getElementById('licenseDetail');
+	const trialMessage = document.getElementById('trialMessage');
+	const licenseMessage = document.getElementById('licenseMessage');
+	const paypalContainer = document.getElementById('paypal-button-container');
+	const trialUserLine = document.getElementById('trialUserLine');
+	const licenseUserLine = document.getElementById('licenseUserLine');
+
 	setupAuthUI();
 
 	// Set current year in footer
@@ -699,18 +709,17 @@
 
 		buttons.forEach(function(btn) {
 			btn.addEventListener('click', function(e) {
-				e.preventDefault();
 				const paymentLink = btn.getAttribute('data-payment-link');
 				if (paymentLink && paymentLink.trim().length > 0) {
+					e.preventDefault();
 					window.location.href = paymentLink;
-				} else {
-					// Fallback to PayPal buttons if no direct link is set
-					const paypalEl = document.getElementById('paypal-button-container');
-					if (paypalEl) {
-						paypalEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-						return;
-					}
-					alert('Connect a checkout link first. Edit data-payment-link on the Buy buttons.');
+					return;
+				}
+				// PayPal buttons on this page: scroll to them; otherwise follow the link to /pricing
+				const paypalEl = document.getElementById('paypal-button-container');
+				if (paypalEl) {
+					e.preventDefault();
+					paypalEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 				}
 			});
 		});
@@ -1237,14 +1246,6 @@
 	
 	setupVideoControls();
 	// Licensing: trial start, activation, status check
-	const apiBase = (document.body && document.body.dataset.apiBase) || '';
-	const licenseStatusEl = document.getElementById('licenseStatus');
-	const licenseDetailEl = document.getElementById('licenseDetail');
-	const trialMessage = document.getElementById('trialMessage');
-	const licenseMessage = document.getElementById('licenseMessage');
-	const paypalContainer = document.getElementById('paypal-button-container');
-	const trialUserLine = document.getElementById('trialUserLine');
-	const licenseUserLine = document.getElementById('licenseUserLine');
 
 	function setText(el, text) {
 		if (el) el.textContent = text || '';
@@ -1769,14 +1770,18 @@
 			setupPayPalButtons();
 		} else {
 			const failed = () => setText(paypalContainer, 'PayPal could not load. Check your connection or ad blocker, then refresh.');
-			fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
+			// Shared with /fx-devices/buy.js: the pricing page has both checkouts and must load the SDK once
+			window.crsPayPalSdk = window.crsPayPalSdk || fetch('/api/paypal/webhook').then(r => r.json()).then(cfg => {
 				if (!cfg.ok || !cfg.clientId) throw new Error(cfg.error || 'no client id');
-				const s = document.createElement('script');
-				s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
-				s.onload = setupPayPalButtons;
-				s.onerror = failed;
-				document.head.appendChild(s);
-			}).catch(failed);
+				return new Promise((ok, bad) => {
+					const s = document.createElement('script');
+					s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(cfg.clientId) + '&currency=USD&intent=capture';
+					s.onload = ok;
+					s.onerror = () => bad(new Error('sdk'));
+					document.head.appendChild(s);
+				});
+			});
+			window.crsPayPalSdk.then(setupPayPalButtons, failed);
 		}
 	}
 })();

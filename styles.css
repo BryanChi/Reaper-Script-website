@@ -2865,6 +2865,33 @@ ul, ol {
 	color: var(--text-main);
 }
 
+/* Pricing page (/pricing): both scripts side by side */
+.pricing-page { padding-top: 140px; }
+.pricing-title { text-align: center; margin: 0 0 12px; font-size: clamp(2.2rem, 5vw, 3.2rem); }
+.pricing-lead { text-align: center; max-width: 620px; margin: 0 auto 40px; font-size: 1.1rem; }
+.pricing-page #pricingSignedIn:empty { display: none; }
+.pricing.pricing-grid {
+	max-width: 960px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 24px;
+	align-items: start;
+}
+.pricing-grid .price-card { scroll-margin-top: 110px; }
+.pricing-grid .price-card:target { border-color: var(--primary); }
+.pricing-page .buy-code[hidden] { display: none; }
+.pricing-page .buy-code-msg, .pricing-page .buy-signed-in { min-height: 1.4em; margin: 6px 0 0; font-size: 13px; line-height: 1.3; text-align: left; color: var(--text-muted); }
+.pricing-page .buy-signed-in:empty { display: none; }
+.pricing-page .buy-code-msg.ok { color: var(--primary); }
+.pricing-page .buy-code-msg.bad, .pricing-page .buy-msg.bad { color: #ff8a80; }
+.pricing-page .buy-paypal { min-height: 52px; }
+.pricing-page .buy-msg { min-height: 1.4em; margin: 12px 0 0; text-align: left; }
+.pricing-page .buy-done { text-align: left; margin-top: 16px; }
+.pricing-page .buy-done-h { margin: 0 0 8px; font-weight: 700; color: white; }
+.pricing-setup { max-width: 960px; margin: 24px auto 0; text-align: left; }
+.pricing-setup[hidden] { display: none; }
+.pricing-trial { text-align: center; margin-top: 32px; }
+
 /* FAQ */
 .faq details {
 	background: rgba(255, 255, 255, 0.02);

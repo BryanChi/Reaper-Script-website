@@ -2,7 +2,8 @@
 //
 // POST /api/scripts  { action, licenseKey, product, ref, path }
 //   action=products  -> list of products (no key needed)
-//   platform         -> mac | win64 | ...: the CLAP plugins come per platform (products.platforms);
+//   platform         -> mac | win64 | ...: the CLAP plugins come per platform (products.platforms),
+//                       with their VST3 for clients from 7 (the Script Manager 3.14);
 //                       without a build for it a plugin isn't offered, its files aren't served
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
@@ -134,6 +135,7 @@ function publicProduct(id, p) {
 		preview: p.preview,
 		includedIn: p.includedIn,
 		installedFile: p.installedFile,
+		vst3InstalledFile: p.vst3InstalledFile,
 		pageUrl: p.pageUrl,
 		licenseOf: p.licenseOf,
 		optional: p.optional,
@@ -223,7 +225,7 @@ module.exports = async function handler(req, res) {
 	const platform = typeof input.platform === 'string' ? input.platform : '';
 
 	if (action === 'products') {
-		const list = Object.entries(PRODUCTS).map(([id, p]) => [id, PRODUCTS.forPlatform(p, platform)]).filter(([, p]) => offered(p));
+		const list = Object.entries(PRODUCTS).map(([id, p]) => [id, PRODUCTS.forPlatform(p, platform, client)]).filter(([, p]) => offered(p));
 		let shown;
 		try {
 			shown = await Promise.all(list.map(([, p]) => inNewestRelease(p)));
@@ -238,7 +240,7 @@ module.exports = async function handler(req, res) {
 
 	if (action === 'layouts' || action === 'layout') return layoutsAction(action, input, res);
 
-	const product = PRODUCTS[input.product] && PRODUCTS.forPlatform(PRODUCTS[input.product], platform);
+	const product = PRODUCTS[input.product] && PRODUCTS.forPlatform(PRODUCTS[input.product], platform, client);
 	if (!product || product.installable === false) return res.status(404).json({ ok: false, error: 'Unknown product' });
 
 	const ref = input.ref || product.branch;

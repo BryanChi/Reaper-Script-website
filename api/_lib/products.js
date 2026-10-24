@@ -94,9 +94,9 @@ module.exports = {
 		branch: 'main',
 		releasesOnly: true,
 		// the Script Manager keeps its notes (version.txt, manifest) in installDir; the plugin goes in
-		// the user's CLAP folder (CLAP_DIRS)
+		// the user's CLAP folder, and its VST3 (Script Managers from 3.14) in the VST3 folder
 		installDir: 'Scripts/CoolReaperScripts/Prism EQ',
-		platforms: clapPlatforms('FXD Prism EQ'),
+		platforms: clapPlatforms('FXD Prism EQ', { vst3: true }),
 		// the discontinued JSFX: deleted once the plugin is in (FX Devices' copy and the website download)
 		replaces: ['Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD Prism EQ.jsfx', 'Effects/FXD Prism EQ.jsfx'],
 		pageUrl: 'https://www.coolreaperscripts.com/prism-eq',
@@ -125,32 +125,58 @@ module.exports = {
 // build doesn't get the plugin, and a plugin only shows once the newest release has its build
 // (inRelease), so nothing is offered before it's released.
 //   mac: a .clap bundle (a folder, universal arm64 + x86_64)   win64: one .clap file (x64)
-function clapPlatforms(name) {
+// With vst3, the same plugin's VST3 (VST3/<platform>/, also from stage.sh) comes along, into the
+// user's VST3 folder ('{VST3}/'), for Script Managers that know that folder (VST3_CLIENT): one card,
+// both formats. Its files come from the release like the rest, so a release without the VST3 build
+// just installs the CLAP.
+//   mac: a .vst3 bundle (universal)   win64: a .vst3 bundle folder (Contents/x86_64-win/<name>.vst3)
+const VST3_CLIENT = 7;
+function clapPlatforms(name, opts) {
 	const mac = 'CLAP/macOS/' + name + '.clap/';
 	const win = 'CLAP/Windows/' + name + '.clap';
+	const vst3 = !!(opts && opts.vst3);
 	return {
 		mac: {
 			include: [mac],
 			routes: [{ from: 'CLAP/macOS/', to: '{CLAP}/' }],
 			inRelease: mac + 'Contents/MacOS/' + name,
-			installedFile: '{CLAP}/' + name + '.clap/Contents/MacOS/' + name
+			installedFile: '{CLAP}/' + name + '.clap/Contents/MacOS/' + name,
+			vst3: vst3 ? {
+				include: ['VST3/macOS/' + name + '.vst3/'],
+				routes: [{ from: 'VST3/macOS/', to: '{VST3}/' }],
+				installedFile: '{VST3}/' + name + '.vst3/Contents/MacOS/' + name
+			} : undefined
 		},
 		win64: {
 			include: [win],
 			routes: [{ from: 'CLAP/Windows/', to: '{CLAP}/' }],
 			inRelease: win,
-			installedFile: '{CLAP}/' + name + '.clap'
+			installedFile: '{CLAP}/' + name + '.clap',
+			vst3: vst3 ? {
+				include: ['VST3/Windows/' + name + '.vst3/'],
+				routes: [{ from: 'VST3/Windows/', to: '{VST3}/' }],
+				installedFile: '{VST3}/' + name + '.vst3/Contents/x86_64-win/' + name + '.vst3'
+			} : undefined
 		}
 	};
 }
 
 // A product as one platform gets it: its platform's include, routes and files over the rest. null
-// when it has no build for that platform (or the client didn't say which it is).
-function forPlatform(product, platform) {
+// when it has no build for that platform (or the client didn't say which it is). The client's
+// generation decides whether a plugin's VST3 comes along (older Script Managers don't know '{VST3}').
+function forPlatform(product, platform, client) {
 	if (!product.platforms) return product;
 	// platforms.default: what every other platform (and a Manager that doesn't say) gets
 	const build = (platform && product.platforms[platform]) || product.platforms.default;
-	return build ? Object.assign({}, product, build) : null;
+	if (!build) return null;
+	const out = Object.assign({}, product, build);
+	delete out.vst3;
+	if (build.vst3 && (Number(client) || 0) >= VST3_CLIENT) {
+		out.include = (build.include || []).concat(build.vst3.include);
+		out.routes = (build.routes || []).concat(build.vst3.routes);
+		out.vst3InstalledFile = build.vst3.installedFile;
+	}
+	return out;
 }
 Object.defineProperty(module.exports, 'forPlatform', { value: forPlatform, enumerable: false });
 Object.defineProperty(module.exports, 'clapPlatforms', { value: clapPlatforms, enumerable: false });

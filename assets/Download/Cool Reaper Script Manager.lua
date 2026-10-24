@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.13.0
+-- @version 3.14.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.14.0: Prism EQ installs as a VST3 too, next to the CLAP: one card, both formats, updated
+--          together. The VST3 goes in your VST3 folder (macOS ~/Library/Audio/Plug-Ins/VST3; Windows
+--          Common Files\VST3, or your own AppData VST3 folder when that one needs admin rights).
 --   3.13.0: plugins: Prism EQ is now a CLAP plugin with its own window (still free, no sign-in), and the
 --          JSFX version is discontinued: installing the plugin removes the old JSFX. FX Devices'
 --          Waveshaper plugin installs with your FX Devices license or trial. Plugins go in your CLAP
@@ -56,7 +59,7 @@
 
 local r = reaper
 
-local VERSION = '3.13.0'
+local VERSION = '3.14.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -66,8 +69,9 @@ local FONT_URL = SITE .. '/assets/Fonts/'
 local EXT = 'CoolReaperScripts_Installer'
 -- tells the site what this client can do: 3 = files outside the script's folder (FX Devices' JSFX),
 -- 4 = free products that need no license (Prism EQ), 5 = FX Devices' JSFX as their own items,
--- 6 = CLAP plugins, per platform (in the CLAP folder: '{CLAP}/' in a product's paths)
-local CLIENT = 6
+-- 6 = CLAP plugins, per platform (in the CLAP folder: '{CLAP}/' in a product's paths),
+-- 7 = a plugin's VST3 with its CLAP (in the VST3 folder: '{VST3}/')
+local CLIENT = 7
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
@@ -91,6 +95,41 @@ local function ClapDir()
   end
   local home = os.getenv('HOME') or ''
   return IS_MAC and (home .. '/Library/Audio/Plug-Ins/CLAP') or (home .. '/.clap')
+end
+
+-- the user's VST3 folder: macOS ~/Library/Audio/Plug-Ins/VST3, Linux ~/.vst3; Windows
+-- %COMMONPROGRAMFILES%\VST3, which REAPER scans by default, when it can be written to (it needs admin
+-- rights unless REAPER runs as admin, or a plugin installer opened it up), else
+-- %LOCALAPPDATA%\Programs\Common\VST3, which REAPER only scans once it's in its VST paths
+-- (VST3.needsPath). A VST3 already in one of them stays where it is. (One table: the main chunk is
+-- at Lua's 200 locals.)
+local VST3 = { needsPath = false }
+function VST3.Dir()
+  if VST3.dir then return VST3.dir end
+  if not IS_WIN then
+    local home = os.getenv('HOME') or ''
+    VST3.dir = IS_MAC and (home .. '/Library/Audio/Plug-Ins/VST3') or (home .. '/.vst3')
+    return VST3.dir
+  end
+  local cf = os.getenv('COMMONPROGRAMFILES')
+  if not cf or cf == '' then cf = (os.getenv('ProgramFiles') or 'C:\\Program Files') .. '\\Common Files' end
+  local common = cf .. '\\VST3'
+  local la = os.getenv('LOCALAPPDATA')
+  if not la or la == '' then la = (os.getenv('USERPROFILE') or '') .. '\\AppData\\Local' end
+  local user = la .. '\\Programs\\Common\\VST3'
+  local function has(dir) local f = io.open(dir .. '\\FXD Prism EQ.vst3\\Contents\\x86_64-win\\FXD Prism EQ.vst3', 'rb') if f then f:close() return true end end
+  local function writable(dir)
+    r.RecursiveCreateDirectory(dir, 0)
+    local t = dir .. '\\.crs_write_test'
+    local f = io.open(t, 'wb')
+    if not f then return false end
+    f:close() os.remove(t)
+    return true
+  end
+  if has(user) and not has(common) then VST3.dir, VST3.needsPath = user, true
+  elseif writable(common) then VST3.dir = common
+  else VST3.dir, VST3.needsPath = user, true end
+  return VST3.dir
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -159,10 +198,13 @@ end
 local function DirOf(p) return p:match('^(.*)[/\\][^/\\]*$') end
 
 local function NativePath(p) return (p:gsub('/', SEP)) end
--- a product's path (relative to REAPER's resource folder, or '{CLAP}/...' for the CLAP folder) on disk
+-- a product's path (relative to REAPER's resource folder, or '{CLAP}/...' / '{VST3}/...' for the
+-- plugin folders) on disk
 local function ResPath(rel)
   local clap = rel:match('^{CLAP}/?(.*)$')
   if clap then return NativePath(ClapDir() .. (clap ~= '' and ('/' .. clap) or '')) end
+  local vst3 = rel:match('^{VST3}/?(.*)$')
+  if vst3 then return NativePath(VST3.Dir() .. (vst3 ~= '' and ('/' .. vst3) or '')) end
   return NativePath(RES .. '/' .. rel)
 end
 
@@ -1202,7 +1244,7 @@ local function LoadProducts()
     else
       if p.licenseOf then p.key, p.lic = '', { status = 'none' } else CheckLicense(p) end
       -- with the key, the site says which releases the license includes
-      local rel = Api(API, { action = 'releases', product = p.id, platform = PLATFORM, licenseKey = Owned(p) and p.key or nil })
+      local rel = Api(API, { action = 'releases', product = p.id, client = CLIENT, platform = PLATFORM, licenseKey = Owned(p) and p.key or nil })
       p.releases = {}
       for _, x in ipairs(rel and rel.releases or {}) do
         -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
@@ -1243,7 +1285,8 @@ local function InstallFolders(p)
   local list = (main or not p.routes or #p.routes == 0) and { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } } or {}
   for _, rt in ipairs(p.routes or {}) do
     local dir = ResPath((rt.to:gsub('/+$', '')))
-    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or rt.to:match('^{CLAP}') and 'Plugin (CLAP folder)' or 'Files', dir = dir }
+    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or rt.to:match('^{CLAP}') and 'Plugin (CLAP folder)'
+      or rt.to:match('^{VST3}') and 'Plugin (VST3 folder)' or 'Files', dir = dir }
   end
   return list
 end
@@ -1511,7 +1554,7 @@ local function StartInstall(p)
     p.msg = { kind = 'info', text = 'Sign in to install ' .. p.name .. '. No license yet? The sign-in page starts your free 30-day trial.' }
     return
   end
-  local list, err = Api(API, { action = 'files', product = p.id, platform = PLATFORM, licenseKey = p.key, ref = ref })
+  local list, err = Api(API, { action = 'files', product = p.id, client = CLIENT, platform = PLATFORM, licenseKey = p.key, ref = ref })
   if not list then p.msg = { kind = 'err', text = Friendly(err) } return end
   local queue, spec = {}, LAYOUT_IMAGES[p.id]
   -- layout images wait until the layouts are in (QueueLayoutImages)
@@ -1538,7 +1581,7 @@ local function StartInstall(p)
   -- what's installed now: the installed release's own file list, else what the last install wrote
   local old
   if not full and p.installed and p.installed ~= 'installed' and not IsDev(p.installed) then
-    local was = Api(API, { action = 'files', product = p.id, platform = PLATFORM, licenseKey = p.key, ref = p.installed })
+    local was = Api(API, { action = 'files', product = p.id, client = CLIENT, platform = PLATFORM, licenseKey = p.key, ref = p.installed })
     if was and was.files then
       old = {}
       for _, f in ipairs(was.files) do old[f.path] = f.sha end
@@ -1592,7 +1635,7 @@ end
 local function InstallOne(job, item)
   r.RecursiveCreateDirectory(DirOf(item.target), 0)
   os.remove(item.target .. '.download')
-  local code, _, err = Post(API, { action = 'download', product = job.p.id, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref }, item.target .. '.download')
+  local code, _, err = Post(API, { action = 'download', product = job.p.id, client = CLIENT, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref }, item.target .. '.download')
   PlaceDownload(job, item, code, err)
 end
 
@@ -1613,7 +1656,7 @@ local function StartBatch(job, items)
     r.RecursiveCreateDirectory(DirOf(item.target), 0)
     os.remove(item.target .. '.download')
     if i > 1 then lines[#lines + 1] = 'next' end
-    local body = JsonEncode({ action = 'download', product = job.p.id, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref })
+    local body = JsonEncode({ action = 'download', product = job.p.id, client = CLIENT, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref })
     lines[#lines + 1] = 'url = ' .. CurlQuote(API)
     lines[#lines + 1] = 'request = "POST"'
     lines[#lines + 1] = 'header = "Content-Type: application/json"'
@@ -1724,8 +1767,13 @@ local function FinishInstall(job)
   local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
   local fx = not main and p.installedFile and p.installedFile:match('([^/]+)%.jsfx$')
   local plugin = not main and p.kind == 'clap' and p.installedFile and p.installedFile:match('([^/]+)%.clap')
-  p.msg = ok and plugin and { kind = 'ok', text = job.label .. ' installed. Restart REAPER (or click Re-scan in Preferences > Plug-ins > CLAP), then add it from the FX browser: "CLAP: '
-      .. plugin .. '".' .. (removed > 0 and (' The old ' .. p.name .. ' JSFX is removed: projects that used it need the plugin added instead.') or '')
+  -- its VST3, when this release has one (the routes say where it went)
+  local vst3 = plugin and p.vst3InstalledFile and Exists(ResPath(p.vst3InstalledFile))
+  local vst3Path = vst3 and VST3.needsPath and (' Add ' .. VST3.Dir() .. ' to Preferences > Plug-ins > VST > VST plug-in paths so REAPER finds the VST3'
+      .. ' (Common Files\\VST3 needs admin rights here).') or ''
+  p.msg = ok and plugin and { kind = 'ok', text = job.label .. ' installed. Restart REAPER (or click Re-scan in Preferences > Plug-ins > '
+      .. (vst3 and 'CLAP and VST' or 'CLAP') .. '), then add it from the FX browser: "CLAP: ' .. plugin .. '"'
+      .. (vst3 and (' or "VST3: ' .. plugin .. '"') or '') .. '.' .. vst3Path .. (removed > 0 and (' The old ' .. p.name .. ' JSFX is removed: projects that used it need the plugin added instead.') or '')
       .. ' Open the Script Manager again to update it.', folders = InstallFolders(p) }
     or ok and fx and { kind = 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
       .. '". Open the Script Manager again to update it.', folders = InstallFolders(p) }

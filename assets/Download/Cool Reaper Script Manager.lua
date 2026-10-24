@@ -1,11 +1,15 @@
 -- @description Cool Reaper Script Manager
--- @version 3.12.1
+-- @version 3.13.0
 -- @author bryan
 -- @about
---   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, and the free
---   Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
+--   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
+--   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.13.0: plugins: Prism EQ is now a CLAP plugin with its own window (still free, no sign-in), and the
+--          JSFX version is discontinued: installing the plugin removes the old JSFX. FX Devices'
+--          Waveshaper plugin installs with your FX Devices license or trial. Plugins go in your CLAP
+--          folder and have their own section.
 --   3.12.1: the update check gives up after a few seconds on a slow or dead connection instead of
 --          holding the window.
 --   3.12.0: the Script Manager updates itself: when a newer one is out, a button at the top installs
@@ -52,7 +56,7 @@
 
 local r = reaper
 
-local VERSION = '3.12.1'
+local VERSION = '3.13.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -61,8 +65,9 @@ local FONT_URL = SITE .. '/assets/Fonts/'
 -- kept from the 2.0 installer: the scripts read what was installed from this section
 local EXT = 'CoolReaperScripts_Installer'
 -- tells the site what this client can do: 3 = files outside the script's folder (FX Devices' JSFX),
--- 4 = free products that need no license (Prism EQ), 5 = FX Devices' JSFX as their own items
-local CLIENT = 5
+-- 4 = free products that need no license (Prism EQ), 5 = FX Devices' JSFX as their own items,
+-- 6 = CLAP plugins, per platform (in the CLAP folder: '{CLAP}/' in a product's paths)
+local CLIENT = 6
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
@@ -72,6 +77,21 @@ local OS = r.GetOS()
 local IS_WIN = OS:match('Win') ~= nil
 local SEP = IS_WIN and '\\' or '/'
 local RES = r.GetResourcePath()
+local IS_MAC = OS:match('OSX') ~= nil or OS:match('macOS') ~= nil
+
+-- which build of the plugins this computer takes (the site only offers a plugin that has one), and
+-- the user's CLAP folder, which REAPER scans: macOS ~/Library/Audio/Plug-Ins/CLAP, Windows
+-- %LOCALAPPDATA%\Programs\Common\CLAP (no admin rights needed), Linux ~/.clap
+local PLATFORM = IS_MAC and 'mac' or IS_WIN and (OS == 'Win32' and 'win32' or 'win64') or 'linux'
+local function ClapDir()
+  if IS_WIN then
+    local la = os.getenv('LOCALAPPDATA')
+    if not la or la == '' then la = (os.getenv('USERPROFILE') or '') .. '\\AppData\\Local' end
+    return la .. '\\Programs\\Common\\CLAP'
+  end
+  local home = os.getenv('HOME') or ''
+  return IS_MAC and (home .. '/Library/Audio/Plug-Ins/CLAP') or (home .. '/.clap')
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Opening links
@@ -85,7 +105,6 @@ local function OpenUrl(url)
   else os.execute('xdg-open "' .. url .. '"') end
 end
 
-local IS_MAC = OS:match('OSX') ~= nil or OS:match('macOS') ~= nil
 local REVEAL_LABEL = IS_WIN and 'Show in Explorer' or IS_MAC and 'Show in Finder' or 'Open folder'
 
 -- opens a folder in Finder / Explorer / the file manager
@@ -140,6 +159,12 @@ end
 local function DirOf(p) return p:match('^(.*)[/\\][^/\\]*$') end
 
 local function NativePath(p) return (p:gsub('/', SEP)) end
+-- a product's path (relative to REAPER's resource folder, or '{CLAP}/...' for the CLAP folder) on disk
+local function ResPath(rel)
+  local clap = rel:match('^{CLAP}/?(.*)$')
+  if clap then return NativePath(ClapDir() .. (clap ~= '' and ('/' .. clap) or '')) end
+  return NativePath(RES .. '/' .. rel)
+end
 
 ---------------------------------------------------------------------------------------------------
 -- JSON (just enough for the site's answers)
@@ -844,6 +869,8 @@ local function MainScriptPath(p)
 end
 
 local function InstalledVersion(p)
+  -- a product whose file is gone isn't installed, whatever was noted (Prism EQ: the JSFX before the plugin)
+  if p.kind == 'clap' and not Exists(ResPath(p.installedFile or '')) then return nil end
   local v = r.GetExtState(EXT, 'installed_' .. p.id)
   if v ~= '' then return v end
   local txt = ReadFile(InstallPath(p, 'version.txt'))
@@ -853,7 +880,7 @@ local function InstalledVersion(p)
   local main = MainScriptPath(p)
   if main and Exists(main) then return 'installed' end
   -- products without a script (Prism EQ): their file is there, from FX Devices or a download
-  if p.installedFile and Exists(NativePath(RES .. '/' .. p.installedFile)) then return 'installed' end
+  if p.installedFile and Exists(ResPath(p.installedFile)) then return 'installed' end
   return nil
 end
 
@@ -869,8 +896,8 @@ end
 local function LooseCopies()
   local list = {}
   for _, p in ipairs(S.products) do
-    local file = p.installedFile and NativePath(RES .. '/' .. p.installedFile)
-    local name = p.installedFile and p.installedFile:match('([^/]+)$')
+    local file = p.kind ~= 'clap' and p.installedFile and ResPath(p.installedFile)
+    local name = file and p.installedFile:match('([^/]+)$')
     local loose = name and NativePath(RES .. '/Effects/' .. name)
     if loose and loose ~= file and Exists(file) and Exists(loose) and Desc(loose) ~= '' and Desc(loose) == Desc(file) then
       list[#list + 1] = { path = loose, name = name, product = p.name }
@@ -892,7 +919,7 @@ end
 -- whether each product's own file (installedFile) is there; after loading and after each install
 local function RefreshOnDisk()
   for _, p in ipairs(S.products) do
-    p.onDisk = p.installedFile and Exists(NativePath(RES .. '/' .. p.installedFile)) or false
+    p.onDisk = p.installedFile and Exists(ResPath(p.installedFile)) or false
   end
 end
 
@@ -1153,7 +1180,7 @@ end
 
 local function LoadProducts()
   CheckManagerUpdate()
-  local list, err = Api(API, { action = 'products', client = CLIENT })
+  local list, err = Api(API, { action = 'products', client = CLIENT, platform = PLATFORM })
   if not list then S.msg = { kind = 'err', text = err } S.loaded = true return end
   local old = {}
   for _, p in ipairs(S.products) do old[p.id] = p end
@@ -1175,7 +1202,7 @@ local function LoadProducts()
     else
       if p.licenseOf then p.key, p.lic = '', { status = 'none' } else CheckLicense(p) end
       -- with the key, the site says which releases the license includes
-      local rel = Api(API, { action = 'releases', product = p.id, licenseKey = Owned(p) and p.key or nil })
+      local rel = Api(API, { action = 'releases', product = p.id, platform = PLATFORM, licenseKey = Owned(p) and p.key or nil })
       p.releases = {}
       for _, x in ipairs(rel and rel.releases or {}) do
         -- version-like tags only ("1.08", "v1.02", "Ver0.9"); a few early releases have none
@@ -1213,10 +1240,10 @@ local function StartsWith(s, prefix) return s:sub(1, #prefix) == prefix end
 local function InstallFolders(p)
   local main = MainScriptPath(p)
   -- a product without a script (Prism EQ) only has its routed files to show
-  local list = (main or not p.routes) and { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } } or {}
+  local list = (main or not p.routes or #p.routes == 0) and { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } } or {}
   for _, rt in ipairs(p.routes or {}) do
-    local dir = NativePath(RES .. '/' .. rt.to:gsub('/+$', ''))
-    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or 'Files', dir = dir }
+    local dir = ResPath((rt.to:gsub('/+$', '')))
+    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or rt.to:match('^{CLAP}') and 'Plugin (CLAP folder)' or 'Files', dir = dir }
   end
   return list
 end
@@ -1226,7 +1253,7 @@ end
 local function TargetFor(p, path)
   if p.mainScript and path == p.mainScript.from then return InstallPath(p, p.mainScript.to) end
   for _, rt in ipairs(p.routes or {}) do
-    if StartsWith(path, rt.from) then return NativePath(RES .. '/' .. rt.to .. path:sub(#rt.from + 1)) end
+    if StartsWith(path, rt.from) then return ResPath(rt.to .. path:sub(#rt.from + 1)) end
   end
   return InstallPath(p, path)
 end
@@ -1484,7 +1511,7 @@ local function StartInstall(p)
     p.msg = { kind = 'info', text = 'Sign in to install ' .. p.name .. '. No license yet? The sign-in page starts your free 30-day trial.' }
     return
   end
-  local list, err = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = ref })
+  local list, err = Api(API, { action = 'files', product = p.id, platform = PLATFORM, licenseKey = p.key, ref = ref })
   if not list then p.msg = { kind = 'err', text = Friendly(err) } return end
   local queue, spec = {}, LAYOUT_IMAGES[p.id]
   -- layout images wait until the layouts are in (QueueLayoutImages)
@@ -1511,7 +1538,7 @@ local function StartInstall(p)
   -- what's installed now: the installed release's own file list, else what the last install wrote
   local old
   if not full and p.installed and p.installed ~= 'installed' and not IsDev(p.installed) then
-    local was = Api(API, { action = 'files', product = p.id, licenseKey = p.key, ref = p.installed })
+    local was = Api(API, { action = 'files', product = p.id, platform = PLATFORM, licenseKey = p.key, ref = p.installed })
     if was and was.files then
       old = {}
       for _, f in ipairs(was.files) do old[f.path] = f.sha end
@@ -1523,7 +1550,7 @@ local function StartInstall(p)
   -- a file two products share (Prism EQ, which FX Devices ships too) may be there from the other
   -- one: its own sha says whether it's already this version (skipped) or older (updated)
   for _, q in ipairs(S.products) do
-    local shared = q.installedFile and NativePath(RES .. '/' .. q.installedFile)
+    local shared = q.installedFile and ResPath(q.installedFile)
     for _, item in ipairs(shared and not full and all or {}) do
       if item.target == shared and not job.hashes[shared] and Exists(shared) then job.hashes[shared] = GitSha(shared) end
     end
@@ -1543,7 +1570,12 @@ local function PlaceDownload(job, item, code, err)
   local tmp = item.target .. '.download'
   local data = ReadFile(tmp)
   if code == 200 and data and (#data > 0 or (item.size or 0) == 0) then
-    os.remove(item.target)
+    if not os.remove(item.target) and Exists(item.target) then
+      -- a plugin REAPER has loaded (Windows locks it): moved aside, the new one takes its place and
+      -- REAPER loads that from its next start; the old one goes on the next install
+      os.remove(item.target .. '.old')
+      os.rename(item.target, item.target .. '.old')
+    end
     if os.rename(tmp, item.target) then return end
     err = 'could not replace the file (is it open somewhere?)'
   end
@@ -1560,7 +1592,7 @@ end
 local function InstallOne(job, item)
   r.RecursiveCreateDirectory(DirOf(item.target), 0)
   os.remove(item.target .. '.download')
-  local code, _, err = Post(API, { action = 'download', product = job.p.id, licenseKey = job.p.key, path = item.path, ref = job.ref }, item.target .. '.download')
+  local code, _, err = Post(API, { action = 'download', product = job.p.id, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref }, item.target .. '.download')
   PlaceDownload(job, item, code, err)
 end
 
@@ -1581,7 +1613,7 @@ local function StartBatch(job, items)
     r.RecursiveCreateDirectory(DirOf(item.target), 0)
     os.remove(item.target .. '.download')
     if i > 1 then lines[#lines + 1] = 'next' end
-    local body = JsonEncode({ action = 'download', product = job.p.id, licenseKey = job.p.key, path = item.path, ref = job.ref })
+    local body = JsonEncode({ action = 'download', product = job.p.id, platform = PLATFORM, licenseKey = job.p.key, path = item.path, ref = job.ref })
     lines[#lines + 1] = 'url = ' .. CurlQuote(API)
     lines[#lines + 1] = 'request = "POST"'
     lines[#lines + 1] = 'header = "Content-Type: application/json"'
@@ -1670,6 +1702,18 @@ local function FinishInstall(job)
   end
   p.installed = InstalledVersion(p)
   local ok = #job.failed == 0
+  -- what this one replaces (Prism EQ's discontinued JSFX), once it's in
+  local removed = 0
+  for _, rel in ipairs(ok and p.replaces or {}) do
+    -- never in a developer's working copy (FX Devices' JSFX folder linked into a git checkout)
+    local file, linked = ResPath(rel), false
+    local d = DirOf(file)
+    while d and #d > #RES do
+      if IsSymlink(d) or Exists(d .. SEP .. '.git') then linked = true break end
+      d = DirOf(d)
+    end
+    if not linked and Exists(file) and os.remove(file) then removed = removed + 1 end
+  end
   local lines = {}
   for i, f in ipairs(job.failed) do
     if i > 4 then lines[#lines + 1] = '...' break end
@@ -1679,7 +1723,11 @@ local function FinishInstall(job)
     and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
   local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
   local fx = not main and p.installedFile and p.installedFile:match('([^/]+)%.jsfx$')
-  p.msg = ok and fx and { kind = 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
+  local plugin = not main and p.kind == 'clap' and p.installedFile and p.installedFile:match('([^/]+)%.clap')
+  p.msg = ok and plugin and { kind = 'ok', text = job.label .. ' installed. Restart REAPER (or click Re-scan in Preferences > Plug-ins > CLAP), then add it from the FX browser: "CLAP: '
+      .. plugin .. '".' .. (removed > 0 and (' The old ' .. p.name .. ' JSFX is removed: projects that used it need the plugin added instead.') or '')
+      .. ' Open the Script Manager again to update it.', folders = InstallFolders(p) }
+    or ok and fx and { kind = 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
       .. '". Open the Script Manager again to update it.', folders = InstallFolders(p) }
     or ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
       or (#job.queue .. ' files')) .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
@@ -2495,18 +2543,18 @@ local function Content(cx, cy, avail)
     y = y + BTN_H + 14
   end
 
-  -- scripts first, then JSFX (smaller cards with a GUI preview), then the extensions
+  -- scripts first, then plugins and JSFX (smaller cards with a GUI preview), then the extensions
   local n = 0
   for _, p in ipairs(S.products) do ShareLicense(p) end
-  for _, sec in ipairs({ { title = 'Scripts', jsfx = false }, { title = 'JSFX', jsfx = true } }) do
+  for _, sec in ipairs({ { title = 'Scripts' }, { title = 'Plugins', kind = 'clap', grid = true }, { title = 'JSFX', kind = 'jsfx', grid = true } }) do
     local list, missing = {}, {}
     for _, p in ipairs(S.products) do
-      if (p.kind == 'jsfx') == sec.jsfx then
+      if p.kind == sec.kind then
         list[#list + 1] = p
         if not p.installed and not Parent(p) then missing[#missing + 1] = p end
       end
     end
-    if #list > 0 or (not sec.jsfx) then
+    if #list > 0 or not sec.grid then
       n = n + 1
       Kicker(dl, px, y, n, sec.title)
       -- every one of this section that isn't installed yet, one after another
@@ -2520,7 +2568,7 @@ local function Content(cx, cy, avail)
       end
       y = y + 32
       if not S.loaded and #S.products == 0 then y = y + 10 end
-      if sec.jsfx then
+      if sec.grid then
         -- two to a row, each row as tall as its tallest card
         local gap = 10
         local cw = math.floor((w - gap) / 2)

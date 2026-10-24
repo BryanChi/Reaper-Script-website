@@ -2,6 +2,8 @@
 //
 // POST /api/scripts  { action, licenseKey, product, ref, path }
 //   action=products  -> list of products (no key needed)
+//   platform         -> mac | win64 | ...: the CLAP plugins come per platform (products.platforms);
+//                       without a build for it a plugin isn't offered, its files aren't served
 //   action=releases  -> releases of a product (tag, name, date, notes)
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
@@ -133,7 +135,8 @@ function publicProduct(id, p) {
 		installedFile: p.installedFile,
 		pageUrl: p.pageUrl,
 		licenseOf: p.licenseOf,
-		optional: p.optional
+		optional: p.optional,
+		replaces: p.replaces
 	};
 }
 
@@ -147,10 +150,12 @@ module.exports = async function handler(req, res) {
 
 	// installer generation: none = the 2.0 installer, 3 = the Script Manager (handles routes)
 	const client = Number(input.client) || 2;
-	const offered = p => p.installable !== false && client >= (p.minClient || 0);
+	const offered = p => p && p.installable !== false && client >= (p.minClient || 0);
+	// the CLAP plugins: this platform's build (null when there is none)
+	const platform = typeof input.platform === 'string' ? input.platform : '';
 
 	if (action === 'products') {
-		const list = Object.entries(PRODUCTS).filter(([, p]) => offered(p));
+		const list = Object.entries(PRODUCTS).map(([id, p]) => [id, PRODUCTS.forPlatform(p, platform)]).filter(([, p]) => offered(p));
 		let shown;
 		try {
 			shown = await Promise.all(list.map(([, p]) => inNewestRelease(p)));
@@ -163,7 +168,7 @@ module.exports = async function handler(req, res) {
 		});
 	}
 
-	const product = PRODUCTS[input.product];
+	const product = PRODUCTS[input.product] && PRODUCTS.forPlatform(PRODUCTS[input.product], platform);
 	if (!product || product.installable === false) return res.status(404).json({ ok: false, error: 'Unknown product' });
 
 	const ref = input.ref || product.branch;

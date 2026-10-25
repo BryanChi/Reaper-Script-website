@@ -12,6 +12,7 @@
     'wave-shifter': [1000, 580], kaleido: [1124, 544], 'clash-finder': [1524, 544], 'midi-devices': [4756, 544],
     'reaper-stock': [2960, 544], modulators: [2524, 670], 'lfo-editor': [2524, 1160], 'mod-panel': [841, 644, 600],
     'mod-targets': [1120, 960], 'container-mods': [2400, 636], 'band-split': [2580, 636], 'mid-side-transient': [1880, 636],
+    'mid-side': [420, 474, 420], 'transient-sustain': [414, 472, 414], 'noise-split': [412, 462, 412],
     'parallel-tabs': [2124, 644],
   };
   // callouts: [x %, y %, title, text]
@@ -129,7 +130,10 @@
     ],
     split: [
       { img: 'band-split', label: 'Band split', cap: '<b>Band Split</b> with three bands. The middle band holds ReaComp and ReaDelay.' },
-      { img: 'mid-side-transient', label: 'Mid-Side + Transient', cap: '<b>Mid-Side and Transient-Sustain</b> splitters, one nested inside the other.' },
+      { img: 'mid-side', label: 'Mid-Side', cap: '<b>Mid-Side</b> splits the centre from the sides. Balance, mono the bass, and set the side width.' },
+      { img: 'transient-sustain', label: 'Transient-Sustain', cap: '<b>Transient-Sustain</b> splits the attack from the tail. Set how sensitive it is and how long each hit lasts.' },
+      { img: 'noise-split', label: 'Tonal-Noise', cap: '<b>Tonal-Noise</b> splits the pitched notes from the breath, hiss and scrape.' },
+      { img: 'mid-side-transient', label: 'Nested', cap: '<b>Splitters inside splitters:</b> a Transient-Sustain splitter in the Mid lane of a Mid-Side splitter, with ReaComp on the attack only.' },
     ],
     dev: [
       { img: 'proq4', label: 'Pro-Q 4', vendor: 'FabFilter', live: 'proq4', text: 'The EQ curve, band nodes and band settings, drawn right in the chain. Drag a band, change its shape and slope, and every gain, frequency and Q can take modulators.' },

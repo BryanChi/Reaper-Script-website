@@ -119,7 +119,8 @@
   const TABS = {
     mod: [
       { guide: true, label: 'The modulators', cap: '<b>Every kind of modulator</b> in FX Devices. The less obvious ones show what they do, live.' },
-      { img: 'mod-panel', label: 'Mod panel', cap: '<b>Hover a knob</b> and its mod panel shows every modulator on it, with values in the plugin\'s own units.' },
+      { square: true, label: 'The mod square', cap: '<b>A modulated control</b> gets a small square in its corner, one layer per modulator. Hover it to unfold them, then drag, click or right-click one.' },
+      { img: 'mod-panel', label: 'Mod panel', cap: '<b>Ctrl+right-click a mod square</b> and the full mod panel shows every modulator on the control, with values in the plugin\'s own units.' },
       { img: 'mod-targets', label: 'Targets', cap: '<b>Everything one modulator drives,</b> in one list, with a curve for each link.' },
     ],
     chain: [
@@ -175,11 +176,20 @@
     const shot = $('[data-tabbed="mod"]'), frame = shot.closest('.frame'), cap = $('[data-cap="mod"]');
     const guideHost = h('div', { class: 'mg-host', id: 'modulators' });
     const guide = FXD.modGuide(guideHost, { fillShot });
+    // the mod square demo is built the first time its tab opens
+    const sqHost = h('div', { class: 'mg-host msq-host', id: 'mod-square' });
+    let sqBuilt = false;
     const tabIndex = TABS.mod.findIndex(t => t.guide);
     const selectTab = mountTabs('mod', (it, fade) => {
       cap.innerHTML = it.cap;
+      guideHost.remove(); sqHost.remove();
       if (it.guide) { frame.hidden = true; frame.after(guideHost); return; }
-      guideHost.remove(); frame.hidden = false;
+      if (it.square) {
+        frame.hidden = true; frame.after(sqHost);
+        if (!sqBuilt) { FXD.modSquare(sqHost); sqBuilt = true; }
+        return;
+      }
+      frame.hidden = false;
       fillShot(shot, it.img, it.label, { fade });
     });
     // the modulator names under the demo, and links like #mod-lfo, open that modulator in the guide

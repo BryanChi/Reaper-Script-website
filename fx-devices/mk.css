@@ -624,3 +624,61 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 .mc-dlg-body { padding: 0; background: #000; }
 .mc-dlg-body img { display: block; width: 100%; height: auto; }
 .mc-dlg .live-head h3 { margin-right: auto; }
+
+/* ------------------------------------------------ the mod square: a live demo of the square on modulated controls (a tab under the modulation demo) */
+.msqs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 34px; border: 1px solid rgba(255, 255, 255, .2); background: #070707; padding: 26px 26px 30px; }
+.msq-demo { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; min-width: 0; }
+.msq-win { position: relative; align-self: stretch; display: grid; place-items: center; min-height: 340px; padding: 80px 16px 48px; background: var(--fx-canvas, #0e0f12); border: 1px solid rgba(255, 255, 255, .08); overflow: hidden; user-select: none; -webkit-user-select: none; }
+.msq-chain { display: flex; max-width: 100%; zoom: 1.35; }
+.msq-knobs { display: flex; justify-content: space-around; align-items: flex-start; padding: 24px 6px 0; }
+.msq-try { margin: 0; color: var(--ink-2); font-size: 14px; }
+.msq { position: absolute; left: calc(50% + 16px); top: 13px; width: var(--w, 10px); height: 10px; z-index: 3; cursor: pointer; touch-action: none; }
+.msq::after { content: ""; position: absolute; inset: -2px; border: 1px solid transparent; pointer-events: none; }
+.msq.hov::after { border-color: rgba(255, 255, 255, .25); width: 12px; height: 12px; }
+.msq.open { z-index: 6; }
+.msq-i { --c: #fff; --g: 0; position: absolute; left: 0; top: 0; background: var(--c); touch-action: none; }
+.msq-i svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: var(--g); overflow: visible; }
+.msq-glyph { fill: none; stroke: #000; stroke-width: 1.6; }
+.msq-notch { fill: #000; }
+.msq-i.muted { background: #000; box-shadow: inset 0 0 0 1.5px var(--c); }
+.msq-i.muted .msq-glyph { stroke: var(--c); }
+.msq-bar { position: absolute; left: 0; right: 0; top: calc(100% + 3px); height: 2px; background: rgba(255, 255, 255, .11); opacity: var(--g); }
+.msq-amt { position: absolute; top: 0; bottom: 0; background: var(--c); }
+.msq-i.muted .msq-amt { opacity: .4; }
+.msq-i.del { outline: 1.5px solid #e5534b; outline-offset: 1.5px; }
+.msq-i.del svg { opacity: 0; }
+.msq-i.del::after { content: "×"; position: absolute; inset: 0; display: grid; place-items: center; color: #e5534b; font: 700 15px/1 var(--f-ui); }
+.msq-tip { --c: #fff; position: absolute; z-index: 8; transform: translateY(-100%); padding: 1px 4px; border: 1px solid var(--c); background: rgba(10, 10, 12, .96);
+  font: 500 10px/1.5 var(--f-mono); color: #fff; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .1s; }
+.msq-tip.show { opacity: 1; }
+.msq-tip b { color: var(--c); font-weight: 600; margin-right: 6px; }
+.msq-graph { position: absolute; z-index: 8; width: 84px; height: 54px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.msq-graph.show { opacity: 1; }
+.msq-graph rect { fill: #000; stroke: rgba(255, 255, 255, .2); }
+.msq-graph path { fill: none; stroke-width: 1.6; }
+.msq-graph text { fill: rgba(255, 255, 255, .45); font: 500 6.5px var(--f-mono); letter-spacing: .12em; }
+.msq-edit { position: absolute; z-index: 9; width: 64px; height: 24px; padding: 0 6px; border: 1px solid var(--line-2); background: #000; color: #fff; font: 500 12px var(--f-mono); }
+.msq-say { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font: 500 11px var(--f-mono); letter-spacing: .06em; color: var(--ink-2); opacity: 0; transition: opacity .2s; white-space: nowrap; }
+.msq-say.show { opacity: 1; }
+.msq-help h4 { margin: 0 0 12px; font: 500 10.5px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
+.msq-help ul { list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 10px; }
+.msq-help li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: baseline; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.msq-look li { grid-template-columns: 24px minmax(0, 1fr); align-items: start; }
+.msq-keys { font: 500 11.5px var(--f-mono); color: var(--ink); white-space: nowrap; }
+.msq-note { margin: 0; color: var(--ink-3); font-size: 13px; }
+.msq-ico { position: relative; width: 16px; height: 16px; margin-top: 3px; }
+.msq-ico.i-layers { background: #f2994a; box-shadow: inset 0 0 0 2px #070707, inset 0 0 0 4px #5fd3a0, inset 0 0 0 6px #070707, inset 0 0 0 8px #7aa7ff; }
+.msq-ico.i-glyph { background: #5fd3a0; }
+.msq-ico.i-glyph::before, .msq-ico.i-glyph::after { content: ""; position: absolute; left: 3.5px; right: 3.5px; top: 7px; height: 2px; background: #000; }
+.msq-ico.i-glyph::after { transform: rotate(90deg); }
+.msq-ico.i-bar { margin-top: 10px; background: linear-gradient(90deg, rgba(255, 255, 255, .12) 50%, #5fd3a0 50%, #5fd3a0 85%, rgba(255, 255, 255, .12) 85%); height: 2px; }
+.msq-ico.i-notch { background: linear-gradient(225deg, #000 30%, #d9823b 30%); }
+.msq-ico.i-muted { background: #000; box-shadow: inset 0 0 0 1.5px #7aa7ff; }
+@media (max-width: 1000px) { .msqs { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) {
+  .msqs { padding: 18px 14px 20px; }
+  .msq-win { min-height: 0; padding: 70px 4px 40px; }
+  .msq-chain { zoom: 1; }
+  .msq-help li { grid-template-columns: 96px minmax(0, 1fr); }
+  .msq-look li { grid-template-columns: 24px minmax(0, 1fr); }
+}

@@ -1,0 +1,858 @@
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Vertical FX List for REAPER – Manage FX Faster | Buy</title>
+	<meta name="description" content="A vertical FX manager for REAPER: select, reorder, bypass, group in parallel, tweak sends/pan, and more — all in one fast UI.">
+	<link rel="canonical" href="https://www.coolreaperscripts.com/vertical-fx-list">
+	<meta name="theme-color" content="#07110c">
+
+	<!-- Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+	<!-- Open Graph -->
+	<meta property="og:title" content="Reaper Script – Boost Your Workflow">
+	<meta property="og:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta property="og:type" content="product">
+	<meta property="og:url" content="https://www.coolreaperscripts.com/vertical-fx-list">
+	<meta property="og:image" content="https://www.coolreaperscripts.com/assets/home/vfxl.jpg">
+
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Reaper Script – Boost Your Workflow">
+	<meta name="twitter:description" content="A powerful Reaper DAW script that speeds up editing, mixing, and arrangement.">
+	<meta name="twitter:image" content="https://www.coolreaperscripts.com/assets/home/vfxl.jpg">
+
+	<!-- Pricing moved to /pricing; old links to /#pricing (older scripts and Script Managers) land there -->
+	<script>if (location.hash === '#pricing') location.replace('/pricing' + location.search);</script>
+
+	<link rel="icon" href="/favicon.ico">
+	<link rel="stylesheet" href="/styles.css">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@500;600&display=swap">
+	<link rel="stylesheet" href="/assets/home/more.css">
+
+	<!-- Product structured data -->
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "Product",
+		"name": "Vertical FX List for REAPER",
+		"description": "A vertical FX manager for REAPER with multi-select, parallel grouping, container-aware UI, and in-place sends/pan controls.",
+		"brand": {
+			"@type": "Brand",
+			"name": "BryanChi"
+		},
+		"sku": "RS-001",
+		"url": "https://www.coolreaperscripts.com/vertical-fx-list",
+		"image": "https://www.coolreaperscripts.com/assets/home/vfxl.jpg",
+		"offers": {
+			"@type": "Offer",
+			"priceCurrency": "USD",
+			"price": "89",
+			"availability": "https://schema.org/InStock",
+			"url": "https://www.coolreaperscripts.com/pricing#vertical-fx-list"
+		}
+	}
+	</script>
+
+	<!-- PayPal SDK (Sandbox/Test Mode) -->
+
+	<!-- Analytics (optional) -->
+	<!-- <script defer data-domain="example.com" src="https://plausible.io/js/script.js"></script> -->
+</head>
+<body data-api-base="" data-supabase-url="https://txevakkpyrnbrwbqizov.supabase.co" data-supabase-anon-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZXZha2tweXJuYnJ3YnFpem92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNDQ4MzcsImV4cCI6MjA4MDcyMDgzN30.T7PDcDzQ5Vn9NqRG6-34wizqznMWHt0aHKc0Osv2D7w" data-supabase-redirect="">
+	<header class="site-header scrolled">
+		<div class="container header-inner">
+			<a class="brand" href="#home">Reaper Script</a>
+			<nav class="nav">
+				<a href="#features">Features</a>
+				<a href="#demo">Demo</a>
+				<a href="#how-it-works">Installation</a>
+				<a href="#license">License</a>
+				<a href="/pricing">Pricing</a>
+				<a href="#faq">FAQ</a>
+				<a href="#contact">Contact</a>
+				<a href="/fx-devices">FX Devices</a>
+				<a href="/prism-eq">Prism EQ</a>
+				<a href="/">All scripts</a>
+			</nav>
+			<div class="header-actions">
+				<div class="auth-controls">
+					<button class="btn btn-ghost" id="loginButton" type="button">Log in</button>
+					<div class="user-menu" id="userMenu" hidden="">
+						<button class="user-chip" id="userMenuButton" type="button">
+							<div class="user-avatar" id="userAvatar">U</div>
+							<div class="user-meta">
+								<span class="user-label">Signed in</span>
+								<span class="user-email" id="userEmailDisplay"></span>
+							</div>
+							<span class="chevron" aria-hidden="true">▾</span>
+						</button>
+						<div class="user-menu-panel" id="userMenuPanel" hidden="">
+							<div class="user-menu-row">
+								<div class="user-avatar small" id="userAvatarSmall">U</div>
+								<div class="user-email-full" id="userEmailFull"></div>
+							</div>
+							<div class="license-management-section" id="licenseManagementSection">
+								<div class="license-section-header">
+									<h4>License Information</h4>
+									<button class="btn-refresh-license" id="refreshLicenseBtn" type="button" title="Refresh license info">↻</button>
+								</div>
+								<div class="license-status-display" id="licenseStatusDisplay">
+									<div class="license-loading">Loading license information...</div>
+								</div>
+							</div>
+							<button class="user-menu-item" id="logoutButton" type="button">Sign out</button>
+						</div>
+					</div>
+				</div>
+				<a class="btn btn-primary buy-now" href="/pricing" id="buyNowTop">Buy Now</a>
+			</div>
+		</div>
+	</header>
+
+	<main id="home">
+		<section class="hero">
+			<div class="hero-background">
+				<video class="hero-video" src="/assets/Videos/Main-basic.mov" muted loop autoplay playsinline></video>
+			</div>
+			<div class="container hero-inner">
+				<div class="hero-copy">
+					<h1>Vertical FX list</h1>
+				</div>
+			</div>
+		</section>
+
+		<section id="features" class="section">
+			<div class="container">
+				<div class="features-list">
+					<!-- FX List Section (New Carousel) -->
+					<div class="fx-list-section">
+						<div class="section-header">
+							<h2 class="fx-list-title">FX list</h2>
+						</div>
+
+						<div class="carousel-wrapper fx-list-carousel">
+							<div class="carousel-container">
+								<button class="carousel-arrow carousel-prev" aria-label="Scroll left" type="button">‹</button>
+								<div class="carousel-track">
+									<!-- Feature 1: Control FX (Slide 1) -->
+									<div class="feature-block feature-1 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>The basics</h3>
+												<p>Open, bypass, reorder, and group FX directly in the vertical list—no window juggling required.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/feature-fx-control.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Open/Close FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass FX
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle FX Online/Offline
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Rename FX
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 7: FX Linking (Slide 2) -->
+									<div class="feature-block feature-7 carousel-slide" data-reveal="">
+										<div class="feature-inner reverse">
+											<div class="feature-content">
+												<h3>FX Linking</h3>
+												<p>Link FX parameters between different instances of the same plugin. Good for dubbing and harmonies etc.<br><br>
+												<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left Click" style="width: 18px; vertical-align: text-bottom;"></span> <strong>Drag</strong> to initiate.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Fx Linking.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: FX Marquee Selection (Slide 3) -->
+									<div class="feature-block feature-marquee carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>FX marquee selection</h3>
+												<p>Select multiple FX at once using marquee selection. When FXs are marquee selected, you can perform actions like tweaking wet/dry, bypass, move, and copy on multiple FXs simultaneously.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/FX marquee selection.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Marquee select
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Add to marquee selection
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Automation Icon (Slide 4) -->
+									<div class="feature-block feature-automation carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Automation icon</h3>
+												<p>An automation icon appears in the FX button when there's automation for the FX's parameters, making it easy to see which FXs have automation at a glance.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/automation icon in fx btn.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Toggle show/hide envelope
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Bypass envelope
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Remove envelope
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Containers and Parallel (Slide 5) -->
+									<div class="feature-block feature-containers-parallel carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Containers and Parallel</h3>
+												<p>REAPER's native containers and parallel processing made intuitive. The GUI clearly visualizes your signal flow with automatically color-coded containers, making it easy to see parallel paths and nested FX chains at a glance.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/containers and parallel.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature: Loudness Matching (Slide 6) -->
+									<div class="feature-block feature-loudness-match carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Loudness matching</h3>
+												<p>Automatically match the perceived loudness of your signal before and after FX processing. FX within the orange rectangle are analyzed for loudness changes. Drag the orange boundary lines to adjust which FX are included. After playback begins, loudness matching typically activates within a few seconds. Click the gain readout to lock the current gain adjustment, or drag it to manually set the level change.</p>
+												<p class="feature-note" style="margin-top: 16px; padding: 12px; background: rgba(255, 165, 0, 0.1); border-left: 3px solid rgba(255, 165, 0, 0.5); border-radius: 4px; font-size: 0.9em; color: rgba(255, 255, 255, 0.8);">
+													<strong>Note:</strong> This feature requires the free <strong>ABLevelMatchingJSFX</strong> plugin by TB Pro Audio. <a href="https://www.tbproaudio.de/download#sub" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">Download it here</a>.
+												</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Loudness match.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<button class="carousel-arrow carousel-next" aria-label="Scroll right" type="button">›</button>
+								<div class="carousel-dots">
+									<button class="carousel-dot active" data-slide="0" type="button"></button>
+									<button class="carousel-dot" data-slide="1" type="button"></button>
+									<button class="carousel-dot" data-slide="2" type="button"></button>
+									<button class="carousel-dot" data-slide="3" type="button"></button>
+									<button class="carousel-dot" data-slide="4" type="button"></button>
+									<button class="carousel-dot" data-slide="5" type="button"></button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Sends Section: Features 2-5 -->
+					<div class="sends-section">
+						<div class="sends-header">
+							<h2 class="sends-title">Sends management</h2>
+							<p class="lead-text">Master your signal flow with a complete suite of send tools.</p>
+						</div>
+
+						<div class="sends-carousel carousel-wrapper">
+							<div class="carousel-container">
+								<button class="carousel-arrow carousel-prev" aria-label="Scroll left" type="button">‹</button>
+								<div class="carousel-track">
+									<!-- Feature 2: Sends - Text Top, Video Bottom -->
+									<div class="feature-block feature-2 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Basics</h3>
+												<p>Create sends by dragging between tracks, then adjust volume and routing directly in the FX list.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Sends Basic.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Delete send
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Mute send
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Ctrl</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Create Send Volume Envelope
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 3: Send Favorites - Centered Text, Video Below -->
+									<div class="feature-block feature-3 carousel-slide" data-reveal="">
+										<div class="feature-inner centered">
+											<div class="feature-content">
+												<h3>Favorites</h3>
+												<p>Save and quickly access your most-used sends and FX chains.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Send Favorites.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 4: Hide Popup - Text Top, Video Bottom -->
+									<div class="feature-block feature-4 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Hide Buses</h3>
+												<p>Keep your TCP clean by hiding sends, but access them instantly via the popup controls.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Send Hide Popup.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 5: Channels - Video Below Text (Wide) -->
+									<div class="feature-block feature-5 carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Channel shortcuts</h3>
+												<p>Press 1-8 while dragging to route to specific channels instantly.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Send Channels.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>1</kbd> - <kbd>8</kbd> : Set destination channels
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Alt</kbd> + <kbd>1</kbd> - <kbd>8</kbd> : Set source channels
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 6: Per-track sends pane width -->
+									<div class="feature-block feature-sends-width carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Pane Width</h3>
+												<p>Set the sends pane width individually for each track to match your workflow. Hide the sends pane entirely for tracks that don't use sends, keeping your interface clean and organized.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Sends pane per track width.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Adjust send pane width for track
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 7: Send FX -->
+									<div class="feature-block feature-send-fx carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Send FX</h3>
+												<p>The Send FX feature creates a container that automatically routes to a new pair of unused channels. Add FXs into the container to process the signal going into the buses without affecting the direct out signal.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/SendFX.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<!-- Feature 8: Marquee Sends -->
+									<div class="feature-block feature-marquee-sends carousel-slide" data-reveal="">
+										<div class="feature-inner">
+											<div class="feature-content">
+												<h3>Marquee sends</h3>
+												<p>Select multiple sends at once using marquee selection. When sends are marquee selected, you can perform actions on multiple sends simultaneously, making bulk adjustments quick and efficient.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Marquee sends.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+												<div class="feature-shortcuts">
+													<div class="shortcut-bubble">
+														<span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Marquee select sends
+													</div>
+													<div class="shortcut-bubble">
+														<kbd>Shift</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Add to marquee selection
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<button class="carousel-arrow carousel-next" aria-label="Scroll right" type="button">›</button>
+								<div class="carousel-dots">
+									<button class="carousel-dot active" data-slide="0" type="button"></button>
+									<button class="carousel-dot" data-slide="1" type="button"></button>
+									<button class="carousel-dot" data-slide="2" type="button"></button>
+									<button class="carousel-dot" data-slide="3" type="button"></button>
+									<button class="carousel-dot" data-slide="4" type="button"></button>
+									<button class="carousel-dot" data-slide="5" type="button"></button>
+									<button class="carousel-dot" data-slide="6" type="button"></button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Accordion Feature Group: Hide Folder Tracks, Pan Basics, Pan Presets -->
+					<div class="feature-block feature-accordion-group" data-reveal="">
+						<div class="feature-inner">
+							<div class="feature-content">
+								<h2 class="accordion-group-title">Advanced Controls</h2>
+							</div>
+							<div class="accordion-container">
+								<!-- Accordion Item 1: Hide Folder Tracks -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Hidden Folder Track Controls</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Hide Folder Tracks, but keep them accessible</h3>
+												<p>Hidden parent tracks will be shown as buttons in FX list, right clicking on them will unhide them, while left clicking shows a popup that let's you adjust all essential controls.</p>
+											</div>
+											<div class="feature-media feature-6-full-width">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Hidden parent.mov" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Accordion Item 2: Pan mode -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Pan mode</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Pan mode</h3>
+												<p>The sends pan can be turned into a quick panning area by pressing <kbd>X</kbd> (toggles) or holding <kbd>Ctrl</kbd> + <kbd>Shift</kbd> (Temporary), <kbd>Alt</kbd> + <span class="mouse-button-small"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> drag, or <span class="mouse-button-small"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> drag. This lets you pan multiple tracks at once. Press <kbd>Z</kbd> while panning multiple tracks to invert the pan direction of the currently hovered track.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Pan basic.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<kbd>X</kbd> : Toggle panning area
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Ctrl</kbd> + <kbd>Shift</kbd> : Temporary panning area
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Alt</kbd> + <span class="mouse-button"><img src="/assets/icons/MouseL.png" alt="Left mouse button" /></span> : Pan multiple tracks
+												</div>
+												<div class="shortcut-bubble">
+													<span class="mouse-button"><img src="/assets/icons/MouseR.png" alt="Right mouse button" /></span> : Pan multiple tracks
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>Z</kbd> : Invert pan direction (while panning)
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Accordion Item 3: Pan Presets -->
+								<div class="accordion-item">
+									<button class="accordion-header" type="button" aria-expanded="false">
+										<span class="accordion-title">Pan Presets</span>
+										<span class="accordion-icon" aria-hidden="true">+</span>
+									</button>
+									<div class="accordion-content">
+										<div class="accordion-inner">
+											<div class="feature-content">
+												<h3>Pan Presets</h3>
+												<p>While panning multiple tracks, pressing numbers <kbd>1</kbd> to <kbd>3</kbd> will activate presets, which lets you pan multiple tracks at once.</p>
+											</div>
+											<div class="feature-media">
+												<div class="video-controls-wrapper">
+													<video src="/assets/Videos/Pan Presets.mp4" muted="" loop="" preload="auto" playsinline=""></video>
+													<div class="video-controls">
+														<div class="video-progress-bar">
+															<div class="video-progress-filled"></div>
+															<div class="video-progress-handle"></div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="feature-shortcuts">
+												<div class="shortcut-bubble">
+													<kbd>1</kbd> : Activate preset 1
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>2</kbd> : Activate preset 2
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>3</kbd> : Activate preset 3
+												</div>
+												<div class="shortcut-bubble">
+													<span class="mouse-scroll-icon">🖱️</span> Scroll : Tweak curve
+												</div>
+												<div class="shortcut-bubble">
+													<kbd>C</kbd> : Reset curve
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="demo" class="section alt">
+			<div class="container">
+				<div class="header-wrapper" data-reveal="anim-zoom-in">
+					<h2>Watch it in Action</h2>
+					<p class="lead" style="max-width: 600px;">See how the script transforms your workflow in real-time. No more menu diving.</p>
+				</div>
+				<div class="demo-grid">
+					<div class="video">
+						<!-- Replace data-youtube-id with your video ID, or swap iframe src -->
+						<div class="video-wrapper" data-youtube-id="">
+							<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Demo video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen=""></iframe>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="how-it-works" class="section">
+			<div class="container">
+				<h2>Installation</h2>
+				<ol class="steps">
+					<li>
+						<h3 style="display: inline-flex; align-items: center; gap: 8px;"><a href="/assets/Download/Cool Reaper Script Manager.lua" download="Cool Reaper Script Manager.lua" style="display: inline-block; cursor: pointer; color: inherit; text-decoration: underline;" title="Download file">Download the Script Manager</a><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a></h3>
+						<p>Download the script file, Open the action list in Reaper, and click 'New Action...' , and 'Load ReaScript...' , and load the '<a href="/assets/Download/Cool Reaper Script Manager.lua" download="Cool Reaper Script Manager.lua" style="color: #60a5fa; text-decoration: underline; cursor: pointer;">Cool Reaper Script Manager.lua</a>' you just downloaded, then run it. It moves itself into REAPER, so the downloaded file disappears.</p>
+					</li>
+					<li>
+						<h3>Install</h3>
+						<p>Click 'Sign in with browser' to start your free trial or use your license, then 'Install'. After that you won't need the Script Manager file again: every script opens it from 'Scripts and updates' in its settings window.</p>
+					</li>
+					<li>
+						<h3>Run</h3>
+						<p>Go back to action list, search for 'CRS_vertical fx list', and run.</p>
+					</li>
+				</ol>
+				<div style="margin-top: 32px; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+					<h3 style="font-size: 18px; margin-bottom: 12px;">Requirements</h3>
+					<ul style="list-style: disc; padding-left: 20px; margin: 0;">
+						<li style="margin-bottom: 8px;">
+							<strong><a href="https://forum.cockos.com/showthread.php?t=212174" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">JS API</a> & <a href="https://forum.cockos.com/showthread.php?t=250419" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">ReaImGui</a></strong> — both are available by default if you have installed <a href="https://reapack.com" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">ReaPack</a>
+						</li>
+						<li style="margin-bottom: 8px;">
+							<strong><a href="https://sws-extension.org" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: underline;">SWS extensions</a></strong>
+						</li>
+					</ul>
+					<p style="margin-top: 12px; color: rgba(255, 255, 255, 0.7); font-size: 0.9em;">All requirements are free.</p>
+				</div>
+			</div>
+		</section>
+
+
+		<section id="license" class="section">
+			<div class="container license-grid">
+				<div class="license-card">
+					<h3>Start your 30-day free trial</h3>
+					<p class="lead-text">Sign in with Google or email to link the trial to your account. No card required.</p>
+					<form id="trialForm" class="license-form">
+						<p class="tiny muted" id="trialUserLine">Sign in to link the trial to your account.</p>
+						<label class="tiny muted" for="trialProduct">Script</label>
+						<select id="trialProduct" class="trial-product">
+							<option value="vertical-fx-list">Vertical FX List</option>
+							<option value="fx-devices">FX Devices</option>
+						</select>
+						<button class="btn btn-primary" type="submit" id="trialSubmit">Start trial</button>
+						<p class="tiny muted" id="trialMessage"></p>
+					</form>
+				</div>
+			</div>
+
+		</section>
+
+
+		<section id="faq" class="section alt">
+			<div class="container">
+				<h2>FAQ</h2>
+				<div class="faq">
+					<details>
+						<summary>Will this work with my version of Reaper?</summary>
+						<p>Yes, it supports Reaper 6 and 7 on macOS and Windows. If you have issues, contact support.</p>
+					</details>
+					<details>
+						<summary>Do I get updates?</summary>
+						<p>Yes, every purchase includes 2 years of updates. After that, the version you have keeps working for good. To get newer versions, buy it again with the same email: that renews updates for another 2 years on the same license key and computers.</p>
+					</details>
+					<details>
+						<summary>Is there a refund policy?</summary>
+						<p>30-day money-back guarantee. If you are not satisfied, email us and we'll help.</p>
+					</details>
+					<details>
+						<summary>How do I install the script?</summary>
+						<p>See the Installation section above for step-by-step instructions.</p>
+					</details>
+				</div>
+			</div>
+		</section>
+
+		<section id="contact" class="section">
+			<div class="container">
+				<h2>Contact</h2>
+				<p>Questions or support? Email <a href="mailto:brwchi@gmail.com">brwchi@gmail.com</a>.</p>
+			</div>
+		</section>
+		<!-- More from Cool Reaper Scripts: links to the other products (styles in /assets/home/more.css) -->
+		<section class="crs-more" aria-labelledby="crs-more-h">
+		  <div class="crs-more-head">
+		    <div><p class="crs-more-kicker">More from Cool Reaper Scripts</p><h2 id="crs-more-h">Try the others</h2></div>
+		    <a class="crs-more-all" href="/">All scripts</a>
+		  </div>
+		  <div class="crs-more-grid">
+		    <a class="crs-card fxd" href="/fx-devices"><img src="/fx-devices/img/chain-mastering.webp" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Script · free trial</span><span class="crs-card-name">FX Devices</span><span class="crs-card-text">Your plugins docked as native-feeling devices, with two-move modulation.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+		    <a class="crs-card prism" href="/prism-eq"><img src="/prism-eq/prism-eq.webp" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Plugin · free</span><span class="crs-card-name">Prism EQ</span><span class="crs-card-text">A free 16-band dynamic EQ with spectral bands and per-band saturation.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+		  </div>
+		</section>
+	</main>
+
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<p class="muted">© <span id="year">2026</span> CoolReaperScripts. Not affiliated with Cockos Incorporated.</p>
+			<nav class="footer-nav">
+				<a href="/pricing">Buy</a>
+				<a href="#license">License</a>
+				<a href="#faq">FAQ</a>
+				<a href="#contact">Contact</a>
+				<a href="/privacy/">Privacy</a>
+				<a href="/terms/">Terms</a>
+			</nav>
+		</div>
+	</footer>
+
+	<noscript>
+		<div class="noscript">This site works best with JavaScript enabled.</div>
+	</noscript>
+
+	<!-- Auth Modal -->
+	<div id="auth-modal" class="modal" style="display: none;">
+		<div class="modal-content auth-modal-content">
+			<div class="auth-modal-header">
+				<div>
+					<p class="muted tiny">Welcome back</p>
+					<h3 style="margin-bottom: 8px;">Access your account</h3>
+				</div>
+				<button class="btn btn-secondary" id="closeAuthModal" type="button" aria-label="Close auth modal">Close</button>
+			</div>
+			<div class="auth-tabs" role="tablist">
+				<button class="auth-tab active" data-mode="signin" type="button">Log in</button>
+				<button class="auth-tab" data-mode="signup" type="button">Create account</button>
+			</div>
+			<div class="auth-body">
+				<button class="btn btn-google" id="googleSignIn" type="button">
+					<span class="google-mark">G</span>
+					<span>Continue with Google</span>
+				</button>
+				<!-- Temporarily disabled: Email authentication -->
+				<!-- <div class="auth-divider"><span>or use email</span></div>
+				<form id="emailAuthForm" class="auth-form">
+					<label class="sr-only" for="authEmail">Email</label>
+					<input id="authEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required="">
+					<label class="sr-only" for="authPassword">Password</label>
+					<input id="authPassword" name="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" required="">
+					<label class="sr-only" for="authPasswordConfirm">Confirm Password</label>
+					<input id="authPasswordConfirm" name="passwordConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" style="display: none;">
+					<button class="btn btn-primary" id="emailSubmit" type="submit">Log in</button>
+				</form> -->
+				<p class="tiny muted" id="authMessage"></p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Success Modal -->
+	<div id="success-modal" class="modal" style="display: none;">
+		<div class="modal-content success-content" role="dialog" aria-labelledby="success-h">
+			<div class="success-icon">✅</div>
+			<h2 id="success-h">Payment Successful!</h2>
+			<p id="success-sent">Thank you for your purchase. Your license key is below.</p>
+			<div class="success-mail">
+				<p class="success-label">Activate with this email</p>
+				<p class="success-addr success-email">the email your key was sent to</p>
+				<p class="success-note">Your license is linked to this address. When the Script Manager asks you to sign in, use this same email and the script unlocks on its own.</p>
+			</div>
+			<div class="license-info">
+				<p class="success-label">Your license key</p>
+				<div class="license-key" id="license-key-display">
+					<span id="license-key-text">Loading...</span>
+					<button id="copy-license-btn" class="copy-btn">Copy</button>
+				</div>
+				<p class="success-note">You won't need to type it: signing in finds it for you. Keep it as your proof of purchase.</p>
+			</div>
+			<div class="next-steps">
+				<h3>Set it up</h3>
+				<ol class="success-steps">
+					<li><b>1</b><div><h4>Download the Script Manager</h4><p>The free installer that installs and updates your scripts.</p>
+						<a class="btn btn-primary success-dl" href="/assets/Download/Cool Reaper Script Manager.lua" download="Cool Reaper Script Manager.lua">Download the Script Manager</a></div></li>
+					<li><b>2</b><div><h4>Load and run it in REAPER</h4><p>Open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd>, pick the <code>Cool Reaper Script Manager.lua</code> you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.</p></div></li>
+					<li><b>3</b><div><h4>Sign in and install</h4><p>Next to Vertical FX List, click <kbd>Sign in with browser</kbd>. The activation page opens with a code. Sign in with <strong class="success-email">the email your key was sent to</strong>, using Google, a password or <em>Email me a sign-in link</em>. Check that the code matches the one in REAPER, click <kbd>Activate</kbd>, then click Install in the Script Manager.</p></div></li>
+					<li><b>4</b><div><h4>Run Vertical FX List</h4><p>Search the Actions list for <code>CRS_vertical fx list</code> and run it. It opens already activated. Updates live under Scripts and updates in its settings, so you won't need the Script Manager file again.</p></div></li>
+				</ol>
+				<p class="success-note">Installed it for the free trial? Open its license settings and click Sign in with browser. Your license works on up to 3 computers. We emailed these steps to you too.</p>
+			</div>
+			<div class="modal-actions">
+				<button id="close-modal-btn" class="secondary-button">Close</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Supabase CDN (for auth) -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.3/dist/umd/supabase.js"></script>
+	<script src="/script.js" defer=""></script>
+	</body>
+</html>

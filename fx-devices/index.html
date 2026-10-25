@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/fx-devices/core.css">
 <link rel="stylesheet" href="/fx-devices/mk.css">
+<link rel="stylesheet" href="/assets/home/more.css">
 </head>
 <body>
 
@@ -47,7 +48,7 @@
       <a href="/pricing#fx-devices">Pricing</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-ghost hide-sm" href="/">Vertical FX List</a>
+      <a class="btn btn-ghost hide-sm" href="/vertical-fx-list">Vertical FX List</a>
       <a class="btn btn-go" href="#download">Download</a>
       <button class="nav-menu" id="nav-menu" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -281,7 +282,7 @@
         <div class="cta-row">
           <a class="btn btn-go btn-lg" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="Cool Reaper Script Manager.lua">
             <svg class="dl-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Download the Script Manager</a>
-          <a class="btn btn-ghost btn-lg" href="/?product=fx-devices#license">Start your free trial</a>
+          <a class="btn btn-ghost btn-lg" href="/vertical-fx-list?product=fx-devices#license">Start your free trial</a>
           <a class="btn btn-ghost btn-lg" href="/pricing#fx-devices">Buy a license</a>
         </div>
         <ol class="dl-steps">
@@ -312,6 +313,17 @@
     <details><summary>Can I modulate plugins that don't have a custom panel?</summary><p>Yes. Any parameter you put on a device can take modulators, on any plugin.</p></details>
     <details><summary>Is it the same license as Vertical FX List?</summary><p>No. FX Devices is its own product with its own license key.</p></details>
     <details><summary>How do I update?</summary><p>Run the Cool Reaper Script Manager again and it updates FX Devices for you. Your shortcuts, colours and favourites are kept. Every purchase includes 2 years of updates; after that your version keeps working, and buying again with the same email renews updates for another 2 years on the same license.</p></details>
+  </section>
+  <!-- More from Cool Reaper Scripts: links to the other products (styles in /assets/home/more.css) -->
+  <section class="crs-more" aria-labelledby="crs-more-h">
+    <div class="crs-more-head">
+      <div><p class="crs-more-kicker">More from Cool Reaper Scripts</p><h2 id="crs-more-h">Try the others</h2></div>
+      <a class="crs-more-all" href="/">All scripts</a>
+    </div>
+    <div class="crs-more-grid">
+      <a class="crs-card vfxl" href="/vertical-fx-list"><img src="/assets/home/vfxl.jpg" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Script · free trial</span><span class="crs-card-name">Vertical FX List</span><span class="crs-card-text">Every track's FX in one fast vertical list, with sends, pan and parallel groups.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+      <a class="crs-card prism" href="/prism-eq"><img src="/prism-eq/prism-eq.webp" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Plugin · free</span><span class="crs-card-name">Prism EQ</span><span class="crs-card-text">A free 16-band dynamic EQ with spectral bands and per-band saturation.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+    </div>
   </section>
 </main>
 

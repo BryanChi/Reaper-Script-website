@@ -15,7 +15,7 @@
     lfo: { name: 'LFO 1', color: FXD.modBright(1), out: () => 0.5 + 0.5 * Math.sin(beat() / 2 * Math.PI) },
     env: { name: 'Envelope 2', color: FXD.modBright(3), out: () => Math.exp(-4.5 * (beat() % 1)) },
     rnd: { name: 'Random 3', color: FXD.modBright(6), out: () => { const b = beat() / 2, k = Math.floor(b); return lerp(hash(k - 1), hash(k), Math.min(1, (b - k) * 5)); } },
-    vel: { name: 'Velocity', color: FXD.MIDI_CLR.Velocity, kind: 'midi', out: () => [0.95, 0.55, 0.75, 0.4][Math.floor(beat()) % 4] },
+    vel: { name: 'Velocity', color: FXD.MIDI_CLR.Velocity, out: () => [0.95, 0.55, 0.75, 0.4][Math.floor(beat()) % 4] },
     mac: { name: 'Container Macro 1', color: CONT_CLR, kind: 'cont', out: () => 0.62 },
   };
   const START = [
@@ -85,11 +85,9 @@
       const items = new Map();
       function itemOf(l) {
         if (items.has(l)) return items.get(l);
-        const glyph = s('path', { class: 'msq-glyph' }), notch = s('path', { class: 'msq-notch' });
-        const svg = s('svg', { viewBox: '0 0 14 14', 'aria-hidden': 'true' }, notch, glyph);
-        const fill = h('i', { class: 'msq-amt' });
-        const it = { l, box: h('div', { class: 'msq-i' }, svg), bar: h('div', { class: 'msq-bar' }, fill), fill, glyph, notch };
-        it.box.append(it.bar);
+        const glyph = s('path', { class: 'msq-glyph' });
+        const svg = s('svg', { viewBox: '0 0 14 14', 'aria-hidden': 'true' }, glyph);
+        const it = { l, box: h('div', { class: 'msq-i' }, svg), glyph };
         el.append(it.box);
         hook(it);
         items.set(l, it);
@@ -149,7 +147,7 @@
           if (S.hot === l) S.hot = null;
           if (S.last === l) S.last = null;
           tell(l.src.name + ' removed');
-        } else if (mods.ctrl && l.src.kind !== 'midi') {
+        } else if (mods.ctrl) {
           l.op = (l.op + 1) % MIX.length;
           if (l.op === 1) l.bip = false; // Scale has no "both ways"
           tell('Mix: ' + MIX[l.op].name);
@@ -228,11 +226,6 @@
           it.box.classList.toggle('del', S.open && S.hot === l && mods.alt && !S.drag);
           it.box.style.pointerEvents = S.open ? 'auto' : 'none';
           it.glyph.setAttribute('d', ['M3.8 7h6.4M7 3.8v6.4', 'M4 4l6 6M10 4l-6 6', 'M3.8 3.8h6.4M7 3.8v6.4', 'M3.8 10.2h6.4M7 3.8v6.4'][l.op]);
-          it.notch.setAttribute('d', l.src.kind === 'midi' ? 'M9.5 0H14V4.5Z' : l.src.kind === 'cont' ? 'M0 9.5V14H4.5Z' : '');
-          // the amount sliver: centre = 0, up goes right, down left, both ways both
-          const w = Math.min(1, Math.abs(l.amt)) * 50, dir = l.bip ? 'both' : l.amt < 0 ? 'down' : 'up';
-          it.fill.style.left = (dir === 'up' ? 50 : 50 - w) + '%';
-          it.fill.style.width = (dir === 'both' ? w * 2 : w) + '%';
         });
         // readout over the row: the range it moves the knob over, or its amount for Scale
         const hot = S.open && S.hot && !S.edit && !(S.drag && S.drag.axis === 'curve') ? S.hot : null;
@@ -245,7 +238,7 @@
             txt = fmt(a < 0 && !hot.bip ? hi : lo) + ' > ' + fmt(a < 0 && !hot.bip ? lo : hi);
           }
           const del = mods.alt && !S.drag;
-          tip.replaceChildren((hot.op || mods.ctrl) && !del && hot.src.kind !== 'midi' ? h('b', null, MIX[hot.op].chip + ' ' + MIX[hot.op].name.toUpperCase()) : '', del ? 'Click to remove' : txt);
+          tip.replaceChildren((hot.op || mods.ctrl) && !del ? h('b', null, MIX[hot.op].chip + ' ' + MIX[hot.op].name.toUpperCase()) : '', del ? 'Click to remove' : txt);
           tip.style.setProperty('--c', del ? '#e5534b' : hot.src.color);
           const wb = win.getBoundingClientRect(), eb = el.getBoundingClientRect();
           tip.style.left = (eb.left - wb.left - 4) + 'px'; tip.style.top = (eb.top - wb.top - 10) + 'px';
@@ -293,8 +286,6 @@
         h('ul', { class: 'msq-look' },
           look('i-layers', 'One layer per modulator, nested. The one you used last sits on the outside.'),
           look('i-glyph', 'The sign in it is how it mixes: + adds, × scales the others, and the T shapes are Min and Max, which cap the top or the bottom.'),
-          look('i-bar', 'The bar under it is the amount. Right of centre goes up, left goes down, both sides go both ways.'),
-          look('i-notch', 'A corner cut top right is a MIDI modulator. Bottom left is one from the container.'),
           look('i-muted', 'Black with a coloured edge means it\'s muted.')),
         h('h4', null, 'Using it'),
         h('ul', { class: 'msq-use' },

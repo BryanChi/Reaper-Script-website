@@ -74,7 +74,7 @@ input {
 [hidden] { display: none !important; }
 </style>
 </head>
-<body>
+<body data-supabase-url="https://txevakkpyrnbrwbqizov.supabase.co" data-supabase-anon-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZXZha2tweXJuYnJ3YnFpem92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNDQ4MzcsImV4cCI6MjA4MDcyMDgzN30.T7PDcDzQ5Vn9NqRG6-34wizqznMWHt0aHKc0Osv2D7w">
 <main class="card" aria-live="polite">
   <div class="brand"><i></i>Cool Reaper Scripts</div>
 
@@ -225,9 +225,9 @@ input {
     if (!code) { bad('No sign-in code', 'Open this page from REAPER: click Sign in with browser in the script\'s license window.'); return; }
     if (!window.supabase) { bad('Sign-in is unavailable', 'The sign-in library didn\'t load. Reload the page.'); return; }
 
-    // The site's public Supabase settings live once, on the home page's <body>
-    var config = fetch('/').then(function (r) { return r.text(); }).then(function (html) {
-      var b = new DOMParser().parseFromString(html, 'text/html').body.dataset;
+    // The site's public Supabase settings, on this page's own <body> (the home page no longer has them)
+    var config = Promise.resolve().then(function () {
+      var b = document.body.dataset;
       if (!b.supabaseUrl || !b.supabaseAnonKey) throw new Error('no config');
       client = window.supabase.createClient(b.supabaseUrl, b.supabaseAnonKey, { auth: { persistSession: true, detectSessionInUrl: true } });
     });

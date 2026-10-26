@@ -1,11 +1,16 @@
 -- @description Cool Reaper Script Manager
--- @version 3.15.0
+-- @version 3.16.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.16.0: connections that fail are written down (the last 50, never your keys, email or files)
+--          and sent to coolreaperscripts.com once a day so they can be fixed; switch it off at the
+--          bottom of the window. When the site can't be reached, a notice at the top reports it
+--          (a GitHub issue with the log, like Send feedback in the scripts), shows the log file in
+--          Finder / Explorer, or copies it.
 --   3.15.0: a slow or dead internet connection never freezes REAPER: every download and request to
 --          the site runs in the background (on Windows without any window), the window keeps
 --          drawing while it waits, and a connection that can't be made gives up after 4 seconds.
@@ -63,7 +68,7 @@
 
 local r = reaper
 
-local VERSION = '3.15.0'
+local VERSION = '3.16.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -401,6 +406,7 @@ function BG.LaunchWin(job)
   end
   local ok = pcall(r.ExecProcess, cmd, -2)
   job.way = ok and way or nil
+  job.ways = (job.ways and (job.ways .. '>') or '') .. way .. (ok and '' or '!') -- for the connection log
   return ok
 end
 
@@ -410,7 +416,7 @@ end
 -- before the job counts as unanswered. nil when it couldn't start.
 function BG.Spawn(lines, limit)
   local job = { cfg = TempFile('req.cfg'), code = TempFile('code.txt'), err = TempFile('err.txt'),
-    done = TempFile('done.txt'), started = os.time(), limit = limit or 30 }
+    done = TempFile('done.txt'), started = os.time(), limit = limit or 30, t0 = r.time_precise(), what = BG.What(lines) }
   if not WriteFile(job.cfg, table.concat(lines, '\n') .. '\n') then return nil end
   local ok
   if IS_WIN then
@@ -425,18 +431,288 @@ function BG.Spawn(lines, limit)
       'set "CURL=%SystemRoot%\\System32\\curl.exe"',
       'if not exist "%CURL%" set "CURL=curl"',
       ('"%%CURL%%" -K "%s" >"%s" 2>"%s"'):format(n(job.cfg), n(job.code), n(job.err)),
-      -- written under another name, then renamed: done never shows up while it's still open
-      ('echo done>"%s.tmp"'):format(n(job.done)),
+      'set "RC=%ERRORLEVEL%"',
+      -- written under another name, then renamed: done never shows up while it's still open. It
+      -- holds curl's exit code (redirect first: "echo 6>file" would redirect handle 6)
+      ('>"%s.tmp" echo done %%RC%%'):format(n(job.done)),
       ('ren "%s.tmp" "%s"'):format(n(job.done), n(job.done)),
       '' }, '\r\n')) and BG.LaunchWin(job)
   else
     job.sh = TempFile('run.sh')
-    ok = WriteFile(job.sh, string.format('#!/bin/sh\ncd %s || exit 1\n/usr/bin/curl -K %s > %s 2> %s\necho done > %s\n',
-      ShellQuote(TempDir()), ShellQuote(BG.Name(job.cfg)), ShellQuote(job.code), ShellQuote(job.err), ShellQuote(job.done)))
+    ok = WriteFile(job.sh, string.format('#!/bin/sh\ncd %s || exit 1\n/usr/bin/curl -K %s > %s 2> %s\necho "done $?" > %s && mv %s %s\n',
+      ShellQuote(TempDir()), ShellQuote(BG.Name(job.cfg)), ShellQuote(job.code), ShellQuote(job.err),
+      ShellQuote(job.done .. '.tmp'), ShellQuote(job.done .. '.tmp'), ShellQuote(job.done)))
     if ok then os.execute('/bin/sh ' .. ShellQuote(job.sh) .. ' >/dev/null 2>&1 &') end
   end
-  if not ok then BG.Clean(job) return nil end
+  if not ok then
+    BG.Clean(job)
+    BG.Record(job, 'not started')
+    return nil
+  end
   return job
+end
+
+---------------------------------------------------------------------------------------------------
+-- Connection log (the same as FX Devices'): the last 50 requests that failed (what it was, curl's
+-- exit code and error, the HTTP code, how long it took, how Windows started it and what it fell
+-- back to, the OS build, the REAPER and Script Manager versions), in REAPER's Data folder. Never a
+-- license key, email, path or user name. The next request that works sends it to the site, at most
+-- once a day, unless that's switched off (one switch for every Cool Reaper Script, at the bottom of
+-- the window). Copy diagnostics puts it on the clipboard.
+---------------------------------------------------------------------------------------------------
+
+BG.DIAG = 'CoolReaperScripts_Diag'
+BG.LOG_MAX = 50
+BG.FIELDS = { 'first', 'last', 'n', 'what', 'kind', 'rc', 'http', 'ms', 'way', 'err', 'os', 'reaper', 'ver' }
+BG.NUMBERS = { first = true, last = true, n = true, rc = true, http = true, ms = true }
+-- an ExtState override points testers at a local copy of the site
+BG.LOG_URL = r.GetExtState(BG.DIAG, 'url') ~= '' and r.GetExtState(BG.DIAG, 'url') or (SITE .. '/api/device?action=client-log')
+
+function BG.LogPath()
+  local dir = RES .. '/Data/CoolReaperScripts'
+  r.RecursiveCreateDirectory(dir, 0)
+  return dir .. '/netlog_script-manager.tsv'
+end
+
+-- one entry per line, tab-separated in BG.FIELDS order, oldest first
+function BG.Log()
+  if BG.log then return BG.log end
+  local list = {}
+  for line in (ReadFile(BG.LogPath()) or ''):gmatch('[^\r\n]+') do
+    local e, i = {}, 0
+    for v in (line .. '\t'):gmatch('([^\t]*)\t') do
+      i = i + 1
+      if BG.FIELDS[i] then e[BG.FIELDS[i]] = v end
+    end
+    if (e.kind or '') ~= '' then list[#list + 1] = e end
+  end
+  while #list > BG.LOG_MAX do table.remove(list, 1) end
+  BG.log = list
+  return list
+end
+
+function BG.LogSave(list)
+  local lines = {}
+  for _, e in ipairs(list) do
+    local row = {}
+    for i, k in ipairs(BG.FIELDS) do row[i] = (tostring(e[k] or ''):gsub('[\t\r\n]', ' ')) end
+    lines[#lines + 1] = table.concat(row, '\t')
+  end
+  WriteFile(BG.LogPath(), table.concat(lines, '\n') .. (#lines > 0 and '\n' or ''))
+end
+
+-- curl's error text without anything personal: keys, emails, user names, file paths
+function BG.Scrub(s)
+  s = tostring(s or '')
+  for _, var in ipairs({ 'USERNAME', 'USER' }) do
+    local name = os.getenv(var)
+    if name and #name >= 3 then s = s:gsub(name:gsub('%p', '%%%0'), '<x>') end
+  end
+  s = s:gsub('[%w%.%+%-_]+@[%w%-_]+%.[%w%.%-_]+', '<email>'):gsub(('%x'):rep(16) .. '%-' .. ('%x'):rep(8), '<x>')
+    :gsub('%a:[\\/][^\r\n"\']*', '<path>'):gsub('\\\\[^\r\n"\']*', '<path>'):gsub('/[%w_%.%-]+/[^\r\n"\' ]*', '<path>')
+  return (s:gsub('%s+', ' '):gsub('^ ', ''):gsub(' $', ''):sub(1, 240))
+end
+
+-- host and path of the request's first URL (never its query), and how many URLs a batch has
+function BG.What(lines)
+  local first, n = nil, 0
+  for _, l in ipairs(lines) do
+    local u = l:match('^url = "(.*)"$')
+    if u then n = n + 1 first = first or u end
+  end
+  local what = ((first or ''):match('^%a+://([^?#]+)') or '?'):gsub('^www%.', '')
+  return n > 1 and (what .. ' +' .. (n - 1)) or what
+end
+
+function BG.OsText()
+  return OS .. ((IS_WIN and (BG.build or tonumber(r.GetExtState(EXT, 'winBuild')))) and (' build ' .. (BG.build or r.GetExtState(EXT, 'winBuild'))) or '')
+end
+
+-- Same request failing the same way again: one entry with a count, moved to the end
+function BG.Record(job, kind, http, rc, err)
+  if job.quiet then return end
+  local list = BG.Log()
+  local now = tostring(os.time())
+  local e = { what = job.what or '?', kind = kind, rc = rc and tostring(rc) or '', http = http and tostring(http) or '',
+    ms = job.t0 and tostring(math.floor((r.time_precise() - job.t0) * 1000)) or '', way = job.ways or '',
+    err = BG.Scrub(err), os = BG.OsText(), reaper = r.GetAppVersion() or '', ver = 'Script Manager ' .. VERSION }
+  for i = #list, 1, -1 do
+    local o = list[i]
+    if o.what == e.what and o.kind == e.kind and o.rc == e.rc and o.http == e.http and o.way == e.way
+      and o.err == e.err and o.ver == e.ver then
+      table.remove(list, i)
+      e.first, e.n = o.first, tostring((tonumber(o.n) or 1) + 1)
+      break
+    end
+  end
+  e.first, e.last, e.n = e.first or now, now, e.n or '1'
+  list[#list + 1] = e
+  while #list > BG.LOG_MAX do table.remove(list, 1) end
+  BG.LogSave(list)
+  -- the notice at the top of the window (log file, Copy diagnostics, email): once a session
+  if kind ~= 'fallback' and not BG.alertShown and r.GetExtState(BG.DIAG, 'nopopup') ~= '1' then
+    BG.alertShown, BG.alert = true, true
+  end
+end
+
+-- The log as a text file for people (to post on the forum or email), shown in Finder / Explorer
+function BG.RevealLog()
+  local path = NativePath(RES .. '/Data/CoolReaperScripts/Script Manager connection log.txt')
+  if not WriteFile(path, BG.Diagnostics() .. '\n') then return end
+  if r.CF_LocateInExplorer then r.CF_LocateInExplorer(path)
+  elseif IS_WIN then r.ExecProcess('explorer.exe /select,"' .. path .. '"', -1)
+  elseif IS_MAC then os.execute('/usr/bin/open -R ' .. ShellQuote(path))
+  else RevealFolder(DirOf(path)) end
+end
+
+-- Report it: a GitHub issue with the log, through the feedback relay the scripts' Send feedback
+-- uses (not on coolreaperscripts.com, so it can work when the site can't be reached). It files
+-- under FX Devices' repository, titled as the Script Manager's. BG.report: 'sending', then
+-- { url, number } or { err }.
+BG.RELAY = 'https://crs-feedback.brwchi.workers.dev/report'
+function BG.Report()
+  if BG.report == 'sending' then return end
+  local payloadFile, out = TempFile('report.json'), TempFile('report_out.txt')
+  local app = r.GetAppVersion() or '?'
+  if not WriteFile(payloadFile, JsonEncode({ v = 1, script_id = 'fx-devices', script_name = 'Script Manager',
+    script_version = VERSION, kind = 'bug', title = '[Script Manager] Can\'t connect to coolreaperscripts.com',
+    note = 'Reported from the Script Manager\'s connection notice (Report it). The connection log is below.',
+    contact = '', log = BG.Diagnostics(), images = {},
+    env = { reaper = app:match('^([^/]+)') or app, os = OS, reaimgui = '?', js_api = r.APIExists('JS_ReaScriptAPI_Version'),
+      sws = r.APIExists('CF_GetSWSVersion'), install_id = BG.DevHash() } })) then
+    BG.report = { err = 'Couldn\'t write the report to the temp folder.' }
+    return
+  end
+  local job = BG.Spawn({ 'url = ' .. BG.Quote(BG.RELAY), 'header = "X-CRS-Feedback: 1"',
+    'form = ' .. BG.Quote('payload=<' .. BG.Name(payloadFile) .. ';type=application/json'), 'output = ' .. BG.Quote(BG.Name(out)),
+    'silent', 'show-error', BG.CONNECT, 'max-time = 60', 'write-out = "%{http_code}"' }, 75)
+  if not job then os.remove(payloadFile) BG.report = { err = 'Couldn\'t start curl.' } return end
+  job.body = payloadFile
+  BG.report = 'sending'
+  BG.reportJob = { job = job, out = out }
+end
+
+function BG.ReportTick()
+  local rj = BG.reportJob
+  if not rj then return end
+  local printed = BG.Poll(rj.job)
+  if printed == nil then return end
+  BG.reportJob = nil
+  local body = ReadFile(rj.out) or ''
+  os.remove(rj.out)
+  local data = JsonDecode(body)
+  local code = tonumber(printed:match('(%d%d%d)%s*$')) or 0
+  if code >= 200 and code < 300 and type(data) == 'table' and data.url then
+    BG.report = { url = data.url, number = data.number }
+  else
+    BG.report = { err = (type(data) == 'table' and data.error) or (code > 0 and ('The report server answered HTTP ' .. code .. '.'))
+      or 'Couldn\'t reach the report server either. Use Show log file and post it on the REAPER forum.' }
+  end
+end
+
+-- What a finished (or given up) job says about the connection. A 4xx is the site's answer (a
+-- wrong key), not a connection problem; downloads with 'fail' end with curl's exit code 22 instead.
+function BG.Result(job, finished, printed, err)
+  local rc = finished and tonumber((ReadFile(job.done) or ''):match('done%s+(%-?%d+)')) or nil
+  local http = tonumber(printed:match('(%d%d%d)%s*$'))
+  local kind
+  if not finished then
+    kind = (job.mark and not Exists(job.mark)) and 'not started' or 'timeout'
+  elseif rc and rc ~= 0 then
+    kind = 'curl'
+  elseif not http or http == 0 or http >= 500 then
+    kind = 'http'
+  end
+  if kind then return BG.Record(job, kind, http, rc, finished and err or '') end
+  if job.ways and job.ways:find('>', 1, true) then BG.Record(job, 'fallback', http, rc, '') end
+  BG.netOk = not job.quiet or BG.netOk
+end
+
+function BG.ReportsOn() return r.GetExtState(BG.DIAG, 'off') ~= '1' end
+function BG.SetReports(on) r.SetExtState(BG.DIAG, 'off', on and '' or '1', true) end
+
+-- Anonymous ID of this computer for the reports, shared by every Cool Reaper Script: a hash of
+-- FX Devices' device ID when there's one (what FX Devices uses too), made once
+function BG.DevHash()
+  local id = r.GetExtState(BG.DIAG, 'id')
+  if id ~= '' then return id end
+  local s = 'crs-diag|' .. r.GetExtState('CRS_FX_Devices_License', 'deviceId')
+  if s == 'crs-diag|' then s = s .. tostring(os.time()) .. tostring(r.time_precise()) .. tostring({}) end
+  local h1, h2 = 0x811C9DC5, 0x2545F491
+  for i = 1, #s do
+    local b = s:byte(i)
+    h1 = ((h1 ~ b) * 0x01000193) & 0xFFFFFFFF
+    h2 = (((h2 ~ b) * 0x5BD1E995) + i * 0x9E37) & 0xFFFFFFFF
+  end
+  id = string.format('%08x%04x', h1, h2 & 0xFFFF)
+  r.SetExtState(BG.DIAG, 'id', id, true)
+  return id
+end
+
+-- Once a day, after a request that worked (called every frame): send the log, newest entries
+-- first up to 12 KB; the ones sent are dropped when the site took them
+function BG.UploadTick()
+  local up = BG.upload
+  if up then
+    if BG.Poll(up.job) == nil then return end
+    BG.upload = nil
+    local data = JsonDecode(ReadFile(up.out) or '')
+    os.remove(up.out)
+    if type(data) ~= 'table' or data.ok ~= true then return end
+    local keep = {}
+    for _, e in ipairs(BG.Log()) do
+      if (tonumber(e.last) or 0) > up.upTo then keep[#keep + 1] = e end
+    end
+    BG.log = keep
+    BG.LogSave(keep)
+    return
+  end
+  if not BG.netOk then return end
+  BG.netOk = nil
+  local list = BG.Log()
+  if #list == 0 or not BG.ReportsOn() then return end
+  local now, last = os.time(), tonumber(r.GetExtState(BG.DIAG, 'sent_script-manager')) or 0
+  if last <= now + 3600 and now - last < 86400 then return end
+  r.SetExtState(BG.DIAG, 'sent_script-manager', tostring(now), true)
+  local items, size = {}, 0
+  for i = #list, 1, -1 do
+    local parts = {}
+    for _, k in ipairs(BG.FIELDS) do
+      local v = list[i][k] or ''
+      if BG.NUMBERS[k] then v = tonumber(v) and math.floor(tonumber(v)) or nil end
+      parts[#parts + 1] = JsonEncode(k) .. ':' .. JsonEncode(v)
+    end
+    local j = '{' .. table.concat(parts, ',') .. '}'
+    if size + #j > 12000 then break end
+    table.insert(items, 1, j)
+    size = size + #j + 1
+  end
+  local bodyFile, out = TempFile('body.json'), TempFile('out.txt')
+  if not WriteFile(bodyFile, ('{"product":"script-manager","dev":%s,"entries":[%s]}'):format(JsonEncode(BG.DevHash()), table.concat(items, ','))) then return end
+  local job = BG.Spawn(BG.PostLines(BG.LOG_URL, bodyFile, BG.Name(out), 15), 30)
+  if not job then os.remove(bodyFile) return end
+  job.body, job.quiet = bodyFile, true
+  BG.upload = { job = job, out = out, upTo = now }
+end
+
+-- The log and this computer's setup, for a support email
+function BG.Diagnostics()
+  local lines = {
+    'Script Manager ' .. VERSION .. ', REAPER ' .. (r.GetAppVersion() or '?') .. ', ' .. BG.OsText(),
+    'Computer: ' .. BG.DevHash() .. (IS_WIN and ('  launcher: ' .. tostring(BG.way or '-') .. '  skipped: '
+      .. (r.GetExtState(EXT, 'winSkip') ~= '' and r.GetExtState(EXT, 'winSkip') or '-')) or ''),
+    'Connection reports: ' .. (BG.ReportsOn() and 'on' or 'off'),
+    '',
+  }
+  local list = BG.Log()
+  lines[#lines + 1] = #list > 0 and ('Failed requests (%d, newest last):'):format(#list) or 'No failed requests.'
+  for _, e in ipairs(list) do
+    lines[#lines + 1] = ('%s  %s  %s%s%s%s  %sms%s%s'):format(os.date('%Y-%m-%d %H:%M', tonumber(e.last) or 0),
+      e.what, e.kind, e.rc ~= '' and (' rc=' .. e.rc) or '', e.http ~= '' and (' http=' .. e.http) or '',
+      (tonumber(e.n) or 1) > 1 and (' x' .. e.n) or '', e.ms, e.way ~= '' and ('  via ' .. e.way) or '',
+      e.err ~= '' and ('  ' .. e.err) or '')
+  end
+  return table.concat(lines, '\n')
 end
 
 function BG.Clean(job)
@@ -476,6 +752,7 @@ function BG.Poll(job)
   end
   local finished = Exists(job.done)
   local code, err = finished and ReadFile(job.code) or '', finished and ReadFile(job.err) or ''
+  pcall(BG.Result, job, finished, code or '', err or '')
   job.out = nil -- the caller reads its output file
   BG.Clean(job)
   return code or '', err or ''
@@ -528,6 +805,7 @@ local function Post(url, body, outPath)
   local job = BG.Spawn(BG.PostLines(url, bodyFile, outPath or BG.Name(out)), 110)
   if not job then os.remove(bodyFile) return nil, nil, 'Could not start curl' end
   job.body = bodyFile
+  if type(body) == 'table' and body.action then job.what = job.what .. ' ' .. tostring(body.action) end
   local printed, err = BG.Wait(job)
   if not outPath and BG.orphans[#BG.orphans] == job then job.out = out end
   local code = tonumber(printed:match('(%d%d%d)%s*$'))
@@ -559,6 +837,7 @@ local function AsyncPost(url, body)
   local job = BG.Spawn(BG.PostLines(url, bodyFile, BG.Name(out), 15), 30)
   if not job then os.remove(bodyFile) return nil end
   job.body, job.outFile = bodyFile, out
+  if type(body) == 'table' and body.action then job.what = job.what .. ' ' .. tostring(body.action) end
   return job
 end
 
@@ -2759,6 +3038,34 @@ local function Content(cx, cy, avail)
   end
   y = y + 22
   if S.msg then y = y + Banner(dl, px, y, w, S.msg.kind, S.msg.text) + 14 end
+  -- a request couldn't reach the site: how to send the connection log
+  if BG.alert then
+    y = y + Banner(dl, px, y, w, 'warn', 'Couldn\'t connect to coolreaperscripts.com. Check your internet connection, firewall or antivirus.'
+      .. '\nIf it keeps happening, please report it: the report has the connection log, which says what failed and your system, never your keys, email or files.') + 8
+    local bx = px
+    local rep = BG.report
+    local done = type(rep) == 'table' and rep.url ~= nil
+    for _, b in ipairs({ { rep == 'sending' and 'Reporting...' or done and 'Reported' or 'Report it', BG.Report, 'go', rep == 'sending' or done },
+        { 'Show log file', BG.RevealLog }, { S.copiedAt2 and r.time_precise() - S.copiedAt2 < 1.5 and 'Copied' or 'Copy diagnostics', function()
+        im.SetClipboardText(ctx, BG.Diagnostics()) S.copiedAt2 = r.time_precise() end } }) do
+      local bw = Btn_W(b[1])
+      if Btn('##netalert' .. bx, b[1], bx, y, b[3] or 'ghost', bw, b[4]) then b[2]() end
+      bx = bx + bw + 8
+    end
+    local c1, w1 = Link('##netalertoff', dl, px + w - Mono_Caps_W(10, 'Don\'t show again', true), y + 10, 'Don\'t show again', P.ink3)
+    if c1 then r.SetExtState(BG.DIAG, 'nopopup', '1', true) BG.alert = nil end
+    if Link('##netalertclose', dl, px + w - w1 - 24 - Mono_Caps_W(10, 'Dismiss', true), y + 10, 'Dismiss', P.ink3) then BG.alert = nil end
+    y = y + BTN_H + 14
+    -- what became of the report: its issue (a link), or why it didn't go
+    if type(rep) == 'table' then
+      if rep.url then
+        if Link('##netreport', dl, px, y - 4, 'Reported as issue #' .. tostring(rep.number or '') .. ': open it', P.acc) then OpenUrl(rep.url) end
+      else
+        Txt(dl, F.body, 12, px, y - 4, P.amber, rep.err)
+      end
+      y = y + 22
+    end
+  end
   -- a newer Script Manager on the site
   if S.selfUpdate then
     local u = S.selfUpdate
@@ -2856,6 +3163,24 @@ local function Content(cx, cy, avail)
   end
   local by = 'by Bryan Chi'
   Mono_Caps(dl, 10, px + w - Mono_Caps_W(10, by), y, P.ink3, by)
+  -- the connection reports: what they are, their off switch, Copy diagnostics
+  y = y + 30
+  local on = BG.ReportsOn()
+  for _, l in ipairs(Wrap(on and 'Failed connections to coolreaperscripts.com are reported once a day so they can be fixed: what failed, the error, your system and versions. Never your keys, email or files.'
+    or 'Connection reports are off.', F.body, w)) do
+    Txt(dl, F.body, 12, px, y, P.ink3, l)
+    y = y + 16
+  end
+  y = y + 6
+  local c3, w3 = Link('##netrep', dl, px, y, on and 'Turn off reports' or 'Turn on reports', P.ink3)
+  if c3 then BG.SetReports(not on) end
+  local copied = S.copiedAt and r.time_precise() - S.copiedAt < 1.5
+  local c4, w4 = Link('##diag', dl, px + w3 + 24, y, copied and 'Copied' or 'Copy diagnostics', P.ink3)
+  if c4 then
+    im.SetClipboardText(ctx, BG.Diagnostics())
+    S.copiedAt = r.time_precise()
+  end
+  if Link('##netlog', dl, px + w3 + w4 + 48, y, 'Show log file', P.ink3) then BG.RevealLog() end
   im.SetCursorScreenPos(ctx, px, y + 40)
   im.Dummy(ctx, w, 0)
 end
@@ -2866,6 +3191,8 @@ end
 
 local function Frame()
   BG.FontsTick()
+  BG.UploadTick()
+  BG.ReportTick()
   -- one step at a time, after its label has drawn; it runs as a coroutine, so while it waits on
   -- the site the window keeps drawing (S.busy stays until it's done)
   if S.busy then

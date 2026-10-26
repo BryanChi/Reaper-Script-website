@@ -1,8 +1,12 @@
 const { deactivateDevice } = require('./_lib/store');
+const { handleClientLog } = require('./_lib/client-log');
 
 module.exports = async function handler(req, res) {
 	const { method, body, query } = req;
 	const action = query.action || body?.action;
+
+	// connection-error reports from the scripts (no license involved)
+	if (action === 'client-log') return handleClientLog(req, res);
 
 	const email = body?.email || query?.email;
 	const licenseKey = body?.licenseKey || query?.licenseKey;

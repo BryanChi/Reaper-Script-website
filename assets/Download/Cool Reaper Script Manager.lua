@@ -8,8 +8,9 @@
 -- @changelog
 --   3.16.0: connections that fail are written down (the last 50, never your keys, email or files)
 --          and sent to coolreaperscripts.com once a day so they can be fixed; switch it off at the
---          bottom of the window. When the site can't be reached, a notice at the top shows the log
---          file in Finder / Explorer, copies it, or starts an email with it, to send to Bryan.
+--          bottom of the window. When the site can't be reached, a notice at the top reports it
+--          (a GitHub issue with the log, like Send feedback in the scripts), shows the log file in
+--          Finder / Explorer, or copies it.
 --   3.15.0: a slow or dead internet connection never freezes REAPER: every download and request to
 --          the site runs in the background (on Windows without any window), the window keeps
 --          drawing while it waits, and a connection that can't be made gives up after 4 seconds.
@@ -564,11 +565,49 @@ function BG.RevealLog()
   else RevealFolder(DirOf(path)) end
 end
 
-BG.SUPPORT_EMAIL = 'brwchi@gmail.com'
-function BG.Email()
-  local function enc(t) return (t:gsub('[^%w%-_%.~]', function(c) return ('%%%02X'):format(c:byte()) end)) end
-  OpenUrl('mailto:' .. BG.SUPPORT_EMAIL .. '?subject=' .. enc('Script Manager connection problem') .. '&body='
-    .. enc('What I was doing:\n\n\n' .. BG.Diagnostics():sub(1, 1500)))
+-- Report it: a GitHub issue with the log, through the feedback relay the scripts' Send feedback
+-- uses (not on coolreaperscripts.com, so it can work when the site can't be reached). It files
+-- under FX Devices' repository, titled as the Script Manager's. BG.report: 'sending', then
+-- { url, number } or { err }.
+BG.RELAY = 'https://crs-feedback.brwchi.workers.dev/report'
+function BG.Report()
+  if BG.report == 'sending' then return end
+  local payloadFile, out = TempFile('report.json'), TempFile('report_out.txt')
+  local app = r.GetAppVersion() or '?'
+  if not WriteFile(payloadFile, JsonEncode({ v = 1, script_id = 'fx-devices', script_name = 'Script Manager',
+    script_version = VERSION, kind = 'bug', title = '[Script Manager] Can\'t connect to coolreaperscripts.com',
+    note = 'Reported from the Script Manager\'s connection notice (Report it). The connection log is below.',
+    contact = '', log = BG.Diagnostics(), images = {},
+    env = { reaper = app:match('^([^/]+)') or app, os = OS, reaimgui = '?', js_api = r.APIExists('JS_ReaScriptAPI_Version'),
+      sws = r.APIExists('CF_GetSWSVersion'), install_id = BG.DevHash() } })) then
+    BG.report = { err = 'Couldn\'t write the report to the temp folder.' }
+    return
+  end
+  local job = BG.Spawn({ 'url = ' .. BG.Quote(BG.RELAY), 'header = "X-CRS-Feedback: 1"',
+    'form = ' .. BG.Quote('payload=<' .. BG.Name(payloadFile) .. ';type=application/json'), 'output = ' .. BG.Quote(BG.Name(out)),
+    'silent', 'show-error', BG.CONNECT, 'max-time = 60', 'write-out = "%{http_code}"' }, 75)
+  if not job then os.remove(payloadFile) BG.report = { err = 'Couldn\'t start curl.' } return end
+  job.body = payloadFile
+  BG.report = 'sending'
+  BG.reportJob = { job = job, out = out }
+end
+
+function BG.ReportTick()
+  local rj = BG.reportJob
+  if not rj then return end
+  local printed = BG.Poll(rj.job)
+  if printed == nil then return end
+  BG.reportJob = nil
+  local body = ReadFile(rj.out) or ''
+  os.remove(rj.out)
+  local data = JsonDecode(body)
+  local code = tonumber(printed:match('(%d%d%d)%s*$')) or 0
+  if code >= 200 and code < 300 and type(data) == 'table' and data.url then
+    BG.report = { url = data.url, number = data.number }
+  else
+    BG.report = { err = (type(data) == 'table' and data.error) or (code > 0 and ('The report server answered HTTP ' .. code .. '.'))
+      or 'Couldn\'t reach the report server either. Use Show log file and post it on the REAPER forum.' }
+  end
 end
 
 -- What a finished (or given up) job says about the connection. A 4xx is the site's answer (a
@@ -3004,16 +3043,28 @@ local function Content(cx, cy, avail)
     y = y + Banner(dl, px, y, w, 'warn', 'Couldn\'t connect to coolreaperscripts.com. Check your internet connection, firewall or antivirus.'
       .. '\nIf it keeps happening, please send Bryan the connection log: email it, or post it on the REAPER forum. It has what failed and your system, never your keys, email or files.') + 8
     local bx = px
-    for _, b in ipairs({ { 'Show log file', BG.RevealLog, 'go' }, { S.copiedAt2 and r.time_precise() - S.copiedAt2 < 1.5 and 'Copied' or 'Copy diagnostics', function()
-        im.SetClipboardText(ctx, BG.Diagnostics()) S.copiedAt2 = r.time_precise() end }, { 'Email it', BG.Email } }) do
+    local rep = BG.report
+    local done = type(rep) == 'table' and rep.url ~= nil
+    for _, b in ipairs({ { rep == 'sending' and 'Reporting...' or done and 'Reported' or 'Report it', BG.Report, 'go', rep == 'sending' or done },
+        { 'Show log file', BG.RevealLog }, { S.copiedAt2 and r.time_precise() - S.copiedAt2 < 1.5 and 'Copied' or 'Copy diagnostics', function()
+        im.SetClipboardText(ctx, BG.Diagnostics()) S.copiedAt2 = r.time_precise() end } }) do
       local bw = Btn_W(b[1])
-      if Btn('##netalert' .. bx, b[1], bx, y, b[3] or 'ghost', bw) then b[2]() end
+      if Btn('##netalert' .. bx, b[1], bx, y, b[3] or 'ghost', bw, b[4]) then b[2]() end
       bx = bx + bw + 8
     end
     local c1, w1 = Link('##netalertoff', dl, px + w - Mono_Caps_W(10, 'Don\'t show again', true), y + 10, 'Don\'t show again', P.ink3)
     if c1 then r.SetExtState(BG.DIAG, 'nopopup', '1', true) BG.alert = nil end
     if Link('##netalertclose', dl, px + w - w1 - 24 - Mono_Caps_W(10, 'Dismiss', true), y + 10, 'Dismiss', P.ink3) then BG.alert = nil end
     y = y + BTN_H + 14
+    -- what became of the report: its issue (a link), or why it didn't go
+    if type(rep) == 'table' then
+      if rep.url then
+        if Link('##netreport', dl, px, y - 4, 'Reported as issue #' .. tostring(rep.number or '') .. ': open it', P.acc) then OpenUrl(rep.url) end
+      else
+        Txt(dl, F.body, 12, px, y - 4, P.amber, rep.err)
+      end
+      y = y + 22
+    end
   end
   -- a newer Script Manager on the site
   if S.selfUpdate then
@@ -3141,6 +3192,7 @@ end
 local function Frame()
   BG.FontsTick()
   BG.UploadTick()
+  BG.ReportTick()
   -- one step at a time, after its label has drawn; it runs as a coroutine, so while it waits on
   -- the site the window keeps drawing (S.busy stays until it's done)
   if S.busy then

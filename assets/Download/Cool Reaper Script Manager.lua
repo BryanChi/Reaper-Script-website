@@ -8,7 +8,8 @@
 -- @changelog
 --   3.16.0: connections that fail are written down (the last 50, never your keys, email or files)
 --          and sent to coolreaperscripts.com once a day so they can be fixed; switch it off at the
---          bottom of the window. Copy diagnostics puts them on the clipboard for a support email.
+--          bottom of the window. When the site can't be reached, a notice at the top shows the log
+--          file in Finder / Explorer, copies it, or starts an email with it, to send to Bryan.
 --   3.15.0: a slow or dead internet connection never freezes REAPER: every download and request to
 --          the site runs in the background (on Windows without any window), the window keeps
 --          drawing while it waits, and a connection that can't be made gives up after 4 seconds.
@@ -547,6 +548,27 @@ function BG.Record(job, kind, http, rc, err)
   list[#list + 1] = e
   while #list > BG.LOG_MAX do table.remove(list, 1) end
   BG.LogSave(list)
+  -- the notice at the top of the window (log file, Copy diagnostics, email): once a session
+  if kind ~= 'fallback' and not BG.alertShown and r.GetExtState(BG.DIAG, 'nopopup') ~= '1' then
+    BG.alertShown, BG.alert = true, true
+  end
+end
+
+-- The log as a text file for people (to post on the forum or email), shown in Finder / Explorer
+function BG.RevealLog()
+  local path = NativePath(RES .. '/Data/CoolReaperScripts/Script Manager connection log.txt')
+  if not WriteFile(path, BG.Diagnostics() .. '\n') then return end
+  if r.CF_LocateInExplorer then r.CF_LocateInExplorer(path)
+  elseif IS_WIN then r.ExecProcess('explorer.exe /select,"' .. path .. '"', -1)
+  elseif IS_MAC then os.execute('/usr/bin/open -R ' .. ShellQuote(path))
+  else RevealFolder(DirOf(path)) end
+end
+
+BG.SUPPORT_EMAIL = 'brwchi@gmail.com'
+function BG.Email()
+  local function enc(t) return (t:gsub('[^%w%-_%.~]', function(c) return ('%%%02X'):format(c:byte()) end)) end
+  OpenUrl('mailto:' .. BG.SUPPORT_EMAIL .. '?subject=' .. enc('Script Manager connection problem') .. '&body='
+    .. enc('What I was doing:\n\n\n' .. BG.Diagnostics():sub(1, 1500)))
 end
 
 -- What a finished (or given up) job says about the connection. A 4xx is the site's answer (a
@@ -2977,6 +2999,22 @@ local function Content(cx, cy, avail)
   end
   y = y + 22
   if S.msg then y = y + Banner(dl, px, y, w, S.msg.kind, S.msg.text) + 14 end
+  -- a request couldn't reach the site: how to send the connection log
+  if BG.alert then
+    y = y + Banner(dl, px, y, w, 'warn', 'Couldn\'t connect to coolreaperscripts.com. Check your internet connection, firewall or antivirus.'
+      .. '\nIf it keeps happening, please send Bryan the connection log: email it, or post it on the REAPER forum. It has what failed and your system, never your keys, email or files.') + 8
+    local bx = px
+    for _, b in ipairs({ { 'Show log file', BG.RevealLog, 'go' }, { S.copiedAt2 and r.time_precise() - S.copiedAt2 < 1.5 and 'Copied' or 'Copy diagnostics', function()
+        im.SetClipboardText(ctx, BG.Diagnostics()) S.copiedAt2 = r.time_precise() end }, { 'Email it', BG.Email } }) do
+      local bw = Btn_W(b[1])
+      if Btn('##netalert' .. bx, b[1], bx, y, b[3] or 'ghost', bw) then b[2]() end
+      bx = bx + bw + 8
+    end
+    local c1, w1 = Link('##netalertoff', dl, px + w - Mono_Caps_W(10, 'Don\'t show again', true), y + 10, 'Don\'t show again', P.ink3)
+    if c1 then r.SetExtState(BG.DIAG, 'nopopup', '1', true) BG.alert = nil end
+    if Link('##netalertclose', dl, px + w - w1 - 24 - Mono_Caps_W(10, 'Dismiss', true), y + 10, 'Dismiss', P.ink3) then BG.alert = nil end
+    y = y + BTN_H + 14
+  end
   -- a newer Script Manager on the site
   if S.selfUpdate then
     local u = S.selfUpdate
@@ -3086,10 +3124,12 @@ local function Content(cx, cy, avail)
   local c3, w3 = Link('##netrep', dl, px, y, on and 'Turn off reports' or 'Turn on reports', P.ink3)
   if c3 then BG.SetReports(not on) end
   local copied = S.copiedAt and r.time_precise() - S.copiedAt < 1.5
-  if Link('##diag', dl, px + w3 + 24, y, copied and 'Copied' or 'Copy diagnostics', P.ink3) then
+  local c4, w4 = Link('##diag', dl, px + w3 + 24, y, copied and 'Copied' or 'Copy diagnostics', P.ink3)
+  if c4 then
     im.SetClipboardText(ctx, BG.Diagnostics())
     S.copiedAt = r.time_precise()
   end
+  if Link('##netlog', dl, px + w3 + w4 + 48, y, 'Show log file', P.ink3) then BG.RevealLog() end
   im.SetCursorScreenPos(ctx, px, y + 40)
   im.Dummy(ctx, w, 0)
 end

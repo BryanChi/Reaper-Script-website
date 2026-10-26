@@ -3041,7 +3041,7 @@ local function Content(cx, cy, avail)
   -- a request couldn't reach the site: how to send the connection log
   if BG.alert then
     y = y + Banner(dl, px, y, w, 'warn', 'Couldn\'t connect to coolreaperscripts.com. Check your internet connection, firewall or antivirus.'
-      .. '\nIf it keeps happening, please send Bryan the connection log: email it, or post it on the REAPER forum. It has what failed and your system, never your keys, email or files.') + 8
+      .. '\nIf it keeps happening, please report it: the report has the connection log, which says what failed and your system, never your keys, email or files.') + 8
     local bx = px
     local rep = BG.report
     local done = type(rep) == 'table' and rep.url ~= nil

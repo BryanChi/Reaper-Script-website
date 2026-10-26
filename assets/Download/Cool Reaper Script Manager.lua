@@ -1,11 +1,15 @@
 -- @description Cool Reaper Script Manager
--- @version 3.14.0
+-- @version 3.15.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.15.0: a slow or dead internet connection never freezes REAPER: every download and request to
+--          the site runs in the background (on Windows without any window), the window keeps
+--          drawing while it waits, and a connection that can't be made gives up after 4 seconds.
+--          Works with Windows user names that have non-ASCII letters.
 --   3.14.0: Prism EQ installs as a VST3 too, next to the CLAP: one card, both formats, updated
 --          together. The VST3 goes in your VST3 folder (macOS ~/Library/Audio/Plug-Ins/VST3; Windows
 --          Common Files\VST3, or your own AppData VST3 folder when that one needs admin rights).
@@ -59,7 +63,7 @@
 
 local r = reaper
 
-local VERSION = '3.14.0'
+local VERSION = '3.15.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -138,8 +142,8 @@ end
 
 local function OpenUrl(url)
   if r.CF_ShellExecute then r.CF_ShellExecute(url) return end
-  -- waited for, so the cmd.exe that hands the link to the browser stays hidden
-  if IS_WIN then r.ExecProcess('cmd.exe /C start "" "' .. url .. '"', 5000)
+  -- explorer hands the link to the browser: no console window, and REAPER doesn't wait for it
+  if IS_WIN then r.ExecProcess('explorer.exe "' .. url .. '"', -1)
   elseif OS:match('OSX') or OS:match('macOS') then os.execute('open "' .. url .. '"')
   else os.execute('xdg-open "' .. url .. '"') end
 end
@@ -162,6 +166,12 @@ end
 local function TempDir()
   local d = IS_WIN and (os.getenv('TEMP') or os.getenv('TMP')) or os.getenv('TMPDIR')
   if not d or d == '' then d = RES end
+  -- os.getenv gives Windows' ANSI spelling of a user folder with non-ASCII letters ("T?st"), which
+  -- REAPER's UTF-8 io.open can't open: a folder in REAPER's own (UTF-8) resource path then
+  if IS_WIN and (d:find('[\128-\255]') or d:find('?', 1, true)) then
+    d = RES .. '\\Scripts\\CoolReaperScripts\\Script Manager\\Temp'
+    r.RecursiveCreateDirectory(d, 0)
+  end
   return (d:gsub('[/\\]+$', ''))
 end
 
@@ -308,33 +318,220 @@ local function JsonDecode(s)
 end
 
 ---------------------------------------------------------------------------------------------------
--- HTTP: POST a JSON body with curl (built into macOS and Windows 10+)
--- Returns http code (number or nil), response text (when outPath is nil), error text
+-- HTTP with curl (built into macOS and Windows 10+), always in the background: REAPER never waits
+-- on the network. Each request is a curl config file run by a small script that REAPER starts
+-- without waiting; the script leaves a done file. Work that needs the answer runs as a coroutine
+-- (BG.Stepped, the Busy steps) and BG.Wait gives the frame back until curl is done.
+-- (One table for the helpers: the main chunk is at Lua's 200 locals.)
 ---------------------------------------------------------------------------------------------------
 
+local BG = {}
+
+function BG.Quote(v) return '"' .. tostring(v):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"' end
+function BG.Name(p) return p:match('[^\\/]+$') end
+
+-- every request gives up quickly on a dead connection
+BG.CONNECT = 'connect-timeout = 4'
+
+-- Windows: ways to start the batch file without waiting, best first. conhost --headless shows no
+-- window at all (Windows 10 1809, build 17763, and later; it never starts a batch file whose path
+-- has non-ASCII letters); a .vbs run by wscript starts it hidden (not where Script Host is turned
+-- off, wscript then shows a message box); cmd.exe works everywhere but shows a console window.
+-- A way that didn't start a job within 6 s is skipped for the session (wscript for good).
+BG.WAYS = { 'conhost', 'wscript', 'cmd' }
+function BG.Reg(key, name)
+  local out = r.ExecProcess('reg query "' .. key .. '" /v ' .. name, 2000) or ''
+  return ((out:match(name .. '%s+REG_%w+%s+([^\r\n]*)') or ''):gsub('%s+$', ''))
+end
+function BG.WshOff()
+  if BG.noWsh == nil then
+    BG.noWsh = false
+    for _, root in ipairs({ 'HKCU', 'HKLM' }) do
+      local v = BG.Reg(root .. '\\Software\\Microsoft\\Windows Script Host\\Settings', 'Enabled')
+      if v:match('^0x0+$') or v == '0' then BG.noWsh = true end
+    end
+  end
+  return BG.noWsh
+end
+function BG.Way(noConhost)
+  if BG.way and not (noConhost and BG.way == 'conhost') then return BG.way end
+  local build = BG.build or tonumber(r.GetExtState(EXT, 'winBuild'))
+  if not BG.build and (not build or build < 17763) then -- an older Windows may have been updated since
+    build = tonumber(BG.Reg('HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion', 'CurrentBuildNumber')) or 0
+    r.SetExtState(EXT, 'winBuild', tostring(build), true)
+  end
+  BG.build = build
+  local skip = r.GetExtState(EXT, 'winSkip')
+  BG.skipped = BG.skipped or {}
+  local pick = 'cmd'
+  for _, way in ipairs(BG.WAYS) do
+    local ok = not skip:find(';' .. way .. ';', 1, true) and not BG.skipped[way]
+    if way == 'conhost' then ok = ok and build >= 17763 and not noConhost end
+    if way == 'wscript' then ok = ok and not BG.WshOff() end
+    if ok then pick = way break end
+  end
+  if not noConhost then BG.way = pick end
+  return pick
+end
+function BG.Skip(way)
+  BG.skipped = BG.skipped or {}
+  BG.skipped[way] = true
+  local skip = r.GetExtState(EXT, 'winSkip')
+  if way == 'wscript' and not skip:find(';wscript;', 1, true) then
+    r.SetExtState(EXT, 'winSkip', (skip == '' and ';' or skip) .. 'wscript;', true)
+  end
+  BG.way = nil
+end
+function BG.LaunchWin(job)
+  local way = BG.Way(job.sh:find('[\128-\255]') ~= nil)
+  local sys = (os.getenv('SystemRoot') or 'C:\\Windows') .. '\\System32\\'
+  local cmd
+  if way == 'conhost' then
+    cmd = '"' .. sys .. 'conhost.exe" --headless cmd.exe /d /c ""' .. job.sh .. '""'
+  elseif way == 'wscript' then
+    job.vbs = job.sh:gsub('%.bat$', '.vbs')
+    if not WriteFile(job.vbs, table.concat({
+      'On Error Resume Next',
+      'p = WScript.ScriptFullName',
+      'CreateObject("WScript.Shell").Run "cmd.exe /d /c """"" & Left(p, Len(p) - 4) & ".bat""""", 0, False',
+      '' }, '\r\n')) then return false end
+    cmd = '"' .. sys .. 'wscript.exe" //B //Nologo "' .. job.vbs .. '"'
+  else
+    cmd = 'cmd.exe /d /c ""' .. job.sh .. '""'
+  end
+  local ok = pcall(r.ExecProcess, cmd, -2)
+  job.way = ok and way or nil
+  return ok
+end
+
+-- Runs curl -K on the config lines in the background. Files in the temp folder are named without
+-- their folder (the script cds there), so a user folder with non-ASCII letters never reaches the
+-- script's text. curl's stdout (write-out) goes to job.code, its errors to job.err. limit: seconds
+-- before the job counts as unanswered. nil when it couldn't start.
+function BG.Spawn(lines, limit)
+  local job = { cfg = TempFile('req.cfg'), code = TempFile('code.txt'), err = TempFile('err.txt'),
+    done = TempFile('done.txt'), started = os.time(), limit = limit or 30 }
+  if not WriteFile(job.cfg, table.concat(lines, '\n') .. '\n') then return nil end
+  local ok
+  if IS_WIN then
+    local base = TempFile('run')
+    job.sh, job.mark = base .. '.bat', base .. '.started'
+    local n = BG.Name
+    ok = WriteFile(job.sh, table.concat({
+      '@echo off',
+      'cd /d "%~dp0"',
+      -- tells BG.Poll that this way of starting it works here
+      ('type nul>"%s"'):format(n(job.mark)),
+      'set "CURL=%SystemRoot%\\System32\\curl.exe"',
+      'if not exist "%CURL%" set "CURL=curl"',
+      ('"%%CURL%%" -K "%s" >"%s" 2>"%s"'):format(n(job.cfg), n(job.code), n(job.err)),
+      -- written under another name, then renamed: done never shows up while it's still open
+      ('echo done>"%s.tmp"'):format(n(job.done)),
+      ('ren "%s.tmp" "%s"'):format(n(job.done), n(job.done)),
+      '' }, '\r\n')) and BG.LaunchWin(job)
+  else
+    job.sh = TempFile('run.sh')
+    ok = WriteFile(job.sh, string.format('#!/bin/sh\ncd %s || exit 1\n/usr/bin/curl -K %s > %s 2> %s\necho done > %s\n',
+      ShellQuote(TempDir()), ShellQuote(BG.Name(job.cfg)), ShellQuote(job.code), ShellQuote(job.err), ShellQuote(job.done)))
+    if ok then os.execute('/bin/sh ' .. ShellQuote(job.sh) .. ' >/dev/null 2>&1 &') end
+  end
+  if not ok then BG.Clean(job) return nil end
+  return job
+end
+
+function BG.Clean(job)
+  for _, k in ipairs({ 'cfg', 'code', 'err', 'done', 'sh', 'vbs', 'mark', 'body', 'out' }) do
+    if job[k] then os.remove(job[k]) end
+  end
+end
+
+-- requests nobody waits for anymore: their files go once curl is done
+BG.orphans = {}
+function BG.Sweep()
+  for i = #BG.orphans, 1, -1 do
+    local job = BG.orphans[i]
+    if Exists(job.done) or os.time() - job.started > job.limit then
+      BG.Clean(job)
+      table.remove(BG.orphans, i)
+    end
+  end
+end
+
+-- nil while curl runs; then what it wrote to stdout and stderr ('' when it took too long)
+function BG.Poll(job)
+  if #BG.orphans > 0 then BG.Sweep() end
+  if not Exists(job.done) then
+    -- Windows: the batch file hasn't started after 6 s, so that way of starting it doesn't work on
+    -- this computer; this job and the next ones try the next way
+    if job.way and os.time() - job.started >= 6 then
+      if job.way ~= 'cmd' and not Exists(job.mark) then
+        BG.Skip(job.way)
+        if job.vbs then os.remove(job.vbs) job.vbs = nil end
+        job.started = BG.LaunchWin(job) and os.time() or 0
+      else
+        job.way = nil -- it started
+      end
+    end
+    if os.time() - job.started < job.limit then return nil end
+  end
+  local finished = Exists(job.done)
+  local code, err = finished and ReadFile(job.code) or '', finished and ReadFile(job.err) or ''
+  job.out = nil -- the caller reads its output file
+  BG.Clean(job)
+  return code or '', err or ''
+end
+
+-- BG.Poll a frame at a time, inside a coroutine. Outside one it would have to hold REAPER, so it
+-- doesn't wait: the request counts as unanswered.
+function BG.Wait(job)
+  while true do
+    local code, err = BG.Poll(job)
+    if code ~= nil then return code, err end
+    if not coroutine.isyieldable() then
+      BG.orphans[#BG.orphans + 1] = job
+      return '', 'not answered in time'
+    end
+    coroutine.yield()
+  end
+end
+
+-- fn as a tick function: each call runs it until it waits on the network (then nil) or ends (then
+-- what it returned); the next call goes on where it waited
+function BG.Stepped(fn)
+  local co
+  return function(...)
+    co = co or coroutine.create(fn)
+    local res = table.pack(coroutine.resume(co, ...))
+    if not res[1] then
+      local c = co
+      co = nil
+      error(debug.traceback(c, res[2]), 0)
+    end
+    if coroutine.status(co) ~= 'dead' then return nil end
+    co = nil
+    return table.unpack(res, 2, res.n)
+  end
+end
+
+-- a JSON POST: config lines (write-out = the HTTP code)
+function BG.PostLines(url, bodyFile, out, maxTime)
+  return { 'url = ' .. BG.Quote(url), 'request = "POST"', 'header = "Content-Type: application/json"',
+    'data-binary = ' .. BG.Quote('@' .. BG.Name(bodyFile)), 'output = ' .. BG.Quote(out),
+    'location', 'silent', 'show-error', BG.CONNECT, 'max-time = ' .. (maxTime or 90), 'write-out = "%{http_code}"' }
+end
+
+-- Returns http code (number or nil), response text (when outPath is nil), error text
 local function Post(url, body, outPath)
   local bodyFile = TempFile('body.json')
   if not WriteFile(bodyFile, JsonEncode(body)) then return nil, nil, 'Could not write to the temp folder' end
   local out = outPath or TempFile('out.txt')
-  local code, err
-  if IS_WIN then
-    local res = r.ExecProcess(string.format(
-      'curl -sS -L --max-time 90 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" -w "%%{http_code}" "%s"',
-      bodyFile, out, url), 100000)
-    local exit, printed = (res or ''):match('^(%-?%d+)\n(.*)$')
-    code = tonumber((printed or ''):match('(%d%d%d)%s*$'))
-    if not code then err = (printed and printed ~= '' and printed) or ('curl exit ' .. tostring(exit)) end
-  else
-    local codeFile, errFile, sh = TempFile('code.txt'), TempFile('err.txt'), TempFile('run.sh')
-    WriteFile(sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L --max-time 90 -X POST -H %s --data-binary @%s -o %s -w '%%{http_code}' %s > %s 2> %s\n",
-      ShellQuote('Content-Type: application/json'), ShellQuote(bodyFile), ShellQuote(out), ShellQuote(url),
-      ShellQuote(codeFile), ShellQuote(errFile)))
-    os.execute('/bin/sh ' .. ShellQuote(sh))
-    code = tonumber((ReadFile(codeFile) or ''):match('(%d%d%d)'))
-    err = ReadFile(errFile)
-    os.remove(codeFile) os.remove(errFile) os.remove(sh)
-  end
-  os.remove(bodyFile)
+  local job = BG.Spawn(BG.PostLines(url, bodyFile, outPath or BG.Name(out)), 110)
+  if not job then os.remove(bodyFile) return nil, nil, 'Could not start curl' end
+  job.body = bodyFile
+  local printed, err = BG.Wait(job)
+  if not outPath and BG.orphans[#BG.orphans] == job then job.out = out end
+  local code = tonumber(printed:match('(%d%d%d)%s*$'))
+  if not code and err == '' then err = 'no answer' end
   local text
   if not outPath then
     text = ReadFile(out)
@@ -347,43 +544,28 @@ end
 -- JSON request; returns the decoded answer or nil + a message for people
 local function Api(url, body)
   local code, text, err = Post(url, body)
-  if not code then return nil, 'Couldn\'t reach coolreaperscripts.com. Check your internet connection.' .. (err and ('\n' .. err:sub(1, 200)) or '') end
+  if not code then return nil, 'Couldn\'t reach coolreaperscripts.com. Check your internet connection.' .. (err and err ~= '' and ('\n' .. err:sub(1, 200)) or '') end
   local data = text and JsonDecode(text)
   if type(data) ~= 'table' then return nil, 'The server sent an unexpected answer (HTTP ' .. code .. ').' end
   if code >= 400 or data.ok == false then return nil, data.error or data.reason or ('HTTP ' .. code), data end
   return data
 end
 
--- The same POST in the background, so the window keeps drawing while sign-in waits on the browser.
--- AsyncPost returns a job; AsyncResult(job) is nil until curl is done, then the answer (decoded).
+-- The same POST without waiting at all, for the sign-in polls: AsyncPost returns a job;
+-- AsyncResult(job) is nil until curl is done, then the answer (decoded).
 local function AsyncPost(url, body)
-  local job = { body = TempFile('body.json'), out = TempFile('out.txt'), done = TempFile('done.txt'), started = os.time() }
-  if not WriteFile(job.body, JsonEncode(body)) then return nil end
-  if IS_WIN then
-    -- Windows shows a console window (or a taskbar button) for anything started without waiting
-    -- (ExecProcess -1/-2), so wait for curl here instead: a waited-for ExecProcess runs hidden, like
-    -- every other request. A sign-in poll is one quick request, done while the person is in the browser.
-    r.ExecProcess(string.format(
-      'curl -L -s -S --max-time 8 -X POST -H "Content-Type: application/json" --data-binary "@%s" -o "%s" "%s"',
-      job.body, job.out, url), 10000)
-    WriteFile(job.done, 'done')
-  else
-    job.sh = TempFile('run.sh')
-    if not WriteFile(job.sh, string.format("#!/bin/sh\n/usr/bin/curl -L -s -S --max-time 15 -X POST -H %s --data-binary @%s %s > %s 2>&1\necho done > %s\n",
-      ShellQuote('Content-Type: application/json'), ShellQuote(job.body), ShellQuote(url), ShellQuote(job.out), ShellQuote(job.done))) then
-      os.remove(job.body)
-      return nil
-    end
-    os.execute('/bin/sh ' .. ShellQuote(job.sh) .. ' >/dev/null 2>&1 &')
-  end
+  local bodyFile, out = TempFile('body.json'), TempFile('out.txt')
+  if not WriteFile(bodyFile, JsonEncode(body)) then return nil end
+  local job = BG.Spawn(BG.PostLines(url, bodyFile, BG.Name(out), 15), 30)
+  if not job then os.remove(bodyFile) return nil end
+  job.body, job.outFile = bodyFile, out
   return job
 end
 
 local function AsyncResult(job)
-  local finished = Exists(job.done)
-  if not finished and os.time() - job.started < 30 then return nil end
-  local text = finished and ReadFile(job.out) or ''
-  for _, f in ipairs({ job.body, job.out, job.done, job.sh }) do if f then os.remove(f) end end
+  if BG.Poll(job) == nil then return nil end
+  local text = ReadFile(job.outFile)
+  os.remove(job.outFile)
   local data = text and JsonDecode(text)
   return type(data) == 'table' and data or false
 end
@@ -408,27 +590,6 @@ local function GetFinish(tmp, path, code)
   return false, (code == 200 and 'empty download') or (code and ('HTTP ' .. code)) or 'no connection'
 end
 
--- Download url to path (follows redirects); true when it got a non-empty file with HTTP 200.
--- maxTime caps the whole download (120 s when not given); a dead connection gives up after 4 s.
-local function Get(url, path, maxTime)
-  maxTime = maxTime or 120
-  local tmp = path .. '.download'
-  os.remove(tmp)
-  local code
-  if IS_WIN then
-    local res = r.ExecProcess(string.format('curl -sS -L -f --connect-timeout 4 --max-time %d -o "%s" -w "%%{http_code}" "%s"', maxTime, tmp, url), (maxTime + 10) * 1000)
-    code = tonumber((res or ''):match('(%d%d%d)%s*$'))
-  else
-    local codeFile, sh = TempFile('code.txt'), TempFile('get.sh')
-    WriteFile(sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --connect-timeout 4 --max-time %d -o %s -w '%%{http_code}' %s > %s 2>/dev/null\n",
-      maxTime, ShellQuote(tmp), ShellQuote(url), ShellQuote(codeFile)))
-    os.execute('/bin/sh ' .. ShellQuote(sh))
-    code = tonumber((ReadFile(codeFile) or ''):match('(%d%d%d)'))
-    os.remove(codeFile) os.remove(sh)
-  end
-  return GetFinish(tmp, path, code)
-end
-
 -- Size of a file so far (a download in progress), in bytes
 local function FileSize(p)
   local f = io.open(p, 'rb')
@@ -437,24 +598,30 @@ local function FileSize(p)
   return size
 end
 
--- Download url to path in the background (macOS, Linux); poll with GetPoll. Windows shows a console
--- window for anything it doesn't wait for, so there GetStart returns nil and callers use Get.
-local function GetStart(url, path)
-  if IS_WIN then return nil end
-  local h = { path = path, tmp = path .. '.download', code = TempFile('code.txt'), done = TempFile('done.txt'), sh = TempFile('get.sh') }
+-- Download url to path in the background (follows redirects); poll with GetPoll. maxTime caps the
+-- whole download (300 s when not given); a dead connection gives up after 4 s. nil when it
+-- couldn't start.
+local function GetStart(url, path, maxTime)
+  local h = { path = path, tmp = path .. '.download' }
   os.remove(h.tmp)
-  if not WriteFile(h.sh, string.format("#!/bin/sh\n/usr/bin/curl -sS -L -f --max-time 300 -o %s -w '%%{http_code}' %s > %s 2>/dev/null\necho done > %s\n",
-    ShellQuote(h.tmp), ShellQuote(url), ShellQuote(h.code), ShellQuote(h.done))) then return nil end
-  os.execute('/bin/sh ' .. ShellQuote(h.sh) .. ' >/dev/null 2>&1 &')
-  return h
+  h.job = BG.Spawn({ 'url = ' .. BG.Quote(url), 'output = ' .. BG.Quote(h.tmp), 'location', 'fail', 'silent', 'show-error',
+    BG.CONNECT, 'max-time = ' .. (maxTime or 300), 'write-out = "%{http_code}"' }, (maxTime or 300) + 15)
+  return h.job and h or nil
 end
 
 -- nil while downloading; then true, or false + why
 local function GetPoll(h)
-  if not Exists(h.done) then return nil end
-  local code = tonumber((ReadFile(h.code) or ''):match('(%d%d%d)'))
-  os.remove(h.code) os.remove(h.done) os.remove(h.sh)
-  return GetFinish(h.tmp, h.path, code)
+  local printed = BG.Poll(h.job)
+  if printed == nil then return nil end
+  return GetFinish(h.tmp, h.path, tonumber(printed:match('(%d%d%d)%s*$')))
+end
+
+-- Download url to path; true when it got a non-empty file with HTTP 200 (waits in a coroutine)
+local function Get(url, path, maxTime)
+  local h = GetStart(url, path, maxTime or 120)
+  if not h then return false, 'could not start curl' end
+  local printed = BG.Wait(h.job)
+  return GetFinish(h.tmp, h.path, tonumber(printed:match('(%d%d%d)%s*$')))
 end
 
 -- This REAPER's build: asset suffix used by ReaPack, ReaImGui and SWS releases, and ReaPack's
@@ -632,9 +799,8 @@ local function MissingExtensions()
   return list
 end
 
--- Installing extensions is a job of single file downloads, one per InstallTick, so a window can
--- show progress in between: in the background on macOS and Linux, and on Windows one file at a
--- time (only a waited-for download runs without a console window there).
+-- Installing extensions is a job of single file downloads in the background, one at a time, so a
+-- window can show progress in between.
 local function InstallJob(list)
   return { list = list, steps = nil, n = 0, bad = {}, binary = {}, label = 'Getting ready...' }
 end
@@ -680,8 +846,9 @@ local function FinishStep(job, st, ok, err)
   job.n, job.get = job.n + 1, nil
 end
 
--- Moves the job along; true once everything is downloaded (job.done, job.failed, job.restart)
-local function InstallTick(job)
+-- Moves the job along; true once everything is downloaded (job.done, job.failed, job.restart).
+-- Looking up the files waits on a ReaPack index in the background (then it returns nil).
+local InstallTick = BG.Stepped(function(job)
   if job.finished then return true end
   if not job.steps then
     PlanInstall(job)
@@ -696,7 +863,7 @@ local function InstallTick(job)
     else
       r.RecursiveCreateDirectory(DirOf(st.path), 0)
       job.get = GetStart(st.url, st.path)
-      if not job.get then FinishStep(job, st, Get(st.url, st.path)) end
+      if not job.get then FinishStep(job, st, false, 'could not start curl') end
     end
   else
     job.done, job.failed, job.restart = {}, {}, false
@@ -716,7 +883,7 @@ local function InstallTick(job)
   job.frac = job.steps and #job.steps > 0 and (job.n / #job.steps) or 0
   job.bytes = job.get and FileSize(job.get.tmp) or nil
   return false
-end
+end)
 
 local function MB(bytes) return string.format('%.1f MB', bytes / 1048576) end
 
@@ -826,7 +993,7 @@ local function SetupWithoutWindow()
     Draw()
     -- closing the window cancels what's left (a file that's downloading still finishes)
     if gfx.getchar() < 0 then return end
-    -- draw twice before the first (possibly waited-for) download, so the window is up
+    -- draw twice before the first download, so the window is up
     if frames > 2 and InstallTick(job) then
       Draw()
       return r.defer(Done)
@@ -844,7 +1011,8 @@ local im = require 'imgui' '0.9.3'
 
 ---------------------------------------------------------------------------------------------------
 -- Fonts: the Monolith look uses Anton (titles) and JetBrains Mono (labels), both SIL Open Font
--- License. They're downloaded once from the site; without them the window uses REAPER's fonts.
+-- License. They're downloaded once from the site, in the background; until they're in, the window
+-- uses REAPER's fonts.
 ---------------------------------------------------------------------------------------------------
 
 local FONT_DIR = NativePath(RES .. '/Scripts/CoolReaperScripts/Script Manager/Fonts')
@@ -859,7 +1027,11 @@ local function EnsureFonts()
     local dest = FONT_DIR .. SEP .. f
     if not Exists(dest) then
       local data = ReadFile(fxd .. SEP .. f)
-      if data then WriteFile(dest, data) else Get(FONT_URL .. f, dest) end
+      if data then WriteFile(dest, data)
+      else
+        BG.fonts = BG.fonts or {}
+        BG.fonts[#BG.fonts + 1] = GetStart(FONT_URL .. f, dest, 60)
+      end
     end
   end
 end
@@ -872,7 +1044,7 @@ EnsureFonts()
 local S = {
   email = r.GetExtState(EXT, 'email'),
   msg = nil,                 -- { kind = 'err'|'ok'|'info'|'warn', text } under the title
-  busy = nil,                -- { label, fn, frames }: one blocking request, after its label drew
+  busy = nil,                -- { label, fn, frames, co }: one step that waits on the site, after its label drew
   products = {},             -- from the site, plus releases, choice, installed, key, lic, ...
   job = nil,                 -- the install in progress
   loaded = false,
@@ -1640,17 +1812,15 @@ local function InstallOne(job, item)
 end
 
 -- Each request waits on the site (license check, then GitHub) for most of a second, so files come
--- PARALLEL at a time, BATCH per curl run: one curl config with a transfer per file. macOS and Linux
--- run it in the background (the window keeps drawing); Windows waits for it, since anything started
--- without waiting opens a console window, so there a batch is one round of PARALLEL files (a second
--- or two, like one file used to take) and REAPER never waits long.
+-- PARALLEL at a time, BATCH per curl run: one curl config with a transfer per file, in the
+-- background (the window keeps drawing).
 local PARALLEL = 8
-local BATCH = IS_WIN and PARALLEL or 32
+local BATCH = 32
 
-local function CurlQuote(v) return '"' .. tostring(v):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"' end
+local CurlQuote = BG.Quote
 
 local function StartBatch(job, items)
-  local b = { items = items, cfg = TempFile('batch.cfg'), out = TempFile('codes.txt'), done = TempFile('done.txt'), started = os.time() }
+  local b = { items = items }
   local lines = { 'parallel', 'parallel-max = ' .. PARALLEL, 'silent' }
   for i, item in ipairs(items) do
     r.RecursiveCreateDirectory(DirOf(item.target), 0)
@@ -1664,29 +1834,20 @@ local function StartBatch(job, items)
     lines[#lines + 1] = 'output = ' .. CurlQuote(item.target .. '.download')
     lines[#lines + 1] = 'location'
     lines[#lines + 1] = 'silent'
-    lines[#lines + 1] = 'connect-timeout = 15'
-    lines[#lines + 1] = 'max-time = ' .. (IS_WIN and 60 or 120)
+    lines[#lines + 1] = BG.CONNECT
+    lines[#lines + 1] = 'max-time = 120'
     lines[#lines + 1] = 'write-out = "%{http_code}\\t%{filename_effective}\\n"'
   end
-  if not WriteFile(b.cfg, table.concat(lines, '\n') .. '\n') then return nil end
-  if IS_WIN then
-    local res = r.ExecProcess(string.format('curl -K "%s"', b.cfg), 75000) or ''
-    WriteFile(b.out, (res:gsub('^%-?%d+\n', '')))
-    WriteFile(b.done, 'done')
-  else
-    b.sh = TempFile('batch.sh')
-    WriteFile(b.sh, string.format('#!/bin/sh\n/usr/bin/curl -K %s > %s 2>/dev/null\necho done > %s\n', ShellQuote(b.cfg), ShellQuote(b.out), ShellQuote(b.done)))
-    os.execute('/bin/sh ' .. ShellQuote(b.sh) .. ' >/dev/null 2>&1 &')
-  end
-  return b
+  b.job = BG.Spawn(lines, 900)
+  return b.job and b or nil
 end
 
 -- nil while the batch runs; then places its files (true), or false when this curl can't do it
 local function PollBatch(job, b)
-  if not Exists(b.done) and os.time() - b.started < 900 then return nil end
+  local printed = BG.Poll(b.job)
+  if printed == nil then return nil end
   local codes = {}
-  for code, file in (ReadFile(b.out) or ''):gmatch('(%d%d%d)\t([^\r\n]+)') do codes[file] = tonumber(code) end
-  for _, f in ipairs({ b.cfg, b.out, b.done, b.sh }) do if f then os.remove(f) end end
+  for code, file in printed:gmatch('(%d%d%d)\t([^\r\n]+)') do codes[file] = tonumber(code) end
   if next(codes) == nil then
     for _, item in ipairs(b.items) do os.remove(item.target .. '.download') end
     return false
@@ -1786,6 +1947,11 @@ local function FinishInstall(job)
   RefreshOnDisk()
 end
 
+-- one step of the install, once per frame (a file fetched one at a time waits in the background)
+BG.InstallStep = BG.Stepped(function(job)
+  if InstallBusy(job) then InstallNext(job) else FinishInstall(job) end
+end)
+
 -- "Update all" and "Install all": the next one once nothing else runs or waits on a question
 local function QueueTick()
   if not S.updateAll or S.job or S.busy then return end
@@ -1846,6 +2012,33 @@ end
 local attached = {}
 for _, f in pairs(F) do
   if not attached[f] then im.Attach(ctx, f) attached[f] = true end
+end
+
+-- the fonts EnsureFonts started downloading: used once they're all in (a font that can't be
+-- attached now keeps the fallback until the next start)
+function BG.FontsTick()
+  if not BG.fonts or #BG.fonts == 0 then return end
+  for i = #BG.fonts, 1, -1 do
+    if GetPoll(BG.fonts[i]) ~= nil then table.remove(BG.fonts, i) end
+  end
+  if #BG.fonts > 0 then return end
+  local prev = {}
+  for k, v in pairs(F) do prev[k] = v end
+  for _, sz in ipairs({ 18, 22, 26, 36 }) do
+    if not F['anton' .. sz] then LoadFont('anton' .. sz, 'Anton-Regular.ttf', sz) end
+    F['antonFB' .. sz] = F['anton' .. sz] or F['antonFB' .. sz]
+  end
+  for _, sz in ipairs({ 10, 11, 13 }) do
+    if not F['mono' .. sz] then LoadFont('mono' .. sz, 'JetBrainsMono-Medium.ttf', sz) end
+    if not F['monoB' .. sz] then LoadFont('monoB' .. sz, 'JetBrainsMono-SemiBold.ttf', sz) end
+    F['monoF' .. sz] = F['mono' .. sz] or F['monoF' .. sz]
+    F['monoBF' .. sz] = F['monoB' .. sz] or F['monoBF' .. sz]
+  end
+  for k, f in pairs(F) do
+    if f ~= prev[k] and not attached[f] then
+      if pcall(im.Attach, ctx, f) then attached[f] = true else F[k] = prev[k] end
+    end
+  end
 end
 local function F_Anton(sz) return F['antonFB' .. sz] end
 local function F_Mono(sz, bold) return F[(bold and 'monoBF' or 'monoF') .. sz] end
@@ -2672,16 +2865,20 @@ end
 ---------------------------------------------------------------------------------------------------
 
 local function Frame()
-  -- one blocking step at a time, after its label has drawn
+  BG.FontsTick()
+  -- one step at a time, after its label has drawn; it runs as a coroutine, so while it waits on
+  -- the site the window keeps drawing (S.busy stays until it's done)
   if S.busy then
-    S.busy.frames = S.busy.frames + 1
-    if S.busy.frames >= 3 then
-      local fn = S.busy.fn
-      S.busy = nil
-      fn()
+    local b = S.busy
+    b.frames = b.frames + 1
+    if b.frames >= 3 then
+      b.co = b.co or coroutine.create(b.fn)
+      local ok, err = coroutine.resume(b.co)
+      if not ok then S.busy = nil error(debug.traceback(b.co, err), 0) end
+      if coroutine.status(b.co) == 'dead' and S.busy == b then S.busy = nil end
     end
   elseif S.job then
-    if InstallBusy(S.job) then InstallNext(S.job) else FinishInstall(S.job) end
+    BG.InstallStep(S.job)
   else
     QueueTick()
   end

@@ -68,15 +68,13 @@ module.exports = {
 		// Scope, ReSpectrum, RackMixer, Clash Finder, the .jsfx-inc files) always come with it.
 		optional: [],
 		// the FXD Macros CLAP comes with FX Devices where there's a build of it (Script Managers from
-		// 3.13 put it in the CLAP folder); FX Devices' own include and routes everywhere else
+		// 3.13 put it in the CLAP folder): FX Devices' track and container modulators run in it, so it
+		// isn't optional. A release without a platform's build just installs FX Devices there (the
+		// include matches nothing); FX Devices' own include and routes on any other platform.
 		platforms: {
-			mac: {
-				include: ['BryanChi_FX_Devices/', 'CLAP/macOS/FXD Macros.clap/'],
-				routes: [
-					{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' },
-					{ from: 'CLAP/macOS/', to: '{CLAP}/' }
-				]
-			},
+			mac: fxdWithMacros('CLAP/macOS/', 'FXD Macros.clap/'),
+			win64: fxdWithMacros('CLAP/Windows/', 'FXD Macros.clap'),
+			linux: fxdWithMacros('CLAP/Linux/', 'FXD Macros.clap'),
 			default: {}
 		}
 	},
@@ -118,6 +116,18 @@ module.exports = {
 		minClient: 6
 	}
 };
+
+// FX Devices with the FXD Macros CLAP of one platform (dir: CLAP/<platform>/ in FX Devices' repo; file:
+// the bundle folder on macOS, one file on Windows and Linux) into the user's CLAP folder
+function fxdWithMacros(dir, file) {
+	return {
+		include: ['BryanChi_FX_Devices/', dir + file],
+		routes: [
+			{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' },
+			{ from: dir, to: '{CLAP}/' }
+		]
+	};
+}
 
 // The CLAP plugins' builds, per platform, from FX Devices' repo (CLAP/<platform>/, built by
 // "Native Plugins/stage.sh"), installed in the user's CLAP folder ('{CLAP}/'; the Script Manager

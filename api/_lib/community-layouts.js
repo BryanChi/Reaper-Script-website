@@ -266,6 +266,11 @@ PluginScript.Guid (the FX), r / reaper with only: ${[...R_OK].join(', ')} (the S
 on LT_Track and PluginScript.FX_Idx), math, string (no dump), table, utf8, os.clock/os.time/os.date,
 pairs/ipairs/next/select/type/tostring/tonumber/pcall/error/assert/setmetatable (tables only),
 print, and fonts as globals (Font_Andale_Mono_<size>, Font_SemiBold_<size>; sizes 8 to 16).
+Presets (the FX's own preset list; FX Devices reads the preset files, the layout can't touch files):
+  Presets.Button(w, h) draws a compact  <  name  >  preset pill at the cursor that opens FX Devices' preset browser;
+  for a custom preset display: Presets.Current() -> name, Presets.Step(-1 | 1) previous / next,
+  Presets.Open(x, y) opens the browser at screen x, y (call Presets.Draw() every frame), Presets.IsOpen().
+  A few Presets calls a frame at most. If the plugin's own interface has a preset bar, put it in the same place.
 Not available, and the layout is refused if its code even mentions them: io, os.execute and the rest of
 os, require of anything but the kit, load/loadstring/dofile/loadfile, debug, package, _G, _ENV,
 coroutine, collectgarbage, string.dump, r.ExecProcess, r.Main_OnCommand, other reaper functions.

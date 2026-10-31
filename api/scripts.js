@@ -9,6 +9,8 @@
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
 //   action=layouts / layout -> FX Devices' plugin layouts published between releases (layoutsAction)
+//   action=layout-generate / layout-share / layout-job / community-layouts / community-layout
+//                    -> FX Devices' community layouts, made with Claude (_lib/community-layouts.js)
 // Every download needs a license or trial key that verifies (a free trial is enough; free products
 // like Prism EQ need none; FX Devices' own JSFX take FX Devices' key), so the repos can be private and each copy can be traced: the main
 // script of every download carries a code naming the key it was downloaded with
@@ -23,6 +25,7 @@
 
 const { verifyLicense, downloadStamp } = require('./_lib/store');
 const PRODUCTS = require('./_lib/products');
+const Community = require('./_lib/community-layouts');
 
 const GH = 'https://api.github.com';
 const SAFE_REF = /^[A-Za-z0-9._\-\/]{1,100}$/;
@@ -239,6 +242,7 @@ module.exports = async function handler(req, res) {
 	}
 
 	if (action === 'layouts' || action === 'layout') return layoutsAction(action, input, res);
+	if (Community.ACTIONS.has(action)) return Community.communityAction(action, input, res);
 
 	const product = PRODUCTS[input.product] && PRODUCTS.forPlatform(PRODUCTS[input.product], platform, client);
 	if (!product || product.installable === false) return res.status(404).json({ ok: false, error: 'Unknown product' });
@@ -330,3 +334,6 @@ module.exports = async function handler(req, res) {
 
 	return res.status(400).json({ ok: false, error: 'Unknown action' });
 };
+
+// community layout generation and review keep running after the answer (waitUntil) for a minute or two
+module.exports.config = { maxDuration: 300 };

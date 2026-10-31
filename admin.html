@@ -273,6 +273,7 @@
 			<div class="tabs">
 				<button class="tab active" onclick="switchTab('licenses')">Licenses</button>
 				<button class="tab" onclick="switchTab('trials')">Trials</button>
+				<button class="tab" onclick="switchTab('layout')">Layouts</button>
 			</div>
 
 			<div id="licensesTab" class="tab-content active">
@@ -327,6 +328,28 @@
 						</thead>
 						<tbody id="trialsBody">
 							<tr><td colspan="9" style="text-align: center; padding: 20px;">Loading...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<div id="layoutTab" class="tab-content">
+				<button class="refresh-btn" onclick="loadLayouts()">🔄 Refresh Layouts</button>
+				<p id="layoutSpend" style="margin: 8px 0; opacity: 0.8;"></p>
+				<div class="table-container">
+					<table id="layoutsTable">
+						<thead>
+							<tr>
+								<th>Plugin</th>
+								<th>Status</th>
+								<th>Claude's review</th>
+								<th>Shared</th>
+								<th>Code</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="layoutsBody">
+							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -434,6 +457,8 @@
 				loadLicenses();
 			} else if (tab === 'trials') {
 				loadTrials();
+			} else if (tab === 'layout') {
+				loadLayouts();
 			}
 		}
 
@@ -978,6 +1003,57 @@
 			document.getElementById('editModal').classList.remove('active');
 			currentEditType = null;
 			currentEditId = null;
+		}
+
+		// FX Devices community layouts: Claude's review, and approve / reject / unpublish
+		function loadLayouts() {
+			const tbody = document.getElementById('layoutsBody');
+			fetch('/api/admin?action=community-list', { headers: { 'Authorization': `Bearer ${adminToken}` } })
+				.then(r => r.json())
+				.then(data => {
+					if (!data.ok) { showMessage(data.error || 'Failed to load layouts', 'error'); return; }
+					document.getElementById('layoutSpend').textContent =
+						`Claude spend: $${data.spent.today.toFixed(2)} today, $${data.spent.month.toFixed(2)} in the last 30 days`;
+					if (!data.layouts.length) {
+						tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No shared layouts yet</td></tr>';
+						return;
+					}
+					tbody.innerHTML = data.layouts.map(l => {
+						const rv = l.review || {};
+						const issues = [].concat(rv.safety_issues || [], rv.quality_issues || []);
+						const review = rv.verdict
+							? `<b>${escapeHtml(rv.verdict)}</b>: ${escapeHtml(rv.reason || '')}${issues.length ? '<br><small>' + issues.map(escapeHtml).join('<br>') + '</small>' : ''}`
+							: '';
+						const buttons = [];
+						if (l.status !== 'approved') buttons.push(`<button class="btn btn-primary" onclick="setLayout('${l.id}', 'approved')">Approve</button>`);
+						if (l.status === 'pending' || l.status === 'reviewing') buttons.push(`<button class="btn" onclick="setLayout('${l.id}', 'rejected')">Reject</button>`);
+						if (l.status === 'approved') buttons.push(`<button class="btn" onclick="setLayout('${l.id}', 'revoked')">Unpublish</button>`);
+						return `<tr>
+							<td>${escapeHtml(l.plugin)}${l.version ? ' v' + l.version : ''}<br><small>${escapeHtml(l.title || '')}</small></td>
+							<td>${escapeHtml(l.status)}</td>
+							<td style="max-width: 360px;">${review}</td>
+							<td>${escapeHtml((l.created_at || '').slice(0, 10))}</td>
+							<td><details><summary>${(l.source || '').split('\n').length} lines</summary><pre style="max-width: 520px; max-height: 400px; overflow: auto; font-size: 11px;">${escapeHtml(l.source || '')}</pre></details></td>
+							<td>${buttons.join(' ')}</td>
+						</tr>`;
+					}).join('');
+				})
+				.catch(err => showMessage('Error: ' + err.message, 'error'));
+		}
+
+		function setLayout(id, status) {
+			fetch('/api/admin?action=community-set', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+				body: JSON.stringify({ action: 'community-set', id, status })
+			})
+				.then(r => r.json())
+				.then(data => {
+					if (!data.ok) { showMessage(data.error || 'Failed', 'error'); return; }
+					showMessage(status === 'approved' ? `Published as version ${data.version}` : `Layout ${status}`, 'success');
+					loadLayouts();
+				})
+				.catch(err => showMessage('Error: ' + err.message, 'error'));
 		}
 
 		function showMessage(text, type) {

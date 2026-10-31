@@ -30,8 +30,11 @@
 //   LAYOUT_SIGNING_KEY       base64 of the Ed25519 private key (PKCS#8 DER)
 //   LAYOUT_USER_DAILY_USD    what one paid license's requests may cost per day, UTC (default 20);
 //                            no count limit on generates and fixes within it
-//   LAYOUT_TRIAL_LAYOUTS     layouts a trial key gets, ever (default 1). Trials can't fix, and Claude
-//                            first sizes the plugin up: a big one is turned down without using the try
+//   LAYOUT_TRIAL_LAYOUTS     layouts a trial key gets, ever (default 1); Claude first sizes the plugin
+//                            up, and a big one is turned down without using the try
+//   LAYOUT_TRIAL_FIXES       fixes a trial key gets, ever (default 5)
+//   LAYOUT_TRIAL_TOTAL_USD   what a trial key's requests may cost, ever (default 5); a license is a
+//                            new key, so buying starts the paid rules
 //   LAYOUT_DAILY_BUDGET_USD  safety net: what everyone's requests together may cost per day (default 200)
 //   LAYOUT_AUTO_APPROVE      '0' = every shared layout waits in the admin page, even when Claude
 //                            approved it (default: Claude's approval publishes it)
@@ -601,7 +604,11 @@ async function usageCheck(supabase, kh, kind, trial) {
 		return null;
 	}
 	if (trial) {
-		if (kind === 'fix') return 'Fixing layouts comes with a license. Your trial layout stays as it is.';
+		if (sum(rows) >= num('LAYOUT_TRIAL_TOTAL_USD', 5)) return 'That\'s all the layout work the trial covers. Get a license to keep going.';
+		if (kind === 'fix') {
+			if (rows.filter(r => r.kind === 'fix' && r.status === 'done').length >= num('LAYOUT_TRIAL_FIXES', 5)) return 'That\'s the trial\'s fixes. Get a license to keep fixing.';
+			return null;
+		}
 		const made = rows.filter(r => r.kind === 'generate' && r.status === 'done' && r.result && r.result.status === 'ready').length;
 		if (made >= num('LAYOUT_TRIAL_LAYOUTS', 1)) return 'That was the trial\'s layout. Get a license to make more.';
 		return null;

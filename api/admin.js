@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { generateLicenseKey, getMemoryStore, activateLicense, normalizeProduct, normalizeEmail, DEFAULT_PRODUCT, downloadStamp } = require('./_lib/store');
 const PRODUCTS = require('./_lib/products');
 const { buildPurchaseEmail, sendEmail } = require('./_lib/purchase-email');
+const Community = require('./_lib/community-layouts');
 
 // Trials are one per email per product. The trial actions narrow to the product the panel sends
 // (older panels send none: then they act on all of that email's trials, as before).
@@ -211,6 +212,52 @@ module.exports = async function handler(req, res) {
 			.concat((tri.data || []).map(r => ({ kind: 'trial', ...r })))
 			.filter(r => r.license_key && downloadStamp(r.license_key) === code);
 		return res.status(200).json({ ok: true, code, matches });
+	}
+
+	// FX Devices community layouts (_lib/community-layouts.js): the review queue, newest first
+	if (action === 'community-list') {
+		const supabase = getSupabaseClient();
+		if (!supabase) return res.status(500).json({ ok: false, error: 'Community layouts require Supabase' });
+		const { data, error } = await supabase.from('community_layouts')
+			.select('id, plugin, title, status, review, version, created_at, decided_at, num_params, source')
+			.order('created_at', { ascending: false }).limit(300);
+		if (error) return res.status(500).json({ ok: false, error: error.message });
+		const today = new Date();
+		today.setUTCHours(0, 0, 0, 0);
+		const { data: jobs } = await supabase.from('community_layout_jobs').select('cost_usd, created_at')
+			.gte('created_at', new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()).limit(20000);
+		const spent = { today: 0, month: 0 };
+		for (const j of jobs || []) {
+			spent.month += Number(j.cost_usd || 0);
+			if (new Date(j.created_at) >= today) spent.today += Number(j.cost_usd || 0);
+		}
+		return res.status(200).json({ ok: true, layouts: data || [], spent });
+	}
+
+	// { id, status: approved | rejected | revoked }: approving signs it and publishes it
+	if (action === 'community-set') {
+		if (method !== 'POST') {
+			res.setHeader('Allow', ['POST']);
+			return res.status(405).json({ ok: false, error: 'Method not allowed' });
+		}
+		const supabase = getSupabaseClient();
+		if (!supabase) return res.status(500).json({ ok: false, error: 'Community layouts require Supabase' });
+		const id = String((body && body.id) || '');
+		const status = String((body && body.status) || '');
+		if (!['approved', 'rejected', 'revoked'].includes(status)) return res.status(400).json({ ok: false, error: 'Bad status' });
+		const { data: row } = await supabase.from('community_layouts').select('id, plugin, source, status').eq('id', id).maybeSingle();
+		if (!row) return res.status(404).json({ ok: false, error: 'Unknown layout' });
+		try {
+			if (status === 'approved') {
+				const { version } = await Community.approve(supabase, row);
+				return res.status(200).json({ ok: true, status, version });
+			}
+			const { error } = await supabase.from('community_layouts').update({ status, decided_at: new Date().toISOString() }).eq('id', id);
+			if (error) throw new Error(error.message);
+			return res.status(200).json({ ok: true, status });
+		} catch (err) {
+			return res.status(500).json({ ok: false, error: err.message });
+		}
 	}
 
 	// Handle POST /api/admin?action=license-create: issue a license by hand { email, product }

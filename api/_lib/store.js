@@ -1200,7 +1200,13 @@ function downloadStamp(licenseKey) {
 	return crypto.createHmac('sha256', secret).update('download-stamp:' + String(licenseKey || '')).digest('hex').slice(0, 16);
 }
 
+// the Supabase client (service role), or null when the site runs without one
+function db() {
+	return supabase;
+}
+
 module.exports = {
+	db,
 	downloadStamp,
 	issueNativeToken,
 	startLink,

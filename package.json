@@ -4,7 +4,9 @@
   "description": "Reaper script landing page with licensing APIs",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@supabase/supabase-js": "^2.45.3",
+    "@vercel/functions": "3.10.5",
     "@vercel/kv": "^1.0.0",
     "resend": "^4.2.0"
   },
@@ -12,6 +14,3 @@
     "node": ">=18"
   }
 }
-
-
-

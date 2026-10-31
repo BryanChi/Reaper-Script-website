@@ -231,7 +231,21 @@ module.exports = async function handler(req, res) {
 			spent.month += Number(j.cost_usd || 0);
 			if (new Date(j.created_at) >= today) spent.today += Number(j.cost_usd || 0);
 		}
-		return res.status(200).json({ ok: true, layouts: data || [], spent });
+		// star ratings from the people who installed each one (FX Devices asks after a while of use)
+		const { data: rates } = await supabase.from('community_layout_jobs').select('result').eq('kind', 'rating').limit(20000);
+		const byLayout = {};
+		for (const r of rates || []) {
+			const id = r.result && r.result.layout;
+			const n = Number(r.result && r.result.rating);
+			if (!id || !(n >= 1 && n <= 5)) continue;
+			const b = byLayout[id] || (byLayout[id] = { count: 0, sum: 0 });
+			b.count++; b.sum += n;
+		}
+		const layouts = (data || []).map(l => {
+			const b = byLayout[l.id];
+			return { ...l, ratings: b ? { count: b.count, avg: Math.round(b.sum / b.count * 10) / 10 } : null };
+		});
+		return res.status(200).json({ ok: true, layouts, spent });
 	}
 
 	// { id, status: approved | rejected | revoked }: approving signs it and publishes it

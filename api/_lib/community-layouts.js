@@ -270,6 +270,10 @@ Presets (the FX's own preset list; FX Devices reads the preset files, the layout
   Presets.Button(w, h) draws a compact  <  name  >  preset pill at the cursor that opens FX Devices' preset browser;
   for a custom preset display: Presets.Current() -> name, Presets.Step(-1 | 1) previous / next,
   Presets.Open(x, y) opens the browser at screen x, y (call Presets.Draw() every frame), Presets.IsOpen().
+  The plugin's own preset files (read-only; FX Devices finds them in the maker's preset folders):
+  Presets.Files() -> { {name, folder, ext}, ... } (may be empty), Presets.Read(i) -> file i's contents as text,
+  Presets.Load(i) loads a .vstpreset directly. For text formats (XML, JSON, .h2p, .vital, .vpreset) the layout
+  can parse the values and set the params itself; binary formats can only be listed. Cache Files() in D.S.
   A few Presets calls a frame at most. If the plugin's own interface has a preset bar, put it in the same place.
 Not available, and the layout is refused if its code even mentions them: io, os.execute and the rest of
 os, require of anything but the kit, load/loadstring/dofile/loadfile, debug, package, _G, _ENV,

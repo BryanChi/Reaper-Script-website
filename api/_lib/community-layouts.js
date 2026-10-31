@@ -14,6 +14,8 @@
 //   action=layout-share     { plugin, source, ident, paramHash, numParams, title }
 //                           -> { ok, job, status: 'running' }; checks, then Claude's review
 //   action=layout-job       { job } -> { ok, job, status: running | done | failed, result, error }
+//                           (while running, result = { stage: sizing | researching | pictures | writing |
+//                           rewriting | reviewing, since: ms } when the job has said what it's on)
 //   action=community-layouts -> { ok, layouts: [{ id, plugin, title, version, date }], revoked: [id] }
 //   action=community-layout { id } -> { ok, id, plugin, source, signature }
 //
@@ -556,7 +558,7 @@ async function research(input) {
 }
 
 // The layout, from what's known about the plugin; checked against the sandbox, once more if it fails
-async function writeLayout(input, { notes, images, current, feedback }) {
+async function writeLayout(input, { notes, images, current, feedback, step = () => {} }) {
 	const content = [];
 	let text = pluginText(input);
 	if (notes) text += `\n\nNotes on the plugin's interface, from its manual:\n${notes}`;
@@ -568,6 +570,7 @@ async function writeLayout(input, { notes, images, current, feedback }) {
 	const messages = [{ role: 'user', content }];
 	let spent = 0;
 	for (let attempt = 0; attempt < 2; attempt++) {
+		step(attempt ? 'rewriting' : 'writing');
 		const r = await ask(GENERATE_SYSTEM, messages, GENERATE_SCHEMA, 'high');
 		spent += r.cost;
 		const errs = lint(r.data.lua);
@@ -604,31 +607,34 @@ async function sizeUp(input) {
 }
 
 // The first try: manual first, screenshots when there's no manual. Trials are sized up first.
-async function generateLayout(input, trial) {
+async function generateLayout(input, trial, step = () => {}) {
 	if (trial) {
+		step('sizing');
 		const sz = await sizeUp(input);
 		if (sz.size === 'large') {
 			return { result: { status: 'too_complex', reason: `${sz.reason} That's more than the trial covers; your try is still there for a smaller plugin, or get a license to make this one.` }, cost: sz.cost };
 		}
-		const out = await generateLayout(input, false);
+		const out = await generateLayout(input, false, step);
 		out.cost += sz.cost;
 		return out;
 	}
 	const images = imageBlocks(input.images);
-	if (images.length || input.noManual) return writeLayout(input, { images });
+	if (images.length || input.noManual) return writeLayout(input, { images, step });
+	step('researching');
 	const found = await research(input);
+	step('pictures');
 	const checked = await checkPictures(input, await fetchImages(found.urls));
 	const spent = found.cost + checked.cost;
 	if (!checked.pics.length) {
 		return { result: { status: 'needs_screenshots', reason: 'FXD Minion couldn\'t find a clear picture of this plugin.' }, cost: spent };
 	}
-	const out = await writeLayout(input, { notes: found.found ? found.notes : '', images: checked.pics });
+	const out = await writeLayout(input, { notes: found.found ? found.notes : '', images: checked.pics, step });
 	out.cost += spent;
 	return out;
 }
 
-async function fixLayout(input) {
-	return writeLayout(input, { images: imageBlocks(input.images), current: input.source, feedback: input.feedback });
+async function fixLayout(input, step) {
+	return writeLayout(input, { images: imageBlocks(input.images), current: input.source, feedback: input.feedback, step });
 }
 
 async function reviewLayout(row) {
@@ -745,9 +751,14 @@ async function startJob(supabase, kh, kind, run) {
 		.insert({ kind, key_hash: kh, status: 'running' }).select('id').single();
 	if (error) throw new Error(error.message);
 	const id = data.id;
+	// while it runs, result holds { stage, since } so FX Devices can show what FXD Minion is doing
+	const step = stage => {
+		supabase.from('community_layout_jobs').update({ result: { stage, since: Date.now() } }).eq('id', id).eq('status', 'running')
+			.then(() => {}, () => {});
+	};
 	later((async () => {
 		try {
-			const out = await run();
+			const out = await run(step);
 			await finishJob(supabase, id, { status: 'done', result: out.result, cost_usd: out.cost || 0 });
 		} catch (err) {
 			console.error('community layout job failed', kind, err);
@@ -819,7 +830,7 @@ async function communityAction(action, input, res) {
 			if (!Array.isArray(input.params) || !input.params.length) return res.status(400).json({ ok: false, error: 'The plugin has no parameters to lay out.' });
 			const limit = await usageCheck(supabase, lic.kh, 'generate', lic.trial);
 			if (limit) return res.status(429).json({ ok: false, error: limit });
-			const job = await startJob(supabase, lic.kh, 'generate', () => generateLayout(input, lic.trial));
+			const job = await startJob(supabase, lic.kh, 'generate', step => generateLayout(input, lic.trial, step));
 			return res.status(200).json({ ok: true, job, status: 'running' });
 		}
 
@@ -831,7 +842,7 @@ async function communityAction(action, input, res) {
 			if (typeof input.feedback !== 'string' || !input.feedback.trim()) return res.status(400).json({ ok: false, error: 'Say what\'s wrong with the layout first.' });
 			const limit = await usageCheck(supabase, lic.kh, 'fix', lic.trial);
 			if (limit) return res.status(429).json({ ok: false, error: limit });
-			const job = await startJob(supabase, lic.kh, 'fix', () => fixLayout(input));
+			const job = await startJob(supabase, lic.kh, 'fix', step => fixLayout(input, step));
 			return res.status(200).json({ ok: true, job, status: 'running' });
 		}
 
@@ -851,7 +862,8 @@ async function communityAction(action, input, res) {
 			const { data: ins, error } = await supabase.from('community_layouts').insert(row).select('id').single();
 			if (error) throw new Error(error.message);
 			row.id = ins.id;
-			const job = await startJob(supabase, lic.kh, 'share', async () => {
+			const job = await startJob(supabase, lic.kh, 'share', async step => {
+				step('reviewing');
 				const { review, cost: spent } = await reviewLayout(row);
 				const auto = process.env.LAYOUT_AUTO_APPROVE !== '0';
 				let status = review.verdict === 'approve' ? (auto ? 'approved' : 'pending') : review.verdict === 'reject' ? 'rejected' : 'pending';

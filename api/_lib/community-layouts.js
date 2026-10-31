@@ -246,7 +246,7 @@ async function ask(system, messages, schema, effort, maxTokens) {
 	}).finalMessage();
 	const spent = cost(msg.usage);
 	if (msg.stop_reason === 'refusal') {
-		const e = new Error('FXD Minion declined this request.');
+		const e = new Error('Auto Layout creator declined this request.');
 		e.cost = spent;
 		throw e;
 	}
@@ -258,7 +258,7 @@ async function ask(system, messages, schema, effort, maxTokens) {
 	const text = msg.content.filter(b => b.type === 'text').map(b => b.text).join('');
 	let data;
 	try { data = JSON.parse(text); } catch (err) {
-		const e = new Error('FXD Minion\'s answer didn\'t come through whole. Try again.');
+		const e = new Error('Auto Layout creator\'s answer didn\'t come through whole. Try again.');
 		e.cost = spent;
 		throw e;
 	}
@@ -530,7 +530,7 @@ async function checkPictures(input, pics) {
 	return { pics: keep.slice(0, 3), cost: r.cost };
 }
 
-// FXD Minion (Claude) reads the plugin's manual on the web and finds pictures of it: { notes, found, urls, cost }
+// Auto Layout creator (Claude) reads the plugin's manual on the web and finds pictures of it: { notes, found, urls, cost }
 async function research(input) {
 	const messages = [{ role: 'user', content: pluginText(input) }];
 	const tools = [
@@ -585,7 +585,7 @@ async function writeLayout(input, { notes, images, current, feedback, step = () 
 		messages.push({ role: 'assistant', content: r.content });
 		messages.push({ role: 'user', content: `The sandbox check refused that layout:\n- ${errs.join('\n- ')}\nSend the whole layout again with these fixed.` });
 	}
-	const e = new Error('FXD Minion\'s layout didn\'t pass the safety checks twice. Try again.');
+	const e = new Error('Auto Layout creator\'s layout didn\'t pass the safety checks twice. Try again.');
 	e.cost = spent;
 	throw e;
 }
@@ -631,7 +631,7 @@ async function generateLayout(input, trial, step = () => {}) {
 	const checked = await checkPictures(input, await fetchImages(found.urls));
 	const spent = found.cost + checked.cost;
 	if (!checked.pics.length) {
-		return { result: { status: 'needs_screenshots', reason: 'FXD Minion couldn\'t find a clear picture of this plugin.' }, cost: spent };
+		return { result: { status: 'needs_screenshots', reason: 'Auto Layout creator couldn\'t find a clear picture of this plugin.' }, cost: spent };
 	}
 	const out = await writeLayout(input, { notes: found.found ? found.notes : '', images: checked.pics, step });
 	out.cost += spent;
@@ -803,7 +803,7 @@ async function startJob(supabase, kh, kind, run) {
 		.insert({ kind, key_hash: kh, status: 'running' }).select('id').single();
 	if (error) throw new Error(error.message);
 	const id = data.id;
-	// while it runs, result holds { stage, since } so FX Devices can show what FXD Minion is doing
+	// while it runs, result holds { stage, since } so FX Devices can show what Auto Layout creator is doing
 	const step = stage => {
 		supabase.from('community_layout_jobs').update({ result: { stage, since: Date.now() } }).eq('id', id).eq('status', 'running')
 			.then(() => {}, () => {});
@@ -814,7 +814,7 @@ async function startJob(supabase, kh, kind, run) {
 			await finishJob(supabase, id, { status: 'done', result: out.result, cost_usd: out.cost || 0 });
 		} catch (err) {
 			console.error('community layout job failed', kind, err);
-			const msg = err && err.status ? 'FXD Minion is busy right now. Try again in a few minutes.' : (err && err.message) || 'Something went wrong.';
+			const msg = err && err.status ? 'Auto Layout creator is busy right now. Try again in a few minutes.' : (err && err.message) || 'Something went wrong.';
 			await finishJob(supabase, id, { status: 'failed', error: msg.slice(0, 300), cost_usd: (err && err.cost) || 0 });
 		}
 	})());

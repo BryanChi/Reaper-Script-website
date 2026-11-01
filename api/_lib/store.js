@@ -1121,6 +1121,7 @@ async function pollLink(deviceCode, deviceId) {
 // A computer's hardware hash is saved with its activation the first time a plugin asks
 // (device_activations.hw, supabase_native_token_migration.sql), and a token for that device ID is
 // only ever signed for that hash again: a key + device ID copied to another computer gets nothing.
+// No hash, no token: one without would count on any computer.
 const NATIVE_TOKEN_DAYS = 14;
 
 function b64url(buf) {
@@ -1150,6 +1151,7 @@ async function issueNativeToken(licenseKey, deviceId, productInput, hwInput, lic
 	if (!deviceId) return { ok: false, status: 'invalid', reason: 'Sign in on this computer first.' };
 	const product = normalizeProduct(productInput);
 	const hw = String(hwInput || '').replace(/[^0-9a-f]/gi, '').slice(0, 64).toLowerCase();
+	if (!hw) return { ok: false, status: 'invalid', reason: "Couldn't read this computer's hardware ID." };
 
 	if (supabase) {
 		const { data: row, error } = await supabase
@@ -1164,10 +1166,10 @@ async function issueNativeToken(licenseKey, deviceId, productInput, hwInput, lic
 			return { ok: false, retry: true, reason: 'License check unavailable, try again later' };
 		}
 		if (!row) return { ok: false, status: 'invalid', reason: 'This computer is not activated. Sign in from FX Devices.' };
-		if (hw && row.hw && row.hw !== hw) {
+		if (row.hw && row.hw !== hw) {
 			return { ok: false, status: 'other-computer', reason: 'This license was activated on another computer. Sign in from FX Devices on this one.' };
 		}
-		if (hw && !row.hw && Object.prototype.hasOwnProperty.call(row, 'hw')) {
+		if (!row.hw && Object.prototype.hasOwnProperty.call(row, 'hw')) {
 			const { error: upErr } = await supabase.from('device_activations').update({ hw }).eq('id', row.id);
 			if (upErr) console.error('Error saving the hardware hash:', upErr);
 		}

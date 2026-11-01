@@ -343,13 +343,14 @@
 								<th>Plugin</th>
 								<th>Status</th>
 								<th>Claude's review</th>
+								<th>Rating</th>
 								<th>Shared</th>
 								<th>Code</th>
 								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody id="layoutsBody">
-							<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -1015,7 +1016,7 @@
 					document.getElementById('layoutSpend').textContent =
 						`Claude spend: $${data.spent.today.toFixed(2)} today, $${data.spent.month.toFixed(2)} in the last 30 days`;
 					if (!data.layouts.length) {
-						tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No shared layouts yet</td></tr>';
+						tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No shared layouts yet</td></tr>';
 						return;
 					}
 					tbody.innerHTML = data.layouts.map(l => {
@@ -1024,6 +1025,12 @@
 						const review = rv.verdict
 							? `<b>${escapeHtml(rv.verdict)}</b>: ${escapeHtml(rv.reason || '')}${issues.length ? '<br><small>' + issues.map(escapeHtml).join('<br>') + '</small>' : ''}`
 							: '';
+						const stars = n => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+						const rating = [
+							rv.owner_rating ? `Maker: ${stars(rv.owner_rating)}` : '',
+							l.ratings ? `Users: ${stars(l.ratings.avg)} ${l.ratings.avg} (${l.ratings.count})` : '',
+							rv.pulled ? `<b>Pulled:</b> ${escapeHtml(rv.pulled)}` : ''
+						].filter(Boolean).join('<br>');
 						const buttons = [];
 						if (l.status !== 'approved') buttons.push(`<button class="btn btn-primary" onclick="setLayout('${l.id}', 'approved')">Approve</button>`);
 						if (l.status === 'pending' || l.status === 'reviewing') buttons.push(`<button class="btn" onclick="setLayout('${l.id}', 'rejected')">Reject</button>`);
@@ -1032,6 +1039,7 @@
 							<td>${escapeHtml(l.plugin)}${l.version ? ' v' + l.version : ''}<br><small>${escapeHtml(l.title || '')}</small></td>
 							<td>${escapeHtml(l.status)}</td>
 							<td style="max-width: 360px;">${review}</td>
+							<td style="white-space: nowrap;">${rating}</td>
 							<td>${escapeHtml((l.created_at || '').slice(0, 10))}</td>
 							<td><details><summary>${(l.source || '').split('\n').length} lines</summary><pre style="max-width: 520px; max-height: 400px; overflow: auto; font-size: 11px;">${escapeHtml(l.source || '')}</pre></details></td>
 							<td>${buttons.join(' ')}</td>

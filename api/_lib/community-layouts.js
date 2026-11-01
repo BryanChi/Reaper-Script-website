@@ -13,6 +13,11 @@
 //                           Claude changes the layout the user has (source) by what they say is wrong
 //   action=layout-share     { plugin, source, ident, paramHash, numParams, title }
 //                           -> { ok, job, status: 'running' }; checks, then Claude's review
+//   action=layout-rate      { plugin, rating 1..5, source + title, ident, paramHash, numParams (the user's
+//                           own layout) | id + version (a shared one they installed) }
+//                           -> { ok, shared, job? }; kept with the version it rates. Own layouts with
+//                           4+ stars go to review and sharing (a share job); shared ones that average
+//                           under 2.5 from 3+ ratings go back to 'pending' (out of the catalog).
 //   action=layout-job       { job } -> { ok, job, status: running | done | failed, result, error }
 //                           (while running, result = { stage: sizing | researching | pictures | writing |
 //                           rewriting | reviewing, since: ms } when the job has said what it's on)
@@ -241,7 +246,7 @@ async function ask(system, messages, schema, effort, maxTokens) {
 	}).finalMessage();
 	const spent = cost(msg.usage);
 	if (msg.stop_reason === 'refusal') {
-		const e = new Error('FXD Minion declined this request.');
+		const e = new Error('Auto Layout creator declined this request.');
 		e.cost = spent;
 		throw e;
 	}
@@ -253,7 +258,7 @@ async function ask(system, messages, schema, effort, maxTokens) {
 	const text = msg.content.filter(b => b.type === 'text').map(b => b.text).join('');
 	let data;
 	try { data = JSON.parse(text); } catch (err) {
-		const e = new Error('FXD Minion\'s answer didn\'t come through whole. Try again.');
+		const e = new Error('Auto Layout creator\'s answer didn\'t come through whole. Try again.');
 		e.cost = spent;
 		throw e;
 	}
@@ -525,7 +530,7 @@ async function checkPictures(input, pics) {
 	return { pics: keep.slice(0, 3), cost: r.cost };
 }
 
-// FXD Minion (Claude) reads the plugin's manual on the web and finds pictures of it: { notes, found, urls, cost }
+// Auto Layout creator (Claude) reads the plugin's manual on the web and finds pictures of it: { notes, found, urls, cost }
 async function research(input) {
 	const messages = [{ role: 'user', content: pluginText(input) }];
 	const tools = [
@@ -580,7 +585,7 @@ async function writeLayout(input, { notes, images, current, feedback, step = () 
 		messages.push({ role: 'assistant', content: r.content });
 		messages.push({ role: 'user', content: `The sandbox check refused that layout:\n- ${errs.join('\n- ')}\nSend the whole layout again with these fixed.` });
 	}
-	const e = new Error('FXD Minion\'s layout didn\'t pass the safety checks twice. Try again.');
+	const e = new Error('Auto Layout creator\'s layout didn\'t pass the safety checks twice. Try again.');
 	e.cost = spent;
 	throw e;
 }
@@ -626,7 +631,7 @@ async function generateLayout(input, trial, step = () => {}) {
 	const checked = await checkPictures(input, await fetchImages(found.urls));
 	const spent = found.cost + checked.cost;
 	if (!checked.pics.length) {
-		return { result: { status: 'needs_screenshots', reason: 'FXD Minion couldn\'t find a clear picture of this plugin.' }, cost: spent };
+		return { result: { status: 'needs_screenshots', reason: 'Auto Layout creator couldn\'t find a clear picture of this plugin.' }, cost: spent };
 	}
 	const out = await writeLayout(input, { notes: found.found ? found.notes : '', images: checked.pics, step });
 	out.cost += spent;
@@ -733,6 +738,53 @@ async function usageCheck(supabase, kh, kind, trial) {
 // ------------------------------------------------------------------------------------------------
 // the actions
 
+const SHARE_MIN_RATING = 4;
+const PULL_MIN_RATINGS = 3;    // a shared layout with at least this many ratings...
+const PULL_BELOW = 2.5;        // ...averaging under this leaves the catalog and waits for the admin page
+
+function versionOf(source) { return crypto.createHash('sha256').update(String(source), 'utf8').digest('hex').slice(0, 16); }
+
+// Sharing: the checks, Claude's review, then signed into the catalog (or waiting in the admin page).
+// ownerRating: the stars its maker gave it, kept with the review.
+async function startShare(supabase, lic, input, ownerRating) {
+	const row = {
+		plugin: input.plugin, title: String(input.title || input.plugin).slice(0, 80), source: input.source, status: 'reviewing',
+		key_hash: lic.kh, ident: String(input.ident || '').slice(0, 200), param_hash: String(input.paramHash || '').slice(0, 64),
+		num_params: Number(input.numParams) || null, review: ownerRating ? { owner_rating: ownerRating } : null
+	};
+	const { data: ins, error } = await supabase.from('community_layouts').insert(row).select('id').single();
+	if (error) throw new Error(error.message);
+	row.id = ins.id;
+	return startJob(supabase, lic.kh, 'share', async step => {
+		step('reviewing');
+		const { review, cost: spent } = await reviewLayout(row);
+		if (ownerRating) review.owner_rating = ownerRating;
+		const auto = process.env.LAYOUT_AUTO_APPROVE !== '0';
+		let status = review.verdict === 'approve' ? (auto ? 'approved' : 'pending') : review.verdict === 'reject' ? 'rejected' : 'pending';
+		await supabase.from('community_layouts').update({ review, status: status === 'approved' ? 'pending' : status }).eq('id', row.id);
+		if (status === 'approved') await approve(supabase, row);
+		return { result: { status, reason: review.reason, id: row.id }, cost: spent };
+	});
+}
+
+// Ratings of a shared layout from the people who installed it: { count, avg }
+async function ratingsOf(supabase, layoutId) {
+	const { data } = await supabase.from('community_layout_jobs').select('result').eq('kind', 'rating').eq('result->>layout', layoutId).limit(5000);
+	const rs = (data || []).map(d => Number(d.result && d.result.rating)).filter(n => n >= 1 && n <= 5);
+	return { count: rs.length, avg: rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : 0 };
+}
+
+// A published layout that people rate low goes back to 'pending': out of the catalog for new installs
+// until it's looked at in the admin page (where Approve publishes it again)
+async function pullIfDisliked(supabase, layoutId) {
+	const { count, avg } = await ratingsOf(supabase, layoutId);
+	if (count < PULL_MIN_RATINGS || avg >= PULL_BELOW) return;
+	const { data: row } = await supabase.from('community_layouts').select('status, review').eq('id', layoutId).maybeSingle();
+	if (!row || row.status !== 'approved') return;
+	const review = { ...(row.review || {}), pulled: `Rated ${avg.toFixed(1)} from ${count} ratings` };
+	await supabase.from('community_layouts').update({ status: 'pending', review }).eq('id', layoutId);
+}
+
 function later(promise) {
 	// keep the function running after the answer went out (Vercel), else just let it run
 	try {
@@ -751,7 +803,7 @@ async function startJob(supabase, kh, kind, run) {
 		.insert({ kind, key_hash: kh, status: 'running' }).select('id').single();
 	if (error) throw new Error(error.message);
 	const id = data.id;
-	// while it runs, result holds { stage, since } so FX Devices can show what FXD Minion is doing
+	// while it runs, result holds { stage, since } so FX Devices can show what Auto Layout creator is doing
 	const step = stage => {
 		supabase.from('community_layout_jobs').update({ result: { stage, since: Date.now() } }).eq('id', id).eq('status', 'running')
 			.then(() => {}, () => {});
@@ -762,7 +814,7 @@ async function startJob(supabase, kh, kind, run) {
 			await finishJob(supabase, id, { status: 'done', result: out.result, cost_usd: out.cost || 0 });
 		} catch (err) {
 			console.error('community layout job failed', kind, err);
-			const msg = err && err.status ? 'FXD Minion is busy right now. Try again in a few minutes.' : (err && err.message) || 'Something went wrong.';
+			const msg = err && err.status ? 'Auto Layout creator is busy right now. Try again in a few minutes.' : (err && err.message) || 'Something went wrong.';
 			await finishJob(supabase, id, { status: 'failed', error: msg.slice(0, 300), cost_usd: (err && err.cost) || 0 });
 		}
 	})());
@@ -849,29 +901,46 @@ async function communityAction(action, input, res) {
 		if (action === 'layout-share') {
 			if (!process.env.ANTHROPIC_API_KEY || !process.env.LAYOUT_SIGNING_KEY) return res.status(503).json({ ok: false, error: 'Sharing isn\'t set up on the site yet.' });
 			if (!validPlugin(input.plugin)) return res.status(400).json({ ok: false, error: 'This plugin\'s name can\'t be used for a layout.' });
-			const source = input.source;
-			const errs = lint(source);
+			const errs = lint(input.source);
 			if (errs.length) return res.status(400).json({ ok: false, error: 'It doesn\'t pass the checks: ' + errs[0] });
 			const limit = await usageCheck(supabase, lic.kh, 'share', lic.trial);
 			if (limit) return res.status(429).json({ ok: false, error: limit });
-			const row = {
-				plugin: input.plugin, title: String(input.title || input.plugin).slice(0, 80), source, status: 'reviewing',
-				key_hash: lic.kh, ident: String(input.ident || '').slice(0, 200), param_hash: String(input.paramHash || '').slice(0, 64),
-				num_params: Number(input.numParams) || null
-			};
-			const { data: ins, error } = await supabase.from('community_layouts').insert(row).select('id').single();
-			if (error) throw new Error(error.message);
-			row.id = ins.id;
-			const job = await startJob(supabase, lic.kh, 'share', async step => {
-				step('reviewing');
-				const { review, cost: spent } = await reviewLayout(row);
-				const auto = process.env.LAYOUT_AUTO_APPROVE !== '0';
-				let status = review.verdict === 'approve' ? (auto ? 'approved' : 'pending') : review.verdict === 'reject' ? 'rejected' : 'pending';
-				await supabase.from('community_layouts').update({ review, status: status === 'approved' ? 'pending' : status }).eq('id', row.id);
-				if (status === 'approved') await approve(supabase, row);
-				return { result: { status, reason: review.reason, id: row.id }, cost: spent };
-			});
+			const job = await startShare(supabase, lic, input, null);
 			return res.status(200).json({ ok: true, job, status: 'running' });
+		}
+
+		// { plugin, rating 1..5, source (the user's own layout) | id (a shared one they installed), version }
+		// The rating is kept with the version it's for. The owner's own layout goes for review and sharing
+		// only with SHARE_MIN_RATING stars or more; shared layouts that collect low ratings leave the catalog.
+		if (action === 'layout-rate') {
+			if (!validPlugin(input.plugin)) return res.status(400).json({ ok: false, error: 'This plugin\'s name can\'t be used for a layout.' });
+			const rating = Number(input.rating);
+			if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ ok: false, error: 'Rate it from 1 to 5 stars.' });
+			const own = typeof input.source === 'string' && input.source.length > 0;
+			if (own && input.source.length > MAX_SOURCE) return res.status(400).json({ ok: false, error: 'That layout is too big.' });
+			const layout = own ? null : String(input.id || '');
+			if (!own && !/^[0-9a-f-]{36}$/.test(layout)) return res.status(400).json({ ok: false, error: 'Unknown layout.' });
+			const version = own ? versionOf(input.source) : String(input.version || '').slice(0, 32);
+			const result = { plugin: input.plugin, version, rating, layout, own };
+			// one rating per key and version: a new one replaces the old
+			const { data: prev } = await supabase.from('community_layout_jobs').select('id')
+				.eq('key_hash', lic.kh).eq('kind', 'rating').eq('result->>plugin', input.plugin).eq('result->>version', version).limit(1);
+			if (prev && prev[0]) await supabase.from('community_layout_jobs').update({ result, finished_at: new Date().toISOString() }).eq('id', prev[0].id);
+			else await supabase.from('community_layout_jobs').insert({ kind: 'rating', key_hash: lic.kh, status: 'done', result, cost_usd: 0, finished_at: new Date().toISOString() });
+
+			if (!own) {
+				await pullIfDisliked(supabase, layout);
+				return res.status(200).json({ ok: true, shared: false });
+			}
+			if (rating < SHARE_MIN_RATING || !process.env.ANTHROPIC_API_KEY || !process.env.LAYOUT_SIGNING_KEY) return res.status(200).json({ ok: true, shared: false });
+			if (lint(input.source).length) return res.status(200).json({ ok: true, shared: false });
+			const { data: same } = await supabase.from('community_layouts').select('id').eq('key_hash', lic.kh).eq('plugin', input.plugin)
+				.eq('source', input.source).limit(1);
+			if (same && same[0]) return res.status(200).json({ ok: true, shared: false, already: true });
+			const limit = await usageCheck(supabase, lic.kh, 'share', lic.trial);
+			if (limit) return res.status(200).json({ ok: true, shared: false });
+			const job = await startShare(supabase, lic, input, rating);
+			return res.status(200).json({ ok: true, shared: true, job, status: 'running' });
 		}
 	} catch (err) {
 		console.error('community layouts error', action, err);
@@ -880,6 +949,6 @@ async function communityAction(action, input, res) {
 	return res.status(404).json({ ok: false, error: 'Unknown action' });
 }
 
-const ACTIONS = new Set(['layout-credits', 'layout-generate', 'layout-fix', 'layout-share', 'layout-job', 'community-layouts', 'community-layout']);
+const ACTIONS = new Set(['layout-rate', 'layout-credits', 'layout-generate', 'layout-fix', 'layout-share', 'layout-job', 'community-layouts', 'community-layout']);
 
 module.exports = { allowance, allowanceOut, usageCheck, communityAction, ACTIONS, lint, strip, approve, sign, signedText, keyHash, validPlugin };

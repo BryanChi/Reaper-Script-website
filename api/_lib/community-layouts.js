@@ -314,9 +314,15 @@ Drawing: D:Panel(x, y, w, h) -> L, T, R, B (screen coords of a dark display pane
   D:Line(x1, y1, x2, y2, clr, th), D:Dashed(...), D:Btn(id, x, y, w, h) -> clicked, hovered, active,
   im.DrawList_* on D.DL with screen coordinates (D.X + x, D.Y + y).
 Values: D:Get(key) -> 0..1, D:Set(key, v), D:Fmt(key) -> the plugin's own text ('-12.0 dB'), D:Val(key) -> that as a number,
+  D:Idx(key) -> the param's 0-based index (nil when the plugin has no such param; a number is returned as is),
+  D:FmtN(key, v) -> the plugin's text for normalized value v, D:NormFor(key, target) -> the normalized value that makes
+  the plugin show the number target (dB, Hz, ms ...),
   D:On(key), D:IsToggle(key), D:Choices(key) -> {{label, norm}}, D:Lit(key) -> hovered or dragged,
   D:Groups(cacheKey, fields, skip) for repeating params (bands, taps), D.Names[p] / D.NumParams / D.P[key] (index),
-  D:Hold(key, v, rate) peak hold, D.S a table that persists for this FX, D.NOW = time.
+  D:Hold(key, v, rate) peak hold, D.S a table that persists for this FX, D.NOW = time,
+  D.X, D.Y (screen top-left of the content), D.W, D.H, D.Acc (the accent colour), D.DL (the draw list).
+Helpers on SFX: SFX.Num(text) -> the number in a plugin's text, SFX.Clamp(v, lo, hi), SFX.ShortVal(text, unit) -> a short form of that text, SFX.TextW(text, size, bold) -> pixel width,
+SFX.H (the default height). That is the whole kit: every method above exists, and nothing else does.
 Colours are 0xRRGGBBAA. SFX.C has Body, Panel, PanelEdge, Grid, GridHi, Track, Knob, Text, TextDim, TextMute, Chip, Handle;
 SFX.A(clr, alpha 0..1) changes alpha; SFX.BAND_CLR is a list of 8 band colours; SFX.KNOB = { L = 17, M = 14, S = 11 }.
 Always end with D:End().
@@ -411,7 +417,7 @@ ${KIT_REFERENCE}
 Check, in this order:
 1. Safety: anything that tries to get out of the sandbox or reach things it doesn't list (building names of globals or functions from strings, walking tables to find functions, metatable tricks, abusing callbacks, poking at objects the kit returns), anything that slows or freezes REAPER on purpose (huge loops, recursion, ever-growing tables in D.S), anything that changes other FX, tracks or the project, anything that hides behaviour (obfuscation, encoded data, code that only acts on some dates, after a delay or on some machines).
 2. Content: offensive, sexual or hateful text or drawings, spam, links, advertising, impersonating someone.
-3. Quality: does it show the plugin's main controls in a usable way, does it run without obvious errors (wrong method names, nil params), and is it plausibly a layout for the named plugin.
+3. Quality: does it show the plugin's main controls in a usable way, does it run without obvious errors (methods that aren't in the kit reference above, nil params), and is it plausibly a layout for the named plugin. Every method and field the reference lists exists; don't call one of those missing. Only call a method wrong when the reference doesn't list it.
 Answer "approve" only when there is nothing of concern under 1 and 2 and it works under 3. Answer "reject" for anything malicious, unsafe or offensive, or a layout that clearly doesn't work. Answer "unsure" when a person should look (something odd but maybe harmless). Keep "reason" to one or two plain sentences the uploader will read.` }
 ];
 

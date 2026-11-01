@@ -59,7 +59,7 @@ const PRICE = { in: 4, out: 20, cacheRead: 0.2, cacheWrite: 5, search: 0.01 };
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
-const MAX_SOURCE = 64 * 1024;
+const MAX_SOURCE = 1024 * 1024;
 const MAX_PARAMS = 400;
 const LICENSE_PRODUCT = 'fx-devices';
 const KIT_MODULE = 'src.Functions.Stock FX UI';
@@ -168,7 +168,7 @@ function lint(src) {
 	const seen = new Set();
 	const once = msg => { if (!seen.has(msg) && errs.length < 20) { seen.add(msg); errs.push(msg); } };
 	if (typeof src !== 'string' || !src.trim()) return ['The layout is empty.'];
-	if (Buffer.byteLength(src, 'utf8') > MAX_SOURCE) once('The layout is over 64 KB.');
+	if (Buffer.byteLength(src, 'utf8') > MAX_SOURCE) once('The layout is over 1 MB.');
 	if (src.includes('\x1b')) once('Compiled Lua (bytecode) isn\'t allowed.');
 	let code, strings;
 	try { ({ code, strings } = strip(src)); } catch (e) { return [`The code doesn't parse: ${e.message}.`]; }

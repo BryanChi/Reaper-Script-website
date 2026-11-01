@@ -23,6 +23,9 @@
 //                           rewriting | reviewing, since: ms } when the job has said what it's on)
 //   action=community-layouts -> { ok, layouts: [{ id, plugin, title, version, date }], revoked: [id] }
 //   action=community-layout { id } -> { ok, id, plugin, source, signature }
+//   action=community-versions { plugin } -> { ok, layouts: [{ id, title, version, date, rating: { avg, count } }] }
+//                           every shared version of one plugin's layout made by other people (not the
+//                           asker), best rated first (the Auto Layout creator window offers them to try)
 //
 // Safety: a layout is executable Lua, so three things stand between a shared one and other people's
 // computers. FX Devices runs community layouts in a sandbox (only the Stock FX UI kit, ReaImGui
@@ -869,6 +872,33 @@ async function communityAction(action, input, res) {
 		const lic = await licensed(input);
 		if (lic.error) return res.status(lic.status).json({ ok: false, error: lic.error });
 
+		if (action === 'community-versions') {
+			if (!validPlugin(input.plugin)) return res.status(400).json({ ok: false, error: 'This plugin\'s name can\'t be used for a layout.' });
+			const { data, error } = await supabase.from('community_layouts')
+				.select('id, title, version, decided_at, key_hash').eq('plugin', input.plugin).eq('status', 'approved')
+				.order('version', { ascending: false }).limit(200);
+			if (error) throw new Error(error.message);
+			const rows = (data || []).filter(r => r.key_hash !== lic.kh);
+			const stats = new Map(rows.map(r => [r.id, { sum: 0, count: 0 }]));
+			if (rows.length) {
+				const { data: rs } = await supabase.from('community_layout_jobs').select('result').eq('kind', 'rating')
+					.in('result->>layout', rows.map(r => r.id)).limit(5000);
+				for (const d of rs || []) {
+					const st = d.result && stats.get(d.result.layout);
+					const n = Number(d.result && d.result.rating);
+					if (st && n >= 1 && n <= 5) { st.sum += n; st.count++; }
+				}
+			}
+			const layouts = rows.map(r => {
+				const st = stats.get(r.id);
+				return { id: r.id, title: r.title, version: String(r.version), date: (r.decided_at || '').slice(0, 10),
+					rating: { avg: st.count ? Math.round(st.sum / st.count * 10) / 10 : 0, count: st.count } };
+			});
+			layouts.sort((a, b) => (b.rating.avg - a.rating.avg) || (Number(b.version) - Number(a.version)));
+			res.setHeader('Cache-Control', 'no-store');
+			return res.status(200).json({ ok: true, layouts: layouts.slice(0, 20) });
+		}
+
 		if (action === 'layout-credits') {
 			return res.status(200).json({ ok: true, credits: allowanceOut(await allowance(supabase, lic.kh, lic.trial)) });
 		}
@@ -956,6 +986,6 @@ async function communityAction(action, input, res) {
 	return res.status(404).json({ ok: false, error: 'Unknown action' });
 }
 
-const ACTIONS = new Set(['layout-rate', 'layout-credits', 'layout-generate', 'layout-fix', 'layout-share', 'layout-job', 'community-layouts', 'community-layout']);
+const ACTIONS = new Set(['layout-rate', 'layout-credits', 'layout-generate', 'layout-fix', 'layout-share', 'layout-job', 'community-layouts', 'community-layout', 'community-versions']);
 
 module.exports = { allowance, allowanceOut, usageCheck, communityAction, ACTIONS, lint, strip, approve, sign, signedText, keyHash, validPlugin };

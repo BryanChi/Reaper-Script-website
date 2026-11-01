@@ -9,7 +9,7 @@
 //   action=files     -> files of a product at a ref (tag or branch), plus its version.txt
 //   action=download  -> one file's bytes
 //   action=layouts / layout -> FX Devices' plugin layouts published between releases (layoutsAction)
-//   action=layout-generate / layout-share / layout-job / community-layouts / community-layout
+//   action=layout-generate / layout-share / layout-job / param-blacklist / community-layouts / community-layout
 //                    -> FX Devices' community layouts, made with Claude (_lib/community-layouts.js)
 // Every download needs a license or trial key that verifies (a free trial is enough; free products
 // like Prism EQ need none; FX Devices' own JSFX take FX Devices' key), so the repos can be private and each copy can be traced: the main

@@ -340,8 +340,9 @@ plugin's control looks different from the kit's (a sliding on/off switch, a big 
 box, a segmented button), draw that look yourself with im.DrawList_* on D.DL and make it work with
 D:Btn + D:Get/D:Set (and D:Fmt for its value text) instead of using a kit control that looks different.
 Big text: im.DrawList_AddTextEx(D.DL, Font_SemiBold_16, <pixel size>, x, y, clr, text) (D.X + x, D.Y + y);
-match the original's text sizes relative to the window. Scale it to fit an FX Devices card:
-width 200 to 900 px, height 216 unless the plugin really needs more. Params the plugin's UI doesn't
+match the original's text sizes relative to the window. Scale it to fit an FX Devices card, height
+216 unless the plugin really needs more, and keep the plugin's own proportions for the width (no
+minimum: a small plugin makes a narrow card). Params the plugin's UI doesn't
 show stay off the card (they're reachable through FX Devices' own menus). When nothing tells you
 what the plugin looks like, make a clean, compact card: a display panel if there is something worth
 drawing, main params as knobs, secondary ones as Bars, switches as Toggles, modes as Choices,
@@ -417,7 +418,7 @@ ${KIT_REFERENCE}
 Check, in this order:
 1. Safety: anything that tries to get out of the sandbox or reach things it doesn't list (building names of globals or functions from strings, walking tables to find functions, metatable tricks, abusing callbacks, poking at objects the kit returns), anything that slows or freezes REAPER on purpose (huge loops, recursion, ever-growing tables in D.S), anything that changes other FX, tracks or the project, anything that hides behaviour (obfuscation, encoded data, code that only acts on some dates, after a delay or on some machines).
 2. Content: offensive, sexual or hateful text or drawings, spam, links, advertising, impersonating someone.
-3. Quality: does it show the plugin's main controls in a usable way, does it run without obvious errors (methods that aren't in the kit reference above, nil params), and is it plausibly a layout for the named plugin. Every method and field the reference lists exists; don't call one of those missing. Only call a method wrong when the reference doesn't list it.
+3. Quality: does it show the plugin's main controls in a usable way, does it run without obvious errors (methods that aren't in the kit reference above, nil params), and is it plausibly a layout for the named plugin. Every method and field the reference lists exists; don't call one of those missing. Only call a method wrong when the reference doesn't list it. Card size is the maker's choice: never ask for a wider, taller or different-sized card.
 Answer "approve" only when there is nothing of concern under 1 and 2 and it works under 3. Answer "reject" for anything malicious, unsafe or offensive, or a layout that clearly doesn't work. Answer "unsure" when a person should look (something odd but maybe harmless). Keep "reason" to one or two plain sentences the uploader will read.` }
 ];
 

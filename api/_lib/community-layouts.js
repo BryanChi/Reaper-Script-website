@@ -59,9 +59,9 @@ const crypto = require('crypto');
 const { verifyLicense, db } = require('./store');
 const { checkBounds, CARD_H } = require('./layout-bounds');
 
-const MODEL = 'claude-opus-5-5';
-// per million tokens (Claude Opus 5.5): input, output, cache read, cache write (5 min)
-const PRICE = { in: 4, out: 20, cacheRead: 0.2, cacheWrite: 5, search: 0.01 };
+const MODEL = 'claude-sonnet-5-5';
+// per million tokens (Claude Sonnet 5.5): input, output, cache read, cache write (5 min)
+const PRICE = { in: 2, out: 10, cacheRead: 0.2, cacheWrite: 2.5, search: 0.01 };
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);

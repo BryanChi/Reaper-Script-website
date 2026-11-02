@@ -57,10 +57,11 @@
 
 const crypto = require('crypto');
 const { verifyLicense, db } = require('./store');
+const { checkBounds, CARD_H } = require('./layout-bounds');
 
-const MODEL = 'claude-sonnet-5-5';
-// per million tokens (Claude Sonnet 5.5): input, output, cache read, cache write (5 min)
-const PRICE = { in: 2, out: 10, cacheRead: 0.2, cacheWrite: 2.5, search: 0.01 };
+const MODEL = 'claude-opus-5-5';
+// per million tokens (Claude Opus 5.5): input, output, cache read, cache write (5 min)
+const PRICE = { in: 4, out: 20, cacheRead: 0.2, cacheWrite: 5, search: 0.01 };
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -302,7 +303,7 @@ frame; keep loops small.
 
 THE KIT
 local SFX = require('${KIT_MODULE}')
-local D = SFX.Begin({ Title = 'Name', W = <content width px>, H = <height, default 216>, Accent = SFX.ACCENT.<Dynamics|EQ|Time|Pitch|Synth|Utility>,
+local D = SFX.Begin({ Title = 'Name', W = <content width px>, H = <leave out: the card is 216 tall>, Accent = SFX.ACCENT.<Dynamics|EQ|Time|Pitch|Synth|Utility>,
     Params = { key = { 'Param name', 'Alternative name', idx = <0-based index fallback> }, ... } })
 if not D then return end   -- the FX is collapsed: draw nothing
 Params map short keys to the plugin's params by name (case-insensitive), falling back to idx.
@@ -348,9 +349,19 @@ plugin's control looks different from the kit's (a sliding on/off switch, a big 
 box, a segmented button), draw that look yourself with im.DrawList_* on D.DL and make it work with
 D:Btn + D:Get/D:Set (and D:Fmt for its value text) instead of using a kit control that looks different.
 Big text: im.DrawList_AddTextEx(D.DL, Font_SemiBold_16, <pixel size>, x, y, clr, text) (D.X + x, D.Y + y);
-match the original's text sizes relative to the window. Scale it to fit an FX Devices card, height
-216 unless the plugin really needs more, and keep the plugin's own proportions for the width (no
-minimum: a small plugin makes a narrow card). Params the plugin's UI doesn't
+match the original's text sizes relative to the window.
+THE CARD IS 216 PX TALL, ALWAYS. FX Devices draws every device in a row of fixed height: the layout's
+content area is exactly 216 px tall (y = 0 at the top, y = 216 at the bottom) and W + 8 px wide, and
+anything drawn outside it is cut off. H can't make it taller, so leave H out. Plugin windows are usually
+400 to 700 px tall, so scale the whole picture down: work out s = 216 / (the original window's height)
+and place every element at its position in the picture times s; the width is then the original width
+times s (no minimum: a small plugin makes a narrow card). Text and knobs have a minimum readable size,
+so when the scaled-down original is too cramped, drop secondary decoration (logos, brand bars, preset
+selectors, empty margins) and use smaller controls (size 'S' knobs, D:Bar for secondary params) rather
+than going taller. Count each control's full footprint, not just its centre: a knob reaches from
+cy - radius - 16 (its label) to cy + radius + 17 (its value text), radius 17 / 14 / 11 for 'L' / 'M' / 'S';
+a fader from y - 13 (value) to y + h + 15 (label); a toggle is 17 tall, a menu 18, text is as tall as its
+size. Before answering, check the lowest element: its bottom must be at y = 214 or less. Params the plugin's UI doesn't
 show stay off the card (they're reachable through FX Devices' own menus). The plugin's logo or
 brand name and its preset selector can be left out when the space they free helps the controls fit.
 No tooltips and no hint text.
@@ -587,17 +598,29 @@ async function writeLayout(input, { notes, images, current, feedback, step = () 
 	content.push(...images);
 	const messages = [{ role: 'user', content }];
 	let spent = 0;
-	for (let attempt = 0; attempt < 2; attempt++) {
+	let unsafe = 0;
+	let fallback = null; // a safe layout that still spills off the card: better than nothing
+	for (let attempt = 0; attempt < 3 && unsafe < 2; attempt++) {
 		step(attempt ? 'rewriting' : 'writing');
 		const r = await ask(GENERATE_SYSTEM, messages, GENERATE_SCHEMA, 'high');
 		spent += r.cost;
 		const errs = lint(r.data.lua);
-		if (!errs.length) {
-			return { result: { status: 'ready', title: String(r.data.title).slice(0, 80), notes: String(r.data.notes).slice(0, 300), lua: r.data.lua }, cost: spent };
+		const ready = () => ({ result: { status: 'ready', title: String(r.data.title).slice(0, 80), notes: String(r.data.notes).slice(0, 300), lua: r.data.lua }, cost: spent });
+		let fix;
+		if (errs.length) {
+			unsafe++;
+			fix = `The sandbox check refused that layout:\n- ${errs.join('\n- ')}\nSend the whole layout again with these fixed.`;
+		} else {
+			// run it against a stand-in of the kit and measure what it draws: FX Devices' card is CARD_H tall
+			const fit = checkBounds(r.data.lua, input.params);
+			if (fit.skipped || fit.ok) return ready();
+			fallback = ready();
+			fix = `The layout ran in a test of FX Devices' card and parts of it don't fit, so REAPER would cut them off:\n- ${fit.issues.join('\n- ')}\nThe card is ${CARD_H} px tall and that can't change. Send the whole layout again, scaled and rearranged so every element (labels and value texts included) sits inside y = 0 .. ${CARD_H - 2} and x = 0 .. W; keep the plugin's look and proportions otherwise.`;
 		}
 		messages.push({ role: 'assistant', content: r.content });
-		messages.push({ role: 'user', content: `The sandbox check refused that layout:\n- ${errs.join('\n- ')}\nSend the whole layout again with these fixed.` });
+		messages.push({ role: 'user', content: fix });
 	}
+	if (fallback) { fallback.cost = spent; return fallback; }
 	const e = new Error('Auto Layout creator\'s layout didn\'t pass the safety checks twice. Try again.');
 	e.cost = spent;
 	throw e;

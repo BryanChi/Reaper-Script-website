@@ -1,11 +1,15 @@
 -- @description Cool Reaper Script Manager
--- @version 3.16.0
+-- @version 3.18.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.18.0: new names in the Actions list: "CRS_Cool Reaper Script Manager" and "CRS_FX Devices".
+--          The old names stay as small files that open the new ones, so toolbar buttons and
+--          shortcuts made for them keep working. Nothing else moves: settings, licenses, layouts
+--          and folders are where they were.
 --   3.16.0: connections that fail are written down (the last 50, never your keys, email or files)
 --          and sent to coolreaperscripts.com once a day so they can be fixed; switch it off at the
 --          bottom of the window. When the site can't be reached, a notice at the top reports it
@@ -68,7 +72,7 @@
 
 local r = reaper
 
-local VERSION = '3.16.0'
+local VERSION = '3.18.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -79,12 +83,14 @@ local EXT = 'CoolReaperScripts_Installer'
 -- tells the site what this client can do: 3 = files outside the script's folder (FX Devices' JSFX),
 -- 4 = free products that need no license (Prism EQ), 5 = FX Devices' JSFX as their own items,
 -- 6 = CLAP plugins, per platform (in the CLAP folder: '{CLAP}/' in a product's paths),
--- 7 = a plugin's VST3 with its CLAP (in the VST3 folder: '{VST3}/')
-local CLIENT = 7
+-- 7 = a plugin's VST3 with its CLAP (in the VST3 folder: '{VST3}/'),
+-- 8 = a main script installed under a new name (oldMain: the old file opens the new one)
+local CLIENT = 8
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
-local MANAGER_FILE = 'Cool Reaper Script Manager.lua'
+-- (named CRS_... from 3.18; the old name stays as a file that opens this one, see SettleIn)
+local MANAGER_FILE = 'CRS_Cool Reaper Script Manager.lua'
 
 local OS = r.GetOS()
 local IS_WIN = OS:match('Win') ~= nil
@@ -334,6 +340,19 @@ local BG = {}
 
 function BG.Quote(v) return '"' .. tostring(v):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"' end
 function BG.Name(p) return p:match('[^\\/]+$') end
+-- A script renamed in the Actions list keeps a small file under its old name that opens the new
+-- one (same folder), so toolbar buttons and shortcuts made for the old name keep working.
+-- header: the first lines of the old file (the Script Manager's @description and @version, which
+-- older FX Devices and Vertical FX List read before opening it)
+BG.STUB_MARK = '-- CRS forwarding stub'
+function BG.ForwardStub(newName, header)
+  return (header or '') .. BG.STUB_MARK .. '\n-- @noindex\n'
+    .. '-- This script is now "' .. newName .. '" (next to this file). This file stays so toolbar\n'
+    .. '-- buttons and shortcuts made for the old name keep working: it opens the new one.\n'
+    .. 'local dir = debug.getinfo(1, \'S\').source:match(\'^@?(.*[\\\\/])\') or \'\'\n'
+    .. 'dofile(dir .. ' .. string.format('%q', newName) .. ')\n'
+end
+function BG.IsStub(data) return data ~= nil and data:find(BG.STUB_MARK, 1, true) ~= nil end
 
 -- every request gives up quickly on a dead connection
 BG.CONNECT = 'connect-timeout = 4'
@@ -967,15 +986,43 @@ end
 -- The scripts' settings windows ("Scripts and updates") run the Manager from here.
 local function ManagerPath() return NativePath(RES .. '/' .. MANAGER_DIR .. '/' .. MANAGER_FILE) end
 
+-- Before 3.18 the Manager was "Cool Reaper Script Manager.lua". A full copy still under that name
+-- (an older Manager that just updated itself, or one an older FX Devices / Vertical FX List
+-- downloaded there) moves to the new name, and the old file becomes a small one that opens it:
+-- toolbar buttons, shortcuts and the older scripts' "Scripts and updates" keep working. self = the
+-- file this Manager runs from. Returns a note for the window when it moved.
+BG.OLD_MANAGER_FILE = 'Cool Reaper Script Manager.lua'
+function BG.RenameManager(self)
+  local old, new = NativePath(RES .. '/' .. MANAGER_DIR .. '/' .. BG.OLD_MANAGER_FILE), ManagerPath()
+  local data = ReadFile(old)
+  if not data or BG.IsStub(data) then return end
+  local function Same(a, b)
+    a, b = NativePath(a), NativePath(b)
+    if IS_WIN then a, b = a:lower(), b:lower() end
+    return a == b
+  end
+  if self and Same(self, old) then
+    -- the copy running now is the newest: it goes under the new name
+    if not WriteFile(new, data) then return end
+  elseif not Exists(new) then
+    return
+  end
+  -- older scripts read these two lines (a Manager from 3.12 updates itself) before they open it
+  local header = '-- @description Cool Reaper Script Manager\n-- @version ' .. VERSION .. '\n'
+  if not WriteFile(old, BG.ForwardStub(MANAGER_FILE, header)) then return end
+  r.AddRemoveReaScript(true, 0, new, true)
+  return { kind = 'ok', text = 'The Script Manager is now "' .. MANAGER_FILE .. '" in the Actions list. The old name still opens it.' }
+end
+
 -- Run from Downloads (or anywhere outside REAPER's Scripts folder), the Manager copies itself to
 -- Scripts/CoolReaperScripts, puts that copy in the Actions list instead, and removes the download.
 -- Returns a note for the window, if there's something to say.
 local function SettleIn()
   local _, self = r.get_action_context()
-  if not self or self == '' then
-    local src = debug.getinfo(1, 'S').source or ''
-    self = src:sub(1, 1) == '@' and src:sub(2) or nil
-  end
+  local src = debug.getinfo(1, 'S').source or ''
+  src = src:sub(1, 1) == '@' and src:sub(2) or nil
+  -- opened through the old name's small file: this is the file that runs
+  if not self or self == '' or (src and BG.IsStub(ReadFile(self))) then self = src end
   if not self or not Exists(self) then return end
   local function Norm(path)
     path = path:gsub('\\', '/'):gsub('/+', '/')
@@ -989,7 +1036,7 @@ local function SettleIn()
       r.RecursiveCreateDirectory(DirOf(ManagerPath()), 0)
       if data then WriteFile(ManagerPath(), data) end
     end
-    return
+    return BG.RenameManager(self)
   end
   local target = ManagerPath()
   local data = ReadFile(self)
@@ -999,6 +1046,7 @@ local function SettleIn()
   end
   r.AddRemoveReaScript(true, 0, target, true)
   r.AddRemoveReaScript(false, 0, self, true)
+  BG.RenameManager(target)
   local removed = os.remove(self)
   return { kind = 'ok', text = 'The Script Manager moved itself into REAPER'
     .. (removed and ', so the downloaded file is gone. ' or '. You can delete the downloaded file. ')
@@ -1358,7 +1406,11 @@ end
 local function InstallPath(p, rel) return NativePath(RES .. '/' .. p.installDir .. '/' .. rel) end
 
 local function MainScriptPath(p)
-  return p.mainScript and InstallPath(p, p.mainScript.to) or nil
+  if not p.mainScript then return nil end
+  local main = InstallPath(p, p.mainScript.to)
+  -- renamed (oldMain), not updated yet: the old name is the one there
+  if p.oldMain and not Exists(main) and Exists(InstallPath(p, p.oldMain)) then return InstallPath(p, p.oldMain) end
+  return main
 end
 
 local function InstalledVersion(p)
@@ -1656,7 +1708,8 @@ local function UpdateManager()
   if not data then S.msg = { kind = 'err', text = 'Couldn\'t read the downloaded Script Manager. Try again with Check for updates.' } return end
   local targets = { ManagerPath() }
   local _, self = r.get_action_context()
-  if self and self ~= '' and Exists(self) and NativePath(self) ~= ManagerPath() then targets[#targets + 1] = self end
+  -- (never over the old name's small file: it opens this one)
+  if self and self ~= '' and Exists(self) and NativePath(self) ~= ManagerPath() and not BG.IsStub(ReadFile(self)) then targets[#targets + 1] = self end
   for _, t in ipairs(targets) do
     r.RecursiveCreateDirectory(DirOf(t), 0)
     if not WriteFile(t, data) then S.msg = { kind = 'err', text = 'Couldn\'t write ' .. t .. '. Download the Script Manager from coolreaperscripts.com instead.' } return end
@@ -1782,7 +1835,9 @@ local function DevCheckoutIn(p)
   end
   -- the repo's own main script sits next to the installed one only in a developer's folder
   -- (installs always rename it)
-  if p.mainScript and p.mainScript.from ~= p.mainScript.to and Exists(InstallPath(p, p.mainScript.from)) then
+  -- (not when the repo's name is the old installed name: an earlier install left that file)
+  if p.mainScript and p.mainScript.from ~= p.mainScript.to and p.mainScript.from ~= p.oldMain
+    and Exists(InstallPath(p, p.mainScript.from)) then
     return NativePath(p.installDir)
   end
   for _, d in ipairs(dirs) do
@@ -2162,6 +2217,18 @@ end
 
 local function InstallBusy(job) return job.n < #job.queue or job.batch ~= nil or (job.redo ~= nil and #job.redo > 0) end
 
+-- A main script installed under a new name (oldMain, FX Devices: "BryanChi_FX Devices.lua" ->
+-- "CRS_FX Devices.lua"): the old file an earlier install left becomes a small one that opens the
+-- new one, so toolbar buttons and shortcuts made for it keep working.
+function BG.ForwardOldMain(p, main)
+  if not (p.oldMain and p.mainScript and p.oldMain ~= p.mainScript.to and main and Exists(main)) then return end
+  local old = InstallPath(p, p.oldMain)
+  if DirOf(old) ~= DirOf(main) then return end
+  local data = ReadFile(old)
+  if not data or BG.IsStub(data) then return end
+  WriteFile(old, BG.ForwardStub(BG.Name(main)))
+end
+
 local function FinishInstall(job)
   if job.images then
     QueueLayoutImages(job)
@@ -2173,6 +2240,7 @@ local function FinishInstall(job)
   WriteManifest(job)
   local main = MainScriptPath(p)
   if main and Exists(main) then r.AddRemoveReaScript(true, 0, main, true) end
+  if #job.failed == 0 then BG.ForwardOldMain(p, main) end
   -- the scripts' own updaters read the installed release from version.txt
   if job.ref ~= p.branch then
     WriteFile(InstallPath(p, 'version.txt'), 'release: ' .. job.ref .. '\n')

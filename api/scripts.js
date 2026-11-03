@@ -127,6 +127,7 @@ function publicProduct(id, p) {
 		description: p.description,
 		installDir: p.installDir,
 		mainScript: p.mainScript,
+		oldMain: p.oldMain,
 		userData: p.userData,
 		askIfChanged: p.askIfChanged,
 		routes: p.routes,

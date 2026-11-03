@@ -8,7 +8,7 @@ const MANAGER_URL = SITE + '/assets/Download/Cool%20Reaper%20Script%20Manager.lu
 // What each script is called in REAPER's Actions list, and what it needs besides REAPER
 const SCRIPT_INFO = {
 	'vertical-fx-list': { action: 'CRS_vertical fx list', needs: 'ReaImGui, js_ReaScriptAPI and SWS' },
-	'fx-devices': { action: 'BryanChi_FX Devices', needs: 'ReaImGui and js_ReaScriptAPI' }
+	'fx-devices': { action: 'CRS_FX Devices', needs: 'ReaImGui and js_ReaScriptAPI' }
 };
 
 const C = {
@@ -31,7 +31,7 @@ function setupSteps(productName, product, email) {
 	const info = SCRIPT_INFO[product] || SCRIPT_INFO['vertical-fx-list'];
 	return [
 		{ title: 'Download the Script Manager', body: [
-			'Get {b:Cool Reaper Script Manager.lua}, the free installer that installs and updates your scripts.'
+			'Get {b:CRS_Cool Reaper Script Manager.lua}, the free installer that installs and updates your scripts.'
 		], link: { label: 'Download the Script Manager', url: MANAGER_URL } },
 		{ title: 'Load and run it in REAPER', body: [
 			'Open the Actions list, click {b:New action} then {b:Load ReaScript}, pick the file you downloaded and run it. It moves itself into REAPER, so the downloaded file disappears.'

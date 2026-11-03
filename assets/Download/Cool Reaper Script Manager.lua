@@ -2387,7 +2387,8 @@ local function Wrap(s, font, w)
   local lines = {}
   for para in (tostring(s) .. '\n'):gmatch('(.-)\n') do
     local cur = ''
-    for word in para:gmatch('%S+') do
+    for word0 in para:gmatch('%S+') do
+      local word = word0
       -- a word wider than the line (a path) is split where it must be
       while TextW(word, font) > w and #word > 1 do
         if cur ~= '' then lines[#lines + 1] = cur; cur = '' end

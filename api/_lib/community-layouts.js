@@ -329,6 +329,8 @@ Values: D:Get(key) -> 0..1, D:Set(key, v), D:Fmt(key) -> the plugin's own text (
   D:On(key), D:IsToggle(key), D:Choices(key) -> {{label, norm}}, D:Lit(key) -> hovered or dragged,
   D:Groups(cacheKey, fields, skip) for repeating params (bands, taps), D.Names[p] / D.NumParams / D.P[key] (index),
   D:Hold(key, v, rate) peak hold, D.S a table that persists for this FX, D.NOW = time,
+  D:InputWave(n) -> n peaks (linear, 1 = 0 dB, oldest first) of the track's input before any FX, and how many
+  per second (60); nil while there's none yet: draw a waveform display from it,
   D.X, D.Y (screen top-left of the content), D.W, D.H, D.Acc (the accent colour), D.DL (the draw list).
 Helpers on SFX: SFX.Num(text) -> the number in a plugin's text, SFX.Clamp(v, lo, hi), SFX.ShortVal(text, unit) -> a short form of that text, SFX.TextW(text, size, bold) -> pixel width,
 SFX.H (the default height). That is the whole kit: every method above exists, and nothing else does.

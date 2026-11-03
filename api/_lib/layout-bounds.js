@@ -50,6 +50,7 @@ function Dev:IsToggle() return false end
 function Dev:Choices() return { { 'A', 0 }, { 'B', 1 } } end
 function Dev:Groups() return {} end
 function Dev:Hold(_, v) return v or 0 end
+function Dev:InputWave(n) local t = {} for i = 1, math.max(1, math.floor(n or 64)) do t[i] = 0.5 end return t, 60 end
 function Dev:Text(x, y, clr, txt, sz, align)
     sz = sz or 10
     local w = TW(txt, sz)

@@ -38,7 +38,12 @@ module.exports = {
 		include: ['BryanChi_FX_Devices/'],
 		// repo paths installed somewhere other than installDir (relative to the REAPER resource folder)
 		routes: [{ from: 'BryanChi_FX_Devices/FXD JSFXs/', to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
-		mainScript: { from: 'BryanChi_FX_Devices/BryanChi_FX Devices.lua', to: 'BryanChi_FX_Devices/BryanChi_FX Devices.lua' },
+		// installed as "CRS_FX Devices.lua" (bryan, 2026-11-03: the Actions list shows CRS_ names). The
+		// repo file keeps its name. A Script Manager from 3.18 (client 8) turns the old installed file
+		// (oldMain) into a small one that opens the new one, so toolbar buttons and shortcuts made for
+		// it keep working; older Managers get the old name (see forPlatform).
+		mainScript: { from: 'BryanChi_FX_Devices/BryanChi_FX Devices.lua', to: 'BryanChi_FX_Devices/CRS_FX Devices.lua' },
+		oldMain: 'BryanChi_FX_Devices/BryanChi_FX Devices.lua',
 		exclude: ['BryanChi_FX_Devices/src/FX_Adder_Cache/fx_category_cache.lua', 'BryanChi_FX_Devices/src/FX_Adder_Cache/plugin_select_counts.txt'],
 		userData: [
 			'BryanChi_FX_Devices/src/FX Default Values',
@@ -141,6 +146,9 @@ function fxdWithMacros(dir, file) {
 // just installs the CLAP.
 //   mac: a .vst3 bundle (universal)   win64: a .vst3 bundle folder (Contents/x86_64-win/<name>.vst3)
 const VST3_CLIENT = 7;
+// Script Managers from 3.18: a main script installed under a new name (oldMain), the old file kept
+// as one that opens it
+const RENAME_CLIENT = 8;
 function clapPlatforms(name, opts) {
 	const mac = 'CLAP/macOS/' + name + '.clap/';
 	const win = 'CLAP/Windows/' + name + '.clap';
@@ -175,6 +183,12 @@ function clapPlatforms(name, opts) {
 // when it has no build for that platform (or the client didn't say which it is). The client's
 // generation decides whether a plugin's VST3 comes along (older Script Managers don't know '{VST3}').
 function forPlatform(product, platform, client) {
+	// a main script renamed at install (oldMain): Managers before 3.18 keep the old name, since they
+	// would leave the old file next to the new one and take that for a developer's checkout
+	if (product.oldMain && (Number(client) || 0) < RENAME_CLIENT) {
+		product = Object.assign({}, product, { mainScript: { from: product.mainScript.from, to: product.oldMain } });
+		delete product.oldMain;
+	}
 	if (!product.platforms) return product;
 	// platforms.default: what every other platform (and a Manager that doesn't say) gets
 	const build = (platform && product.platforms[platform]) || product.platforms.default;

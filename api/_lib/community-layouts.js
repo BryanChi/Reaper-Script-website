@@ -329,6 +329,8 @@ Values: D:Get(key) -> 0..1, D:Set(key, v), D:Fmt(key) -> the plugin's own text (
   D:On(key), D:IsToggle(key), D:Choices(key) -> {{label, norm}}, D:Lit(key) -> hovered or dragged,
   D:Groups(cacheKey, fields, skip) for repeating params (bands, taps), D.Names[p] / D.NumParams / D.P[key] (index),
   D:Hold(key, v, rate) peak hold, D.S a table that persists for this FX, D.NOW = time,
+  D:InputWave(n) -> n peaks (linear, 1 = 0 dB, oldest first) of the track's input before any FX, and how many
+  per second (60); nil while there's none yet (FX Devices adds its modulator plugin to the track, which measures it),
   D.X, D.Y (screen top-left of the content), D.W, D.H, D.Acc (the accent colour), D.DL (the draw list).
 Helpers on SFX: SFX.Num(text) -> the number in a plugin's text, SFX.Clamp(v, lo, hi), SFX.ShortVal(text, unit) -> a short form of that text, SFX.TextW(text, size, bold) -> pixel width,
 SFX.H (the default height). That is the whole kit: every method above exists, and nothing else does.
@@ -341,7 +343,12 @@ Copy the plugin's own interface as closely as the kit allows: the same sections 
 the same kind of control for each param (a knob where it has a knob, a switch where it has a switch,
 a menu where it has a menu), the same labels and order, colours close to the original (background
 with D:Rect, accents and text colours as 0xRRGGBBAA), and its displays (curves, meters, envelopes)
-drawn on a D:Panel with im.DrawList_* from the params' values. Text exactly as the plugin writes it: its
+drawn on a D:Panel with im.DrawList_* from the params' values. A display of the audio itself (a waveform,
+scope or scrolling level history, as many plugins show behind their controls) always comes from
+D:InputWave(n): one column per value, scrolling with the newest on the right, heights through a dB curve
+(e.g. -60..0 dB to 0..1), mirrored around the middle when the plugin's is, clipped to its panel; while it
+returns nil draw a flat line. Never fake a waveform with maths, and don't use Track_GetPeakInfo for it
+(that is after the FX). Text exactly as the plugin writes it: its
 words and its capitals (a "Compensation" menu stays "Compensation", not "LATENCY"; "Mix" stays "Mix", not "MIX").
 Give every control the plugin's own accent colour with o.accent, and set the card's background and panels
 to its colours; FX Devices' default accents are only for when nothing shows the plugin's colours. When the

@@ -166,6 +166,13 @@ async function memVerifyLicense(licenseKey, deviceId, product) {
 	if (trialEntry) {
 		const [, trial] = trialEntry;
 		if (rowProduct(trial) !== product) return wrongProduct(trial, product);
+		// its owner has a license for this script now (see licenseForTrial): answer with that
+		const owned = Object.entries(store.licenses).find(([, l]) => l.email === normalizeEmail(trial.email)
+			&& l.status === 'active' && rowProduct(l) === product && (!l.expiresAt || now < l.expiresAt));
+		if (owned) {
+			const [ownedKey, lic] = owned;
+			return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, updatesUntil: updatesUntil(lic), licenseKey: ownedKey, upgradedFrom: 'trial' };
+		}
 		const active = now < trial.expiresAt;
 		if (active) {
 			return { ok: true, status: 'trial', expiresAt: trial.expiresAt, licenseKey: licenseKey };
@@ -391,6 +398,54 @@ async function emailFromAccessToken(token) {
 	}
 }
 
+// A trial key whose owner has since got a license for the same script (bought, or handed out on
+// the admin page) answers with that license, so the script switches to it on its next check
+// ("Check now", or the daily one) instead of saying "trial" until the trial runs out. The computer
+// was signed in for the trial, so it's activated on the license too (one of its computers), with the
+// trial's hardware hash. null = no such license (or this computer isn't signed in for the trial, or
+// the license has no room for it): answer for the trial as before.
+async function licenseForTrial(trialRow, deviceId, product) {
+	const email = normalizeEmail(trialRow.email);
+	if (!email) return null;
+	const now = Date.now();
+	const { data: rows, error } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', email)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false });
+	if (error || !rows) return null;
+	const lic = rows.find(l => rowProduct(l) === product && (!l.expires_at || now < new Date(l.expires_at).getTime()));
+	if (!lic) return null;
+	const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
+	const answer = { ok: true, status: 'active', expiresAt: exp, updatesUntil: updatesUntil(lic), licenseKey: lic.license_key, upgradedFrom: 'trial' };
+	if (!deviceId) return answer;
+
+	const { data: dev, error: devErr } = await supabase
+		.from('device_activations')
+		.select('*')
+		.eq('license_key', trialRow.license_key)
+		.eq('device_id', deviceId)
+		.eq('active', true)
+		.maybeSingle();
+	if (devErr || !dev) return null;
+	const act = await activateDevice(email, lic.license_key, String(deviceId));
+	if (!act.ok) {
+		console.error('Could not move a trial computer to its license:', act.error);
+		return null;
+	}
+	if (dev.hw) {
+		const { error: hwErr } = await supabase
+			.from('device_activations')
+			.update({ hw: dev.hw })
+			.eq('license_key', lic.license_key)
+			.eq('device_id', deviceId)
+			.is('hw', null);
+		if (hwErr) console.error('Error copying the hardware hash to the license:', hwErr);
+	}
+	return answer;
+}
+
 async function verifyLicense(licenseKey, deviceId, productInput) {
 	const now = Date.now();
 
@@ -468,6 +523,8 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 
 	if (!trialErr && trialRow) {
 		if (rowProduct(trialRow) !== product) return wrongProduct(trialRow, product);
+		const upgraded = await licenseForTrial(trialRow, deviceId, product);
+		if (upgraded) return upgraded;
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
 		const active = now < expiresAt;
 		if (active) {

@@ -1,23 +1,8 @@
 const crypto = require('crypto');
-const { issuePurchaseLicense, emailFromAccessToken, normalizeEmail, normalizeProduct } = require('../_lib/store');
+const { issuePurchaseLicense, emailFromAccessToken, normalizeEmail, normalizeProduct, linkEmailForPurchase } = require('../_lib/store');
 const PRODUCTS = require('../_lib/products');
 const { findDiscount, discountById, priceFor } = require('../_lib/discounts');
-const { buildPurchaseEmail } = require('../_lib/purchase-email');
-
-// Lazy-load Resend to avoid requiring it if not configured
-let resendClient = null;
-function getResend() {
-	if (resendClient) return resendClient;
-	try {
-		const { Resend } = require('resend');
-		if (process.env.RESEND_API_KEY) {
-			resendClient = new Resend(process.env.RESEND_API_KEY);
-		}
-	} catch (err) {
-		// ignore; will fall back to no-email mode
-	}
-	return resendClient;
-}
+const { buildPurchaseEmail, sendEmail } = require('../_lib/purchase-email');
 
 // One route, three steps (Vercel's function limit keeps it to one file):
 //   { action: 'quote', product, code }   -> the price, with a discount code if it's valid
@@ -191,11 +176,15 @@ module.exports = async function handler(req, res) {
 		return res.status(402).json({ ok: false, error: `The amount paid doesn't match the ${productName} price` });
 	}
 
-	// The key goes to the buyer's site account when they are signed in, otherwise to the email they gave PayPal
+	// Where the key goes: the account a waiting script signed in with (the buyer came from the
+	// script's /link page, which passes its code along), else the buyer's site account when signed
+	// in, else the email they gave PayPal. The link's email was set from a verified sign-in, so a
+	// purchase made in another browser, or signed out, still reaches the script that is waiting.
 	const checkoutEmail = normalizeEmail(order.payer?.email_address);
+	const linkEmail = body.linkCode ? await linkEmailForPurchase(body.linkCode, product) : null;
 	const accountEmail = await emailFromAccessToken(body.accessToken);
-	let payerEmail = accountEmail || checkoutEmail;
-	let emailSource = accountEmail ? 'account' : 'checkout';
+	let payerEmail = linkEmail || accountEmail || checkoutEmail;
+	let emailSource = linkEmail ? 'link' : accountEmail ? 'account' : 'checkout';
 	if (!payerEmail) {
 		return res.status(400).json({ ok: false, error: 'PayPal did not return the buyer email' });
 	}
@@ -225,65 +214,15 @@ module.exports = async function handler(req, res) {
 		});
 	}
 
-	// Attempt to send email via Resend if configured
-	let emailSent = false;
-	let emailError = null;
-	const resend = getResend();
-	// Clean up the FROM email - remove extra quotes and whitespace
-	let fromEmail = process.env.RESEND_FROM_EMAIL;
-	if (fromEmail) {
-		fromEmail = fromEmail.trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes
-	}
-	
-	if (!resend) {
-		emailError = 'Resend client not initialized. Check RESEND_API_KEY environment variable.';
-		console.error('Resend not configured:', emailError);
-	} else if (!fromEmail) {
-		emailError = 'RESEND_FROM_EMAIL environment variable not set.';
-		console.error('Resend FROM email not configured:', emailError);
-	} else {
-		// Validate format
-		const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		const nameEmailFormat = /^.+<[^\s@]+@[^\s@]+\.[^\s@]+>$/;
-		if (!emailFormat.test(fromEmail) && !nameEmailFormat.test(fromEmail)) {
-			emailError = `Invalid RESEND_FROM_EMAIL format. Use "email@example.com" or "Name <email@example.com>". Current value: "${fromEmail}"`;
-			console.error('Invalid FROM email format:', emailError);
-		}
-	}
-	
-	if (!emailError) {
-		try {
-			const mail = buildPurchaseEmail({
-				productName, product, licenseKey: licenseResult.licenseKey, email: payerEmail, payerName, orderId,
-				updatesUntil: licenseResult.updatesUntil, renewed: !!licenseResult.renewed
-			});
-			const emailResponse = await resend.emails.send({
-				from: fromEmail,
-				to: payerEmail,
-				subject: mail.subject,
-				html: mail.html,
-				text: mail.text
-			});
-			
-			// Check if Resend returned an error in the response
-			if (emailResponse.error) {
-				emailError = emailResponse.error.message || JSON.stringify(emailResponse.error);
-				console.error('Resend API error:', emailResponse.error);
-			} else if (emailResponse.data && emailResponse.data.id) {
-				emailSent = true;
-				console.log('Email sent successfully:', { id: emailResponse.data.id, to: payerEmail });
-			} else {
-				emailError = 'Unexpected response from Resend API';
-				console.error('Unexpected Resend response:', emailResponse);
-			}
-		} catch (err) {
-			emailError = err.message || 'Unknown error';
-			console.error('Resend email failed:', err);
-			if (err.response) {
-				console.error('Resend error response:', err.response);
-			}
-		}
-	}
+	// Email the key. It's also on the page and found by signing in, so a failed email doesn't stop anything.
+	const mail = buildPurchaseEmail({
+		productName, product, licenseKey: licenseResult.licenseKey, email: payerEmail, payerName, orderId,
+		updatesUntil: licenseResult.updatesUntil, renewed: !!licenseResult.renewed
+	});
+	const sent = await sendEmail({ to: payerEmail, subject: mail.subject, html: mail.html, text: mail.text });
+	const emailSent = sent.ok;
+	const emailError = sent.ok ? null : (sent.setup ? 'The email could not be sent.' : sent.error);
+	if (!sent.ok) console.error('Purchase email not sent:', { orderId, to: payerEmail, error: sent.error });
 
 	return res.status(200).json({
 		ok: true,

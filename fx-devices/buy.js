@@ -17,10 +17,14 @@
     host.hidden = true;
     keyEl.textContent = json.licenseKey || '';
     const email = json.email;
-    const where = json.emailSource === 'account' ? 'the email on your account' : 'the email you gave at checkout';
+    const where = json.emailSource === 'link' ? 'the account you signed in with for REAPER'
+      : json.emailSource === 'account' ? 'the email on your account' : 'the email you gave at checkout';
     mailEl.textContent = !email ? '' : json.emailSent
       ? `We also emailed it to ${email}, ${where}.`
       : `Keep it safe. It's linked to ${email}, but the email with it could not be sent.`;
+    if (json.emailSource === 'link') {
+      mailEl.textContent += ' Go back to REAPER: FX Devices activates on its own in a few seconds. If REAPER stopped waiting, click Sign in with browser again and sign in as ' + email + '.';
+    }
     say('');
     showSetup(email);
   }
@@ -57,9 +61,19 @@
       return (data && data.session && data.session.access_token) || null;
     } catch (_) { return null; }
   }
+  // Came from the script's sign-in page (/link)? Its code goes with the payment, so the key lands on
+  // the account REAPER is waiting on, whichever browser or account this page is in.
+  const linkCode = (() => {
+    try {
+      const q = new URLSearchParams(location.search).get('link');
+      if (q) { sessionStorage.setItem('crs_buy_link', q); return q; }
+      return sessionStorage.getItem('crs_buy_link') || null;
+    } catch (_) { return null; }
+  })();
   const signedInEl = document.getElementById('fxd-signed-in');
   const sess = storedSession();
-  if (signedInEl && sess) signedInEl.textContent = `Signed in as ${sess.user.email}. Your key will be sent there.`;
+  if (signedInEl && linkCode) signedInEl.textContent = 'Your key goes to the account you signed in with for REAPER.';
+  else if (signedInEl && sess) signedInEl.textContent = `Signed in as ${sess.user.email}. Your key will be sent there.`;
 
   // Discount code: the server checks it and applies it when it creates the order
   let code = '';
@@ -109,7 +123,7 @@
         say('Payment approved. Getting your license key…');
         let json;
         try {
-          json = await api({ orderId: data.orderID, accessToken: await accessToken() });
+          json = await api({ orderId: data.orderID, accessToken: await accessToken(), linkCode });
         } catch (err) {
           say(`The key didn't arrive: ${err.message}. If PayPal charged you, email us with PayPal order ${data.orderID} and we'll send it.`, true);
           return;

@@ -1639,6 +1639,8 @@ local function LinkAnswer(p, k, data)
     return
   end
   local st = data.status
+  -- the server keeps the link open longer once they've signed in (buying, starting a trial): wait that long
+  if tonumber(data.expiresIn) then k.expires = now + tonumber(data.expiresIn) end
   if st == 'linked' then return Linked(p, data)
   elseif st == 'limit' then k.phase, k.email, k.nextPoll = 'limit', data.email, now + 3
   elseif st == 'no-license' then k.phase, k.email, k.nextPoll = 'nolicense', data.email, now + 3

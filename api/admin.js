@@ -219,7 +219,7 @@ module.exports = async function handler(req, res) {
 		const supabase = getSupabaseClient();
 		if (!supabase) return res.status(500).json({ ok: false, error: 'Community layouts require Supabase' });
 		const { data, error } = await supabase.from('community_layouts')
-			.select('id, plugin, title, status, review, version, created_at, decided_at, num_params, source')
+			.select('id, plugin, title, status, review, version, created_at, decided_at, num_params, source, key_hash')
 			.order('created_at', { ascending: false }).limit(300);
 		if (error) return res.status(500).json({ ok: false, error: error.message });
 		const today = new Date();
@@ -241,9 +241,31 @@ module.exports = async function handler(req, res) {
 			const b = byLayout[id] || (byLayout[id] = { count: 0, sum: 0 });
 			b.count++; b.sum += n;
 		}
+		// who made each one: layouts keep only a hash of the maker's license (or trial) key, so match it back
+		const creators = {};
+		const want = new Set((data || []).map(l => l.key_hash).filter(Boolean));
+		if (want.size) {
+			const [lic, tri] = await Promise.all([
+				supabase.from('licenses').select('license_key, email, status').limit(20000),
+				supabase.from('trials').select('license_key, email').limit(20000)
+			]);
+			for (const r of (tri.data || [])) {
+				const kh = r.license_key && Community.keyHash(r.license_key);
+				if (kh && want.has(kh)) creators[kh] = { email: r.email || '', kind: 'trial' };
+			}
+			for (const r of (lic.data || [])) {
+				const kh = r.license_key && Community.keyHash(r.license_key);
+				if (kh && want.has(kh)) creators[kh] = { email: r.email || '', kind: r.status === 'trial' ? 'trial' : 'license' };
+			}
+		}
 		const layouts = (data || []).map(l => {
 			const b = byLayout[l.id];
-			return { ...l, ratings: b ? { count: b.count, avg: Math.round(b.sum / b.count * 10) / 10 } : null };
+			const { key_hash, ...rest } = l;
+			return {
+				...rest,
+				creator: creators[key_hash] || (key_hash ? { email: '', kind: 'unknown', id: key_hash.slice(0, 8) } : null),
+				ratings: b ? { count: b.count, avg: Math.round(b.sum / b.count * 10) / 10 } : null
+			};
 		});
 		return res.status(200).json({ ok: true, layouts, spent });
 	}

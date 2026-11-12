@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.18.1
+-- @version 3.18.2
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.18.2: a short install message: a title, numbered steps, and the install folders as links
+--          (hover shows the whole path, click opens the folder). Long paths no longer run off the card.
 --   3.18.1: batch downloads (installs and updates) no longer count as failed connections: their
 --          answer has a code per file, which was read as none ("can't connect" notice on Windows).
 --   3.18.0: new names in the Actions list: "CRS_Cool Reaper Script Manager" and "CRS_FX Devices".
@@ -74,7 +76,7 @@
 
 local r = reaper
 
-local VERSION = '3.18.1'
+local VERSION = '3.18.2'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -161,7 +163,6 @@ local function OpenUrl(url)
   else os.execute('xdg-open "' .. url .. '"') end
 end
 
-local REVEAL_LABEL = IS_WIN and 'Show in Explorer' or IS_MAC and 'Show in Finder' or 'Open folder'
 
 -- opens a folder in Finder / Explorer / the file manager
 local function RevealFolder(dir)
@@ -1801,8 +1802,8 @@ local function InstallFolders(p)
   local list = (main or not p.routes or #p.routes == 0) and { { label = 'Script', dir = main and DirOf(main) or NativePath(RES .. '/' .. p.installDir) } } or {}
   for _, rt in ipairs(p.routes or {}) do
     local dir = ResPath((rt.to:gsub('/+$', '')))
-    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX (Effects folder)' or rt.to:match('^{CLAP}') and 'Plugin (CLAP folder)'
-      or rt.to:match('^{VST3}') and 'Plugin (VST3 folder)' or 'Files', dir = dir }
+    list[#list + 1] = { label = rt.to:match('^Effects/') and 'JSFX' or rt.to:match('^{CLAP}') and 'CLAP'
+      or rt.to:match('^{VST3}') and 'VST3' or 'Files', dir = dir }
   end
   return list
 end
@@ -2283,24 +2284,28 @@ local function FinishInstall(job)
     lines[#lines + 1] = f.path .. ': ' .. tostring(f.why):sub(1, 100)
   end
   local skipped = (job.skipped or 0) > 0
-    and ('; ' .. job.skipped .. ' layout images of plugins you don\'t have are left out, ' .. p.name .. ' downloads them if you get those plugins') or ''
-  local action = main and Exists(main) and (' It\'s in the Action List as "Script: ' .. main:match('([^/\\]+)$') .. '".') or ''
+    and ('Layout images for plugins you don\'t have are left out; ' .. p.name .. ' gets them when you get those plugins.') or nil
   local fx = not main and p.installedFile and p.installedFile:match('([^/]+)%.jsfx$')
   local plugin = not main and p.kind == 'clap' and p.installedFile and p.installedFile:match('([^/]+)%.clap')
   -- its VST3, when this release has one (the routes say where it went)
   local vst3 = plugin and p.vst3InstalledFile and Exists(ResPath(p.vst3InstalledFile))
-  local vst3Path = vst3 and VST3.needsPath and (' Add ' .. VST3.Dir() .. ' to Preferences > Plug-ins > VST > VST plug-in paths so REAPER finds the VST3'
-      .. ' (Common Files\\VST3 needs admin rights here).') or ''
-  p.msg = ok and plugin and { kind = 'ok', text = job.label .. ' installed. Restart REAPER (or click Re-scan in Preferences > Plug-ins > '
-      .. (vst3 and 'CLAP and VST' or 'CLAP') .. '), then add it from the FX browser: "CLAP: ' .. plugin .. '"'
-      .. (vst3 and (' or "VST3: ' .. plugin .. '"') or '') .. '.' .. vst3Path .. (removed > 0 and (' The old ' .. p.name .. ' JSFX is removed: projects that used it need the plugin added instead.') or '')
-      .. ' Open the Script Manager again to update it.', folders = InstallFolders(p) }
-    or ok and fx and { kind = 'ok', text = job.label .. ' installed. Add it to a track from the FX browser: "JS: ' .. fx
-      .. '". Open the Script Manager again to update it.', folders = InstallFolders(p) }
-    or ok and { kind = 'ok', text = job.label .. ' installed (' .. (job.unchanged > 0 and ((#job.queue - job.unchanged) .. ' files downloaded, ' .. job.unchanged .. ' already up to date')
-      or (#job.queue .. ' files')) .. skipped .. ').' .. action .. ' To update it or get other scripts later, open '
-      .. p.name .. '\'s settings and click Scripts and updates. You won\'t need the downloaded Script Manager again.', folders = InstallFolders(p) }
-    or { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
+  local title = job.label .. ' installed'
+  if ok and plugin then
+    p.msg = { kind = 'ok', title = title, folders = InstallFolders(p), steps = {
+      'Restart REAPER, or Re-scan in Preferences > Plug-ins.',
+      'Add "' .. plugin .. '" from the FX browser' .. (vst3 and ' (CLAP or VST3).' or '.'),
+      vst3 and VST3.needsPath and 'For the VST3, add the VST3 folder below to Preferences > Plug-ins > VST > VST plug-in paths.' or nil,
+    }, note = removed > 0 and ('The old ' .. p.name .. ' JSFX is removed: re-add ' .. p.name .. ' in projects that used it.') or nil }
+  elseif ok and fx then
+    p.msg = { kind = 'ok', title = title, folders = InstallFolders(p), steps = { 'Add "JS: ' .. fx .. '" from the FX browser.' } }
+  elseif ok then
+    p.msg = { kind = 'ok', title = title, folders = InstallFolders(p), steps = {
+      main and Exists(main) and ('Run it from the Action List: "Script: ' .. main:match('([^/\\]+)$') .. '".') or nil,
+      'Update it later in ' .. p.name .. '\'s settings > Scripts and updates.',
+    }, note = skipped }
+  else
+    p.msg = { kind = 'warn', text = ('Installed %d of %d files; %d failed. Install again to retry.\n'):format(#job.queue - #job.failed, #job.queue, #job.failed) .. table.concat(lines, '\n') }
+  end
   S.job = nil
   S.loose = nil
   RefreshOnDisk()
@@ -2464,7 +2469,17 @@ local function Wrap(s, font, w)
   local lines = {}
   for para in (tostring(s) .. '\n'):gmatch('(.-)\n') do
     local cur = ''
-    for word in para:gmatch('%S+') do
+    for word0 in para:gmatch('%S+') do
+      local word = word0
+      -- a word wider than the line (a path) is split where it must be
+      while TextW(word, font) > w and #word > 1 do
+        if cur ~= '' then lines[#lines + 1] = cur; cur = '' end
+        local n = #word - 1
+        while n > 1 and TextW(word:sub(1, n), font) > w do n = n - 1 end
+        while n > 1 and (word:byte(n + 1) or 0) & 0xC0 == 0x80 do n = n - 1 end -- not inside a character
+        lines[#lines + 1] = word:sub(1, n)
+        word = word:sub(n + 1)
+      end
       local cand = cur == '' and word or (cur .. ' ' .. word)
       if cur ~= '' and TextW(cand, font) > w then
         lines[#lines + 1] = cur
@@ -2564,6 +2579,92 @@ local function Banner(dl, x, y, w, kind, text)
   im.DrawList_AddRectFilled(dl, x, y, x + 2, y + h, color)
   for i, l in ipairs(lines) do Txt(dl, F.body, 13, x + 14, y + 9 + (i - 1) * 16, P.ink, l) end
   return h
+end
+
+-- (in a block: the main chunk is at Lua's 200-local limit)
+local MsgBox
+do
+-- a long path that fits room: its start, '...', and as many of its last folders as fit
+local function ShortPath(path, font, room)
+  if TextW(path, font) <= room then return path end
+  local sep = path:match('[/\\]') or '/'
+  local segs = {}
+  for seg in path:gmatch('[^/\\]+') do segs[#segs + 1] = seg end
+  local head = (path:match('^[/\\]') and sep or '') .. (segs[1] or '') .. sep .. '...'
+  local tail = ''
+  for i = #segs, 2, -1 do
+    local cand = sep .. segs[i] .. tail
+    if TextW(head .. cand, font) > room then break end
+    tail = cand
+  end
+  if tail ~= '' then return head .. tail end
+  local s = path
+  while #s > 1 and TextW('...' .. s, font) > room do s = s:sub(2) end
+  return '...' .. s
+end
+
+-- a folder as a link: underlined, the whole path on hover, a click opens it
+local function PathLink(id, dl, x, y, room, dir)
+  local font = F_Mono(11)
+  local shown = ShortPath(dir, font, room)
+  local tw = TextW(shown, font)
+  local clicked, hov = Hit(id, x, y - 2, tw, 16)
+  local c = hov and P.ink or P.blue
+  Txt(dl, font, 11, x, y, c, shown)
+  im.DrawList_AddLine(dl, x, y + 14, x + tw, y + 14, A(c, hov and 0xFF or 0x80), 1)
+  if hov then im.SetTooltip(ctx, dir) end
+  if clicked then RevealFolder(dir) end
+end
+
+-- an install message: a bold title, numbered steps, a quiet note, then the folders it went to as
+-- links. A plain { kind, text } message is a Banner.
+function MsgBox(dl, x, y, w, id, m)
+  if not m.title then return Banner(dl, x, y, w, m.kind, m.text) end
+  local color = (m.kind == 'err' and P.red) or (m.kind == 'ok' and P.acc) or (m.kind == 'warn' and P.amber) or P.blue
+  local pad, numW = 14, 18
+  local tw = w - pad * 2
+  local items = {} -- laid out first, so the box is drawn behind them
+  local h = 10
+  for _, l in ipairs(Wrap(m.title, F.bodyB, tw)) do items[#items + 1] = { 'title', h, l }; h = h + 16 end
+  local n = 0
+  for i = 1, 4 do
+    local step = m.steps and m.steps[i]
+    if step then
+      n = n + 1
+      h = h + 5
+      items[#items + 1] = { 'num', h, tostring(n) }
+      for _, l in ipairs(Wrap(step, F.body, tw - numW)) do items[#items + 1] = { 'step', h, l }; h = h + 16 end
+    end
+  end
+  if m.note then
+    h = h + 5
+    for _, l in ipairs(Wrap(m.note, F.body, tw)) do items[#items + 1] = { 'note', h, l }; h = h + 16 end
+  end
+  if m.folders and #m.folders > 0 then
+    h = h + 8
+    for i, d in ipairs(m.folders) do items[#items + 1] = { 'folder', h, d, i }; h = h + 19 end
+    h = h - 3
+  end
+  h = h + 10
+  im.DrawList_AddRectFilled(dl, x, y, x + w, y + h, A(color, 0x12))
+  im.DrawList_AddRect(dl, x, y, x + w, y + h, A(color, 0x55))
+  im.DrawList_AddRectFilled(dl, x, y, x + 2, y + h, color)
+  local lx = x + pad
+  for _, it in ipairs(items) do
+    local kind, iy = it[1], y + it[2]
+    if kind == 'title' then Txt(dl, F.bodyB, 13, lx, iy, P.ink, it[3])
+    elseif kind == 'num' then Mono_Caps(dl, 10, lx, iy + 2, color, it[3], true)
+    elseif kind == 'step' then Txt(dl, F.body, 13, lx + numW, iy, P.ink, it[3])
+    elseif kind == 'note' then Txt(dl, F.body, 13, lx, iy, P.ink2, it[3])
+    elseif kind == 'folder' then
+      local d = it[3]
+      local lw = Mono_Caps_W(10, 'Script') + 12
+      Mono_Caps(dl, 10, lx, iy + 1, P.ink3, d.label)
+      PathLink('##dir' .. id .. it[4], dl, lx + lw, iy, tw - lw, d.dir)
+    end
+  end
+  return h
+end
 end
 
 -- the site's logo mark: a device with its title column and a knob, 30 px
@@ -2792,24 +2893,7 @@ local function CardStatus(dl, p, ix, cy, iw, busy)
     im.DrawList_PopClipRect(dl)
     cy = cy + 22
   end
-  if p.msg then
-    cy = cy + Banner(dl, ix, cy, iw, p.msg.kind, p.msg.text) + 10
-    -- where it went, each folder with a button that opens it
-    for i, d in ipairs(p.msg.folders or {}) do
-      local bw = Btn_W(REVEAL_LABEL)
-      if Btn('##reveal' .. p.id .. i, REVEAL_LABEL, ix + iw - bw, cy, 'ghost', bw) then RevealFolder(d.dir) end
-      Mono_Caps(dl, 10, ix, cy, P.ink3, 'Installed to  \194\183  ' .. d.label)
-      -- long paths keep their end, which is the part that tells them apart
-      local font, room, path = F_Mono(11), iw - bw - 16, d.dir
-      if TextW(path, font) > room then
-        while #path > 1 and TextW('...' .. path, font) > room do path = path:sub(2) end
-        path = '...' .. path
-      end
-      Txt(dl, font, 11, ix, cy + 15, P.ink2, path)
-      if path ~= d.dir and im.IsMouseHoveringRect(ctx, ix, cy, ix + room, cy + BTN_H) then im.SetTooltip(ctx, d.dir) end
-      cy = cy + BTN_H + 6
-    end
-  end
+  if p.msg then cy = cy + MsgBox(dl, ix, cy, iw, p.id, p.msg) + 10 end
   if p.ask then cy = ConflictPanel(dl, p, ix, cy, iw, busy) end
   return cy
 end

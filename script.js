@@ -1516,6 +1516,7 @@
 	// Where the key was emailed: the signed-in account's email, or the one given at checkout
 	function sentToText(r) {
 		if (!r || !r.email) return 'Thank you for your purchase. Your license key is below.';
+		if (r.emailSource === 'link') return `Thank you for your purchase. The license is on ${r.email}, the account you signed in with for REAPER: go back to REAPER and it activates on its own in a few seconds. If REAPER stopped waiting, click Sign in with browser again.`;
 		if (!r.emailSent) return `Thank you for your purchase. Save the key below: it's linked to ${r.email}, but the email with it could not be sent.`;
 		return r.emailSource === 'account'
 			? `Thank you for your purchase. We also emailed the key to ${r.email}, the email on your account.`
@@ -1633,8 +1634,19 @@
 		}
 	}
 
+	// Came from the script's sign-in page (/link)? Its code goes with the payment, so the key lands on
+	// the account REAPER is waiting on, whichever browser or account this page is in.
+	function buyLinkCode() {
+		try {
+			const q = new URLSearchParams(window.location.search).get('link');
+			if (q) { sessionStorage.setItem('crs_buy_link', q); return q; }
+			return sessionStorage.getItem('crs_buy_link') || null;
+		} catch (_) { return null; }
+	}
+	buyLinkCode();
+
 	async function sendPaymentToBackend({ orderId, accessToken }) {
-		const payload = { orderId, accessToken };
+		const payload = { orderId, accessToken, linkCode: buyLinkCode() };
 
 		const resp = await fetch('/api/paypal/webhook', {
 			method: 'POST',

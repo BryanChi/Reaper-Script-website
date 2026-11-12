@@ -1,13 +1,15 @@
 -- @description Cool Reaper Script Manager
--- @version 3.18.1
+-- @version 3.18.2
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
---   3.18.1: a short install message: a title, numbered steps, and the install folders as links
+--   3.18.2: a short install message: a title, numbered steps, and the install folders as links
 --          (hover shows the whole path, click opens the folder). Long paths no longer run off the card.
+--   3.18.1: batch downloads (installs and updates) no longer count as failed connections: their
+--          answer has a code per file, which was read as none ("can't connect" notice on Windows).
 --   3.18.0: new names in the Actions list: "CRS_Cool Reaper Script Manager" and "CRS_FX Devices".
 --          The old names stay as small files that open the new ones, so toolbar buttons and
 --          shortcuts made for them keep working. Nothing else moves: settings, licenses, layouts
@@ -74,7 +76,7 @@
 
 local r = reaper
 
-local VERSION = '3.18.1'
+local VERSION = '3.18.2'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -634,7 +636,15 @@ end
 -- wrong key), not a connection problem; downloads with 'fail' end with curl's exit code 22 instead.
 function BG.Result(job, finished, printed, err)
   local rc = finished and tonumber((ReadFile(job.done) or ''):match('done%s+(%-?%d+)')) or nil
-  local http = tonumber(printed:match('(%d%d%d)%s*$'))
+  -- one code per line: a batch download prints "code<TAB>file" for each file, so the last line
+  -- doesn't end in the code. The worst code counts (a failed file in a batch is retried alone).
+  local http
+  for line in printed:gmatch('[^\r\n]+') do
+    local c = tonumber(line:match('^%s*(%d%d%d)'))
+    if c then
+      if not http or c == 0 or c >= 500 or (http ~= 0 and http < 500 and c > http) then http = c end
+    end
+  end
   local kind
   if not finished then
     kind = (job.mark and not Exists(job.mark)) and 'not started' or 'timeout'
@@ -1630,6 +1640,8 @@ local function LinkAnswer(p, k, data)
     return
   end
   local st = data.status
+  -- the server keeps the link open longer once they've signed in (buying, starting a trial): wait that long
+  if tonumber(data.expiresIn) then k.expires = now + tonumber(data.expiresIn) end
   if st == 'linked' then return Linked(p, data)
   elseif st == 'limit' then k.phase, k.email, k.nextPoll = 'limit', data.email, now + 3
   elseif st == 'no-license' then k.phase, k.email, k.nextPoll = 'nolicense', data.email, now + 3

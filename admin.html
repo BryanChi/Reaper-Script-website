@@ -341,6 +341,7 @@
 						<thead>
 							<tr>
 								<th>Plugin</th>
+								<th>Creator</th>
 								<th>Status</th>
 								<th>Claude's review</th>
 								<th>Rating</th>
@@ -350,7 +351,7 @@
 							</tr>
 						</thead>
 						<tbody id="layoutsBody">
-							<tr><td colspan="7" style="text-align: center; padding: 20px;">Loading...</td></tr>
+							<tr><td colspan="8" style="text-align: center; padding: 20px;">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -1016,7 +1017,7 @@
 					document.getElementById('layoutSpend').textContent =
 						`Claude spend: $${data.spent.today.toFixed(2)} today, $${data.spent.month.toFixed(2)} in the last 30 days`;
 					if (!data.layouts.length) {
-						tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No shared layouts yet</td></tr>';
+						tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No shared layouts yet</td></tr>';
 						return;
 					}
 					tbody.innerHTML = data.layouts.map(l => {
@@ -1031,12 +1032,17 @@
 							l.ratings ? `Users: ${stars(l.ratings.avg)} ${l.ratings.avg} (${l.ratings.count})` : '',
 							rv.pulled ? `<b>Pulled:</b> ${escapeHtml(rv.pulled)}` : ''
 						].filter(Boolean).join('<br>');
+						const c = l.creator;
+						const creator = !c ? '' : c.email
+							? `${escapeHtml(c.email)}${c.kind === 'trial' ? '<br><small>trial</small>' : ''}`
+							: `<small>unknown key ${escapeHtml(c.id || '')}</small>`;
 						const buttons = [];
 						if (l.status !== 'approved') buttons.push(`<button class="btn btn-primary" onclick="setLayout('${l.id}', 'approved')">Approve</button>`);
 						if (l.status === 'pending' || l.status === 'reviewing') buttons.push(`<button class="btn" onclick="setLayout('${l.id}', 'rejected')">Reject</button>`);
 						if (l.status === 'approved') buttons.push(`<button class="btn" onclick="setLayout('${l.id}', 'revoked')">Unpublish</button>`);
 						return `<tr>
 							<td>${escapeHtml(l.plugin)}${l.version ? ' v' + l.version : ''}<br><small>${escapeHtml(l.title || '')}</small></td>
+							<td>${creator}</td>
 							<td>${escapeHtml(l.status)}</td>
 							<td style="max-width: 360px;">${review}</td>
 							<td style="white-space: nowrap;">${rating}</td>

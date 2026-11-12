@@ -19,6 +19,7 @@ const TRIAL_DAYS = 30;
 // Rows saved before products existed have product = 'vertical-fx-list' (the column's default), and
 // clients that send no product (Vertical FX List builds before this change) mean that product too.
 const PRODUCTS = require('./products');
+const { sendEmail } = require('./purchase-email');
 const DEFAULT_PRODUCT = 'vertical-fx-list';
 
 // Known product id, the default when none is given, or null for an unknown one
@@ -166,6 +167,13 @@ async function memVerifyLicense(licenseKey, deviceId, product) {
 	if (trialEntry) {
 		const [, trial] = trialEntry;
 		if (rowProduct(trial) !== product) return wrongProduct(trial, product);
+		// its owner has a license for this script now (see licenseForTrial): answer with that
+		const owned = Object.entries(store.licenses).find(([, l]) => l.email === normalizeEmail(trial.email)
+			&& l.status === 'active' && rowProduct(l) === product && (!l.expiresAt || now < l.expiresAt));
+		if (owned) {
+			const [ownedKey, lic] = owned;
+			return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, updatesUntil: updatesUntil(lic), licenseKey: ownedKey, upgradedFrom: 'trial' };
+		}
 		const active = now < trial.expiresAt;
 		if (active) {
 			return { ok: true, status: 'trial', expiresAt: trial.expiresAt, licenseKey: licenseKey };
@@ -391,6 +399,54 @@ async function emailFromAccessToken(token) {
 	}
 }
 
+// A trial key whose owner has since got a license for the same script (bought, or handed out on
+// the admin page) answers with that license, so the script switches to it on its next check
+// ("Check now", or the daily one) instead of saying "trial" until the trial runs out. The computer
+// was signed in for the trial, so it's activated on the license too (one of its computers), with the
+// trial's hardware hash. null = no such license (or this computer isn't signed in for the trial, or
+// the license has no room for it): answer for the trial as before.
+async function licenseForTrial(trialRow, deviceId, product) {
+	const email = normalizeEmail(trialRow.email);
+	if (!email) return null;
+	const now = Date.now();
+	const { data: rows, error } = await supabase
+		.from('licenses')
+		.select('*')
+		.eq('email', email)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false });
+	if (error || !rows) return null;
+	const lic = rows.find(l => rowProduct(l) === product && (!l.expires_at || now < new Date(l.expires_at).getTime()));
+	if (!lic) return null;
+	const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
+	const answer = { ok: true, status: 'active', expiresAt: exp, updatesUntil: updatesUntil(lic), licenseKey: lic.license_key, upgradedFrom: 'trial' };
+	if (!deviceId) return answer;
+
+	const { data: dev, error: devErr } = await supabase
+		.from('device_activations')
+		.select('*')
+		.eq('license_key', trialRow.license_key)
+		.eq('device_id', deviceId)
+		.eq('active', true)
+		.maybeSingle();
+	if (devErr || !dev) return null;
+	const act = await activateDevice(email, lic.license_key, String(deviceId));
+	if (!act.ok) {
+		console.error('Could not move a trial computer to its license:', act.error);
+		return null;
+	}
+	if (dev.hw) {
+		const { error: hwErr } = await supabase
+			.from('device_activations')
+			.update({ hw: dev.hw })
+			.eq('license_key', lic.license_key)
+			.eq('device_id', deviceId)
+			.is('hw', null);
+		if (hwErr) console.error('Error copying the hardware hash to the license:', hwErr);
+	}
+	return answer;
+}
+
 async function verifyLicense(licenseKey, deviceId, productInput) {
 	const now = Date.now();
 
@@ -468,6 +524,8 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 
 	if (!trialErr && trialRow) {
 		if (rowProduct(trialRow) !== product) return wrongProduct(trialRow, product);
+		const upgraded = await licenseForTrial(trialRow, deviceId, product);
+		if (upgraded) return upgraded;
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
 		const active = now < expiresAt;
 		if (active) {
@@ -925,6 +983,10 @@ async function deactivateDevice(email, licenseKey, deviceId) {
 // code is stored. Rows live in public.license_links (supabase_license_links_migration.sql).
 // ---------------------------------------------------------------------------------------------
 const LINK_TTL_MS = 10 * 60 * 1000;
+// Once someone signs in on the /link page and has no license yet, the link stays open this long,
+// so buying one (PayPal sign-up, card form, ...) or starting a trial doesn't run out the clock.
+// The poll answers with the time left (expiresIn) and newer scripts keep waiting that long.
+const LINK_BUY_TTL_MS = 60 * 60 * 1000;
 const LINK_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I
 
 function sha256(str) {
@@ -974,6 +1036,21 @@ async function updateLinkRow(row, fields) {
 
 function linkExpired(row) {
 	return !row || Date.now() > new Date(row.expires_at).getTime();
+}
+
+function linkSecondsLeft(row) {
+	return Math.max(0, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000));
+}
+
+// The account a /link code was signed in with, for a purchase started from that page (PayPal
+// webhook). Works for a while after the link expires (rows are cleared a day later), since paying
+// can take longer than the link lives. Only a code for the product being bought counts.
+async function linkEmailForPurchase(userCodeInput, product) {
+	const userCode = normalizeUserCode(userCodeInput);
+	const row = userCode && await linkRowByUserCode(userCode);
+	if (!row || !row.email) return null;
+	if (product && rowProduct(row) !== normalizeProduct(product)) return null;
+	return normalizeEmail(row.email);
 }
 
 async function startLink(productInput) {
@@ -1029,6 +1106,10 @@ async function confirmLink(userCodeInput, accessToken) {
 	const product = rowProduct(row);
 	const lic = await getLicenseOrTrialStatus(email, product);
 	const usable = lic.ok && (lic.status === 'active' || lic.status === 'trial') && !!lic.licenseKey;
+	// no license yet: keep the link open while they buy one or start a trial
+	if (!usable && new Date(row.expires_at).getTime() < Date.now() + LINK_BUY_TTL_MS) {
+		await updateLinkRow(row, { expires_at: iso(Date.now() + LINK_BUY_TTL_MS) });
+	}
 	return { ok: true, email, product, productName: productName(product), hasLicense: usable, licenseStatus: lic.status || 'inactive' };
 }
 
@@ -1061,13 +1142,8 @@ async function linkEmail(userCodeInput, emailInput) {
 	const actionLink = data && data.properties && data.properties.action_link;
 	if (error || !actionLink) return { ok: false, error: (error && error.message) || 'Couldn\'t create the sign-in link.' };
 
-	let Resend;
-	try { ({ Resend } = require('resend')); } catch (_) { /* not installed */ }
-	const from = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
-	if (!Resend || !process.env.RESEND_API_KEY || !from) return { ok: false, error: 'Email sign-in isn\'t set up on the site.' };
 	const name = productName(rowProduct(row));
-	const { error: sendErr } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-		from,
+	const sent = await sendEmail({
 		to: email,
 		subject: `Sign in to activate ${name}`,
 		html: `<div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
@@ -1075,9 +1151,15 @@ async function linkEmail(userCodeInput, emailInput) {
 			<p>Click the button to sign in to Cool Reaper Scripts as ${email} and activate ${name} on the computer showing the code <b>${userCode}</b>.</p>
 			<p style="margin: 28px 0;"><a href="${actionLink}" style="background: #111; color: #fff; padding: 12px 22px; text-decoration: none; font-weight: 600;">Sign in</a></p>
 			<p style="color: #6b7280; font-size: 13px;">The link works once and expires soon. If you didn't ask for it, ignore this email.</p>
-		</div>`
+		</div>`,
+		text: `Sign in to activate ${name} on the computer showing the code ${userCode}:\n${actionLink}\n\nThe link works once and expires soon. If you didn't ask for it, ignore this email.`
 	});
-	if (sendErr) return { ok: false, error: sendErr.message || 'Couldn\'t send the email.' };
+	if (!sent.ok) {
+		console.error('Sign-in link email not sent:', { to: email, error: sent.error });
+		// the site's sender is broken: never show Resend's setup message to a customer
+		if (sent.setup) return { ok: false, setup: true, error: 'We couldn\'t send the sign-in email right now. Use Continue with Google, or sign in with a password.' };
+		return { ok: false, error: 'Couldn\'t send the email to that address. Check it and try again.' };
+	}
 	return { ok: true, sent: true };
 }
 
@@ -1092,7 +1174,7 @@ async function pollLink(deviceCode, deviceId) {
 	const row = await linkRowByDeviceCode(deviceCode);
 	if (!row) return { ok: true, status: 'invalid' };
 	if (linkExpired(row)) return { ok: true, status: 'expired' };
-	if (!row.email) return { ok: true, status: 'pending' };
+	if (!row.email) return { ok: true, status: 'pending', expiresIn: linkSecondsLeft(row) };
 	const lic = await getLicenseOrTrialStatus(row.email, rowProduct(row));
 	if (lic.ok && (lic.status === 'active' || lic.status === 'trial') && lic.licenseKey) {
 		if (!deviceId) {
@@ -1101,14 +1183,14 @@ async function pollLink(deviceCode, deviceId) {
 		const act = await activateDevice(row.email, lic.licenseKey, String(deviceId));
 		if (!act.ok) {
 			const limit = /maximum of/.test(act.error || '');
-			return { ok: true, status: limit ? 'limit' : 'error', email: row.email, error: act.error || 'Unable to activate this computer' };
+			return { ok: true, status: limit ? 'limit' : 'error', email: row.email, error: act.error || 'Unable to activate this computer', expiresIn: linkSecondsLeft(row) };
 		}
 		// one key per link: the code can't be polled again
 		if (supabase) await supabase.from('license_links').delete().eq('device_code_hash', row.device_code_hash);
 		else delete memLinks()[row.device_code_hash];
 		return { ok: true, status: 'linked', email: row.email, licenseKey: lic.licenseKey, licenseStatus: lic.status, expiresAt: lic.expiresAt || null };
 	}
-	return { ok: true, status: 'no-license', email: row.email, licenseStatus: lic.status || 'inactive' };
+	return { ok: true, status: 'no-license', email: row.email, licenseStatus: lic.status || 'inactive', expiresIn: linkSecondsLeft(row) };
 }
 
 // Native plugins (FX Devices' CLAP plugins) check the license themselves: they can't trust anything
@@ -1213,6 +1295,7 @@ module.exports = {
 	issueNativeToken,
 	startLink,
 	linkEmail,
+	linkEmailForPurchase,
 	linkInfo,
 	confirmLink,
 	linkStartTrial,

@@ -195,10 +195,43 @@ input {
       clearPending();
       show('done');
     } else {
-      $('buy').href = BUY[info.product] || '/pricing';
+      // the code rides along, so the key goes to this account even if the purchase page isn't signed in
+      var buy = BUY[info.product] || '/pricing';
+      var hash = buy.indexOf('#') >= 0 ? buy.slice(buy.indexOf('#')) : '';
+      $('buy').href = buy.replace(/#.*$/, '') + '?link=' + encodeURIComponent(info.userCode) + hash;
       show('none');
+      watchForLicense();
     }
   }
+
+  // While "No license on this account" shows (buying in another tab), look again now and then, so
+  // this page turns to "You're all set" once the purchase or trial lands.
+  var watching = null;
+  function watchForLicense() {
+    if (watching) return;
+    watching = setInterval(function () {
+      if ($('v-none').hidden) { clearInterval(watching); watching = null; return; }
+      token().then(function (s) {
+        if (!s) return;
+        return api('link-confirm', { code: info.userCode, accessToken: s.access_token }).then(function (res) {
+          if (res.ok && res.hasLicense) { clearInterval(watching); watching = null; afterConfirm(res); }
+        });
+      });
+    }, 5000);
+  }
+
+  // Supabase's sign-in errors, in words that say what to do next
+  function signInError(err) {
+    var m = String((err && err.message) || '').toLowerCase();
+    if (m.indexOf('invalid login') >= 0 || m.indexOf('invalid credentials') >= 0) {
+      return 'That email and password don\'t match an account. No account or password yet? Leave the password empty and click Email me a sign-in link, or use Continue with Google.';
+    }
+    if (m.indexOf('not confirmed') >= 0) return 'This account\'s email isn\'t confirmed yet. Click Email me a sign-in link instead.';
+    if (m.indexOf('rate limit') >= 0 || (err && err.status === 429)) return 'Too many tries. Wait a minute, then try again.';
+    return (err && err.message) || 'Couldn\'t sign in.';
+  }
+
+  function backUrl() { return location.origin + '/link?code=' + encodeURIComponent(info.userCode); }
 
   function confirmNow() {
     msg('');
@@ -249,8 +282,7 @@ input {
 
   $('google').addEventListener('click', function () {
     msg('');
-    var back = location.origin + '/link?code=' + encodeURIComponent(info.userCode);
-    client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }).then(function (r) {
+    client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: backUrl() } }).then(function (r) {
       if (r.error) msg(r.error.message || 'Couldn\'t start Google sign-in.', 'err');
     });
   });
@@ -260,9 +292,14 @@ input {
     var email = $('email').value.trim();
     if (!email) { msg('Enter your email address first.', 'err'); return; }
     $('email-link').disabled = true;
+    var sentMsg = 'Check your inbox at ' + email + ' (and spam) and click the link in it. It brings you back here.';
     api('link-email', { code: info.userCode, email: email }).then(function (res) {
-      if (!res.ok) { msg(res.error || 'Couldn\'t send the email.', 'err'); return; }
-      msg('Check your inbox at ' + email + ' and click the link in it. It brings you back here.', 'ok');
+      if (res.ok) { msg(sentMsg, 'ok'); return; }
+      if (!res.setup) { msg(res.error || 'Couldn\'t send the email.', 'err'); return; }
+      // the site's own mail sender is down: ask the sign-in service to send its own sign-in email
+      return client.auth.signInWithOtp({ email: email, options: { emailRedirectTo: backUrl() } }).then(function (r) {
+        if (r.error) msg(res.error, 'err'); else msg(sentMsg, 'ok');
+      });
     }).finally(function () { $('email-link').disabled = false; });
   });
 
@@ -272,7 +309,7 @@ input {
     if (!$('password').value) { $('email-link').click(); return; }
     $('email-go').disabled = true;
     client.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value }).then(function (r) {
-      if (r.error) msg(r.error.message || 'Couldn\'t sign in.', 'err');
+      if (r.error) msg(signInError(r.error), 'err');
     }).finally(function () { $('email-go').disabled = false; });
   });
 

@@ -207,20 +207,41 @@ function buildPurchaseEmail({ productName, product, licenseKey, email, payerName
 	return { subject, html, text };
 }
 
-// Sends one email through Resend (RESEND_API_KEY, RESEND_FROM_EMAIL). Returns { ok, id } or { ok: false, error }.
+function cleanFrom(v) {
+	return String(v || '').trim().replace(/^["']|["']$/g, '');
+}
+
+// Resend refuses to send from a domain that isn't verified at resend.com/domains
+function domainNotVerified(msg) {
+	return /domain is not verified|not verified|verify your domain/i.test(String(msg || ''));
+}
+
+// Sends one email through Resend (RESEND_API_KEY, RESEND_FROM_EMAIL). Returns { ok, id } or
+// { ok: false, error, setup }. setup = the site's email setup is broken (sender domain not verified,
+// key or sender missing), which the person who asked can't fix: callers show them a plain message
+// and the real reason goes to the server log.
+// RESEND_FALLBACK_FROM (optional) is tried when Resend says the main sender's domain isn't verified,
+// e.g. a second verified domain while the main one's DNS is being fixed.
 async function sendEmail({ to, subject, html, text }) {
 	let Resend;
 	try { ({ Resend } = require('resend')); } catch (_) { /* not installed */ }
-	if (!Resend || !process.env.RESEND_API_KEY) return { ok: false, error: 'Resend is not configured (RESEND_API_KEY)' };
-	const from = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
-	if (!from) return { ok: false, error: 'RESEND_FROM_EMAIL is not set' };
-	try {
-		const r = await new Resend(process.env.RESEND_API_KEY).emails.send({ from, to, subject, html, text });
-		if (r.error) return { ok: false, error: r.error.message || JSON.stringify(r.error) };
-		return { ok: true, id: r.data && r.data.id };
-	} catch (err) {
-		return { ok: false, error: err.message || 'Could not send the email' };
+	if (!Resend || !process.env.RESEND_API_KEY) return { ok: false, setup: true, error: 'Resend is not configured (RESEND_API_KEY)' };
+	const senders = [cleanFrom(process.env.RESEND_FROM_EMAIL), cleanFrom(process.env.RESEND_FALLBACK_FROM)].filter(Boolean);
+	if (!senders.length) return { ok: false, setup: true, error: 'RESEND_FROM_EMAIL is not set' };
+	const resend = new Resend(process.env.RESEND_API_KEY);
+	let last = null;
+	for (const from of senders) {
+		try {
+			const r = await resend.emails.send({ from, to, subject, html, text });
+			if (!r.error) return { ok: true, id: r.data && r.data.id, from };
+			last = r.error.message || JSON.stringify(r.error);
+		} catch (err) {
+			last = err.message || 'Could not send the email';
+		}
+		if (!domainNotVerified(last)) return { ok: false, error: last };
+		console.error(`EMAIL SETUP: Resend won't send from "${from}": ${last} Verify that domain at https://resend.com/domains or change RESEND_FROM_EMAIL in Vercel.`);
 	}
+	return { ok: false, setup: true, error: last };
 }
 
-module.exports = { buildPurchaseEmail, sendEmail };
+module.exports = { buildPurchaseEmail, sendEmail, domainNotVerified };

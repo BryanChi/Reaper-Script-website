@@ -52,9 +52,9 @@
 //   LAYOUT_SIGNING_KEY       base64 of the Ed25519 private key (PKCS#8 DER)
 //   LAYOUT_USER_DAILY_USD    what one paid license's requests may cost per day, UTC (default 20);
 //                            no count limit on generates and fixes within it
-//   LAYOUT_TRIAL_LAYOUTS     layouts a trial key gets, ever (default 1); Claude first sizes the plugin
+//   LAYOUT_TRIAL_LAYOUTS     layouts a trial key gets per day, UTC (default 1); Claude first sizes the plugin
 //                            up, and a big one is turned down without using the try
-//   LAYOUT_TRIAL_FIXES       fixes a trial key gets, ever (default 5)
+//   LAYOUT_TRIAL_FIXES       fixes a trial key gets per day, UTC (default 5)
 //   LAYOUT_TRIAL_TOTAL_USD   what a trial key's requests may cost, ever (default 5); a license is a
 //                            new key, so buying starts the paid rules
 //   LAYOUT_DAILY_BUDGET_USD  safety net: what everyone's requests together may cost per day (default 200)
@@ -890,7 +890,7 @@ async function approve(supabase, row) {
 // ------------------------------------------------------------------------------------------------
 // limits
 
-// What a key has left: money (USD) for today (paid) or ever (trial), and a trial's layouts and fixes
+// What a key has left: money (USD) for today (paid) or ever (trial), and a trial's layouts and fixes for today
 async function allowance(supabase, kh, trial) {
 	const today = new Date();
 	today.setUTCHours(0, 0, 0, 0);
@@ -902,8 +902,9 @@ async function allowance(supabase, kh, trial) {
 	const cap = trial ? num('LAYOUT_TRIAL_TOTAL_USD', 5) : num('LAYOUT_USER_DAILY_USD', 20);
 	const a = { trial, cap, left: Math.max(0, cap - sum(rows)), rows, since };
 	if (trial) {
-		const made = rows.filter(r => r.kind === 'generate' && r.status === 'done' && r.result && r.result.status === 'ready').length;
-		const fixed = rows.filter(r => r.kind === 'fix' && r.status === 'done').length;
+		const todays = rows.filter(r => new Date(r.created_at) >= today);
+		const made = todays.filter(r => r.kind === 'generate' && r.status === 'done' && r.result && r.result.status === 'ready').length;
+		const fixed = todays.filter(r => r.kind === 'fix' && r.status === 'done').length;
 		a.layoutsLeft = Math.max(0, num('LAYOUT_TRIAL_LAYOUTS', 1) - made);
 		a.fixesLeft = Math.max(0, num('LAYOUT_TRIAL_FIXES', 5) - fixed);
 	}
@@ -935,8 +936,8 @@ async function usageCheck(supabase, kh, kind, trial) {
 	if (trial) {
 		if (a.left <= 0) return 'That\'s all the layout work the trial covers. Get a license to keep going.';
 		if (kind === 'blacklist') return null;
-		if (kind === 'fix') return a.fixesLeft > 0 ? null : 'That\'s the trial\'s edits. Get a license to keep editing.';
-		return a.layoutsLeft > 0 ? null : 'That was the trial\'s layout. Get a license to make more.';
+		if (kind === 'fix') return a.fixesLeft > 0 ? null : 'That\'s today\'s trial edits. More tomorrow (midnight UTC), or get a license to keep editing.';
+		return a.layoutsLeft > 0 ? null : 'That was today\'s trial layout. You get another tomorrow (midnight UTC), or get a license to make more.';
 	}
 	if (a.left <= 0) return 'That\'s today\'s layout credit for this license. It starts again at midnight UTC.';
 	return null;

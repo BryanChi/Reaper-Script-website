@@ -104,6 +104,74 @@ function Dev:Tabs(id, x, y, items, sel, o)
 end
 function Dev:Meter(x, y, w, h, v, clr, o) Ctl(self, 'meter', x, y, x + w, y + h + ((o and o.label) and 13 or 0)) end
 function Dev:End() end
+-- kit 2: hardware parts
+local function Lbl(s) return '"' .. tostring(s or ''):sub(1, 24) .. '"' end
+function Dev:Engrave(x, y, txt, o)
+    o = o or {}
+    self:Text(x, y, 0, txt, o.size or 9, o.align)
+end
+function Dev:Screw(cx, cy, r) r = tonumber(r) or 4 Ctl(self, 'D:Screw', cx - r - 1, cy - r - 1, cx + r + 1, cy + r + 2) end
+function Dev:Faceplate(x, y, w, h, o)
+    Ctl(self, 'D:Faceplate', x, y, x + w, y + h)
+    if o and o.ears then local ew = o.earW or 14 return x + ew, y, w - ew * 2, h end
+    return x, y, w, h
+end
+function Dev:Inset(x, y, w, h, o) Ctl(self, 'D:Inset' .. ((o and o.label) and (' ' .. Lbl(o.label)) or ''), x, y, x + w, y + h) end
+function Dev:Dial(k, cx, cy, r, o)
+    o = o or {}
+    r = tonumber(r) or 14
+    local ticks = o.ticks
+    if ticks == nil and type(o.scale) == 'table' then ticks = #o.scale end
+    local out = r + 2
+    if ticks and ticks > 0 then out = r + 2 + (o.tickLen or 3) end
+    local ssz = o.scaleSize or 7
+    local side = out
+    if type(o.scale) == 'table' and #o.scale > 0 then
+        local wmax = 0
+        for _, e in ipairs(o.scale) do wmax = math.max(wmax, TW(type(e) == 'table' and e[2] or e, ssz)) end
+        side = out + 1.5 + wmax
+        out = out + 1.5 + ssz
+    end
+    local lsz = o.labelSize or 8
+    local top = o.label and (cy - out - lsz - 1) or (cy - out)
+    local bot = cy + out + ((o.value == true and cy + out + (o.valueSize or 8) + 3 <= CARD_H) and (o.valueSize or 8) + 3 or 0) -- a hover value moves above it at the bottom edge
+    local hw = math.max(side, o.label and TW(o.label, lsz) / 2 or 0)
+    Ctl(self, 'dial ' .. (o.label and Lbl(o.label) or tostring(k)), cx - hw, top, cx + hw, bot)
+end
+function Dev:Switch(k, x, y, o)
+    o = o or {}
+    local len, w = o.len or 22, o.w or 10
+    local bw, bh = o.horizontal and len or w, o.horizontal and w or len
+    local lsz = o.labelSize or 8
+    local x1, x2, y1, y2 = x - bw / 2, x + bw / 2, y - bh / 2 - 2, y + bh / 2 + 2
+    if o.horizontal then
+        if o.up then x1 = x1 - 3 - TW(o.up, lsz) end
+        if o.down then x2 = x2 + 3 + TW(o.down, lsz) end
+    else
+        if o.up then y1 = y1 - lsz - 1 local hw = TW(o.up, lsz) / 2 x1, x2 = math.min(x1, x - hw), math.max(x2, x + hw) end
+        if o.down then y2 = y2 + lsz + 1 local hw = TW(o.down, lsz) / 2 x1, x2 = math.min(x1, x - hw), math.max(x2, x + hw) end
+    end
+    if o.label then y1 = y1 - lsz - 1 local hw = TW(o.label, lsz) / 2 x1, x2 = math.min(x1, x - hw), math.max(x2, x + hw) end
+    Ctl(self, 'switch ' .. Lbl(o.label or o.up or k), x1, y1, x2, y2)
+    return false
+end
+function Dev:Lamp(x, y, r, on, o)
+    r = tonumber(r) or 4
+    local b = y + r + 3
+    if o and o.label then b = y + r + 4 + (o.labelSize or 8) end
+    Ctl(self, 'lamp', x - r - 3, y - r - 3, x + r + 3, b)
+end
+function Dev:Push(k, x, y, w, h, o)
+    o = o or {}
+    local top = y - 1
+    if o.led ~= false then top = y - 9 end
+    if o.label then top = top - (o.labelSize or 8) - 2 end
+    Ctl(self, 'push ' .. Lbl(o.label or o.text or k), x - 1, top, x + w + 1, y + h + 1)
+    return false
+end
+function Dev:VU(x, y, w, h) Ctl(self, 'D:VU', x, y, x + w + 1, y + h + 2) end
+function Dev:Level() return -12 end
+function Dev:Readout(x, y, w, h) Ctl(self, 'D:Readout', x - 1, y - 1, x + w + 1, y + h + 1) end
 
 local KIT = {
     H = CARD_H, KNOB = KNOB,
@@ -115,6 +183,8 @@ local KIT = {
     Num = function(s) return tonumber(tostring(s or ''):match('[-+]?%d+%.?%d*')) end,
     ShortVal = function(s) return s or '' end,
     TextW = function(s, sz) return TW(s, sz) end,
+    Shade = function(c) return c end, Mix = function(a) return a end, KIT = 2,
+    VUPos = function(db) return 0.5 end,
 }
 local Declared = {}
 local S = {}

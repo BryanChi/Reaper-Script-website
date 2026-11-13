@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/scripts.js": {
+      "includeFiles": "api/_lib/kit/**"
+    },
+    "api/admin.js": {
+      "includeFiles": "api/_lib/kit/**"
+    }
+  }
+}

@@ -1,11 +1,13 @@
 -- @description Cool Reaper Script Manager
--- @version 3.18.2
+-- @version 3.18.3
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.18.3: an install where some files didn't download no longer counts as that version: the
+--          update stays offered, so updating again fetches the missing files.
 --   3.18.2: a short install message: a title, numbered steps, and the install folders as links
 --          (hover shows the whole path, click opens the folder). Long paths no longer run off the card.
 --   3.18.1: batch downloads (installs and updates) no longer count as failed connections: their
@@ -76,7 +78,7 @@
 
 local r = reaper
 
-local VERSION = '3.18.2'
+local VERSION = '3.18.3'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -2254,11 +2256,15 @@ local function FinishInstall(job)
   local main = MainScriptPath(p)
   if main and Exists(main) then r.AddRemoveReaScript(true, 0, main, true) end
   if #job.failed == 0 then BG.ForwardOldMain(p, main) end
-  -- the scripts' own updaters read the installed release from version.txt
-  if job.ref ~= p.branch then
-    WriteFile(InstallPath(p, 'version.txt'), 'release: ' .. job.ref .. '\n')
+  -- the scripts' own updaters read the installed release from version.txt. With files that didn't
+  -- come, the install isn't that release yet: what was installed before stays noted, so the update
+  -- stays offered (here and in the script's own update check) and the next try fetches what's missing
+  if #job.failed == 0 then
+    if job.ref ~= p.branch then
+      WriteFile(InstallPath(p, 'version.txt'), 'release: ' .. job.ref .. '\n')
+    end
+    r.SetExtState(EXT, 'installed_' .. p.id, job.ref ~= p.branch and job.ref or 'development version', true)
   end
-  r.SetExtState(EXT, 'installed_' .. p.id, job.ref ~= p.branch and job.ref or 'development version', true)
   -- the script activates this computer with these on its first start (no key typing needed)
   if p.licenseSection and p.key ~= '' and r.GetExtState(p.licenseSection, 'licenseKey') == '' then
     r.SetExtState(p.licenseSection, 'licenseKey', p.key, true)

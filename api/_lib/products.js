@@ -119,6 +119,24 @@ module.exports = {
 		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Waveshaper',
 		platforms: clapPlatforms('FXD Waveshaper'),
 		minClient: 6
+	},
+	// FX Devices' effects as native CLAP plugins (Rust, one bundle: Compressor, Delay, Limiter, Waveshaper and
+	// the rest, each with FX Devices' built-in modulators). FX Devices' license or trial, for the download and
+	// inside the plugins: without one the audio passes through. The release build leaves the held ones out
+	// (FX Devices' Native Plugins/FXD Effects/src/lib.rs: HELD). Its Waveshaper replaces the C++ one above,
+	// which never shipped.
+	'fxd-effects': {
+		name: 'FXD Effects',
+		kind: 'clap',
+		description: '35 FX Devices effects as native plugins: dynamics, drive, filters, modulation, delays and reverbs, repair and utility, each with built-in modulators.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		licenseOf: 'fx-devices',
+		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/FXD Effects',
+		platforms: clapPlatforms('FXD Effects'),
+		minClient: 6
 	}
 };
 
@@ -234,9 +252,11 @@ const FXD_JSFX = [
 // says so): not offered, and an FX Devices install leaves their files out too. Take a name out of
 // here to offer it again; one that isn't in FXD_JSFX then also needs its own entry there (or, for a
 // file FX Devices itself runs on, taking it out of HELD_CORE is enough).
-const HELD = new Set(['Patina', 'Analog Drive', 'Tape Machine', 'Wow Flutter', 'Vintage Sampler', 'Vintage Space',
-	'Surface Noise', 'Analog Filter', 'Bucket Brigade', 'Tape Glitch', 'Compressor']);
-const HELD_CORE = ['Poise', 'Noise Splitter'];
+// (bryan, 2026-11-19: every effect ships, for license and trial holders: the effects held until then
+// were Patina, Analog Drive, Tape Machine, Wow Flutter, Vintage Sampler, Vintage Space, Surface Noise,
+// Analog Filter, Bucket Brigade, Tape Glitch, Compressor and Poise)
+const HELD = new Set([]);
+const HELD_CORE = ['Noise Splitter'];
 for (const name of HELD_CORE) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');
 
 for (const [name, description, deps] of FXD_JSFX) {

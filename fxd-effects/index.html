@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FXD Effects · 35 effect plugins for REAPER</title>
+<link rel="canonical" href="https://www.coolreaperscripts.com/fxd-effects">
+<meta property="og:title" content="FXD Effects · 35 effect plugins for REAPER">
+<meta property="og:description" content="35 native CLAP effects for REAPER on macOS and Windows, plus Prism EQ+. $59, no FX Devices needed.">
+<meta property="og:type" content="product">
+<meta property="og:url" content="https://www.coolreaperscripts.com/fxd-effects">
+<meta property="og:image" content="https://www.coolreaperscripts.com/fx-devices/img/effects/groups/dynamics.png">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="FXD Effects: 35 native CLAP effect plugins for REAPER (dynamics, saturation, filters, modulation, delay, reverb, restoration, mixing) plus Prism EQ+. A $59 lifetime license, no FX Devices needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/assets/home/more.css">
+<style>
+:root{
+  --bg:#000;--body:#0c0c0d;--ink:#f2f2f2;--ink2:#9a9a9a;--ink3:#5f5f5f;--line:rgba(255,255,255,.1);
+  --acc:#49cc85;--amb:#e7b04a;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--sans:"Inter Tight",system-ui,sans-serif;--disp:"Anton",Impact,sans-serif;
+  --prism:linear-gradient(90deg,#ff6f6f,#ffc36f,#d8ff6f,#6fffb0,#6fd8ff,#8b8bff,#c56fff);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+.cols{position:fixed;inset:0;display:grid;grid-template-columns:repeat(12,1fr);max-width:1240px;margin:0 auto;padding:0 16px;pointer-events:none;z-index:0}
+.cols i{border-left:1px solid rgba(255,255,255,.035)}
+.cols i:last-child{border-right:1px solid rgba(255,255,255,.035)}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 16px}
+.nav{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font:600 13px var(--mono);letter-spacing:.18em;text-transform:uppercase}
+.logo svg{width:16px;height:14px}
+.nav-links{display:flex;gap:22px;font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+.nav-links a{text-decoration:none}
+.nav-links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:10px;font:600 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;padding:12px 18px;border:1px solid var(--line);background:var(--body);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:rgba(255,255,255,.3)}
+.btn-go{background:var(--acc);border-color:var(--acc);color:#04140b}
+.btn-go:hover{background:#5fe09a;border-color:#5fe09a}
+.btn-lg{padding:16px 24px;font-size:13px}
+.btn svg{width:16px;height:16px}
+.hero{padding:88px 0 40px}
+.pill{display:inline-flex;gap:10px;align-items:center;font:500 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--line);padding:6px 12px}
+.pill b{color:var(--acc);font-weight:600}
+h1{font:400 clamp(56px,11vw,148px)/.92 var(--disp);letter-spacing:.01em;text-transform:uppercase;margin:24px 0 0}
+h1 .bar{display:block;height:4px;width:min(420px,60%);background:var(--prism);margin:18px 0 0}
+.lede{max-width:640px;font-size:clamp(17px,2vw,20px);color:#cfcfcf;margin:28px 0 0}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin:32px 0 0}
+.fine{font:12px var(--mono);color:var(--ink3);margin:14px 0 0;letter-spacing:.04em}
+.shot{margin:56px 0 0;border:1px solid var(--line);background:var(--body);position:relative}
+.shot::before,.shot::after{content:"";position:absolute;width:14px;height:14px;border:1px solid rgba(255,255,255,.4)}
+.shot::before{top:-6px;left:-6px;border-right:0;border-bottom:0}
+.shot::after{bottom:-6px;right:-6px;border-left:0;border-top:0}
+.shot video{display:block;width:100%;height:auto;aspect-ratio:24/13;background:#050505}
+.plate{display:flex;justify-content:space-between;gap:12px;font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding:10px 14px;border-top:1px solid var(--line)}
+.plate b{color:var(--acc);font-weight:600}
+section{padding:96px 0 0}
+.kicker{font:500 12px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)}
+.kicker b{color:var(--acc);margin-right:10px}
+h2{font:400 clamp(36px,6vw,72px)/1 var(--disp);text-transform:uppercase;margin:14px 0 0}
+.sub{color:var(--ink2);max-width:620px;margin:16px 0 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.card{background:var(--body);padding:28px 24px 30px;position:relative}
+.card .n{font:600 11px var(--mono);color:var(--ink3);letter-spacing:.1em}
+.card h3{font:600 13px var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:16px 0 0}
+.card p{color:var(--ink2);font-size:15px;margin:10px 0 0}
+.card .sw{height:2px;width:36px;margin:18px 0 0}
+.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.spec{background:var(--body);padding:22px 20px}
+.spec b{display:block;font:400 44px/1 var(--disp)}
+.spec span{display:block;font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin:10px 0 0}
+.steps{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.steps li{background:var(--body);padding:26px 24px;display:flex;gap:16px}
+.steps li>b{font:400 36px/1 var(--disp);color:var(--acc)}
+.steps h3{font:600 13px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.steps p{color:var(--ink2);font-size:15px;margin:8px 0 0}
+code,kbd{font:13px var(--mono);background:#151517;border:1px solid var(--line);padding:1px 6px;color:var(--ink)}
+.fxd{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;align-items:center;border:1px solid var(--line);background:var(--body);padding:40px;margin:40px 0 0}
+.fxd p{color:var(--ink2);margin:14px 0 0}
+footer{margin:110px 0 0;border-top:1px solid var(--line);padding:28px 0 40px;font:12px var(--mono);color:var(--ink3);letter-spacing:.06em}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+footer a{color:var(--ink2);text-decoration:none}
+/* the effects, by group */
+.grps{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.grp{background:var(--body);padding:24px}
+.grp-h{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--g);padding:14px 0 0}
+.grp-h h3{font:600 13px var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.grp-h span{font:400 32px/1 var(--disp);color:var(--g)}
+.grp img{display:block;width:100%;height:auto;margin:16px 0 0;border:1px solid var(--line);background:#050505}
+.grp ul{list-style:none;margin:16px 0 0;display:grid;gap:10px}
+.grp li b{display:block;font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.grp li span{color:var(--ink2);font-size:14px}
+/* compare + buy */
+.cmp{width:100%;border-collapse:collapse;margin:40px 0 0;border:1px solid var(--line);background:var(--body);font-size:15px}
+.cmp th,.cmp td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.cmp th{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+.cmp td:not(:first-child){color:var(--ink2);width:28%}
+.cmp .y{color:var(--acc)}
+.buy{display:grid;grid-template-columns:1.1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:40px 0 0}
+.buy>div{background:var(--body);padding:32px}
+.price{font:400 88px/1 var(--disp);margin:10px 0 0}
+.price .cur{font-size:40px;vertical-align:top;margin-right:4px}
+.price s{font-size:40px;color:var(--ink3);margin-right:14px}
+.buy ul{margin:18px 0 0 18px;color:var(--ink2)}
+.buy ul li{margin:4px 0}
+.code-row{display:flex;gap:8px;margin:0 0 10px}
+.code-row input{flex:1;min-width:0;background:#000;border:1px solid var(--line);color:var(--ink);font:13px var(--mono);padding:10px 12px}
+.buy-code-msg,.buy-msg,.small{font:12px var(--mono);color:var(--ink2);margin:6px 0 0;min-height:1em}
+.buy-code-msg.ok{color:var(--acc)}.buy-code-msg.bad,.buy-msg.bad{color:#ff7a6f}
+.license-key{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#000;padding:10px 12px;font:14px var(--mono);margin:8px 0 0;word-break:break-all}
+.copy-btn{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;background:var(--acc);color:#04140b;border:0;padding:8px 12px;cursor:pointer}
+.buy-done-h{font:600 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--acc)}
+.faq details{border-bottom:1px solid var(--line);padding:18px 0}
+.faq summary{cursor:pointer;font-weight:600}
+.faq p{color:var(--ink2);margin:10px 0 0;max-width:760px}
+@media (max-width:900px){
+  .grps,.buy{grid-template-columns:1fr}
+  .cmp td:not(:first-child){width:auto}
+  .grid,.steps{grid-template-columns:1fr}
+  .specs{grid-template-columns:repeat(2,1fr)}
+  .fxd{grid-template-columns:1fr;padding:26px}
+  .nav-links{display:none}
+  .hero{padding:56px 0 24px}
+  section{padding:72px 0 0}
+}
+</style>
+</head>
+<body>
+<div class="cols" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="/fxd-effects"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M0 14h16L8 0z" fill="#49cc85"/></svg>FXD Effects</a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#effects">Effects</a>
+      <a href="#compare">With FX Devices</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+      <a href="/fx-devices">FX Devices</a>
+    </nav>
+    <a class="btn btn-go" href="#buy">Buy $59</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <p class="pill"><b>35 + 1</b> CLAP plugins for REAPER 7 · macOS · Windows</p>
+    <h1>FXD Effects<span class="bar" aria-hidden="true"></span></h1>
+    <p class="lede">The effects from FX Devices, sold on their own. Compressors, saturation, filters, choruses, delays, reverbs, restoration and mixing tools, plus Prism EQ+. They work as plain plugins in any REAPER project, with no FX Devices needed.</p>
+    <div class="cta">
+      <a class="btn btn-go btn-lg" href="#buy">Buy for $59</a>
+      <a class="btn btn-lg" href="#install">Try free for 30 days</a>
+    </div>
+    <p class="fine">One payment, yours for good. 2 years of updates, 3 computers. Already own FX Devices? You have these already.</p>
+  </div>
+
+  <section class="wrap" id="effects" aria-labelledby="e-h">
+    <p class="kicker"><b>01</b> The effects</p>
+    <h2 id="e-h">35 effects and Prism EQ+</h2>
+    <p class="sub">Every effect is a native CLAP plugin with its own window: all its controls, double-click to reset, and low CPU when nothing is playing. Shown here as they look in FX Devices.</p>
+    <div class="grps">
+    <div class="grp" style="--g:#49cc85">
+      <div class="grp-h"><h3>Dynamics</h3><span>5</span></div>
+      <img src="/fx-devices/img/effects/groups/dynamics.png" alt="The dynamics effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Compressor</b><span>Several models from clean to coloured, a live transfer curve you can redraw, Upward mode, sidechain HPF, stereo or mid-side, and Auto Gain.</span></li><li><b>FXD Transient Gate</b><span>Gate, expander and ducker with a transient shaper on top. LEARN sets the threshold from your audio, and it takes an external key.</span></li><li><b>FXD Limiter</b><span>Mastering true-peak limiter with lookahead and auto release, metering loudness against a target you pick.</span></li><li><b>FXD Multiband</b><span>Multiband dynamics with downward and upward ratios per band.</span></li><li><b>FXD DeEsser</b><span>Voice and all-round modes, band, wide or spectral reduction, lookahead and a listen switch.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#f08a4b">
+      <div class="grp-h"><h3>Saturation and colour</h3><span>9</span></div>
+      <img src="/fx-devices/img/effects/groups/saturation.png" alt="The saturation and colour effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Analog Drive</b><span>Tube, transformer, console, fuzz, push-pull and diode stages with bias, asymmetry and power-supply sag.</span></li><li><b>FXD Waveshaper</b><span>Draw your own transfer curve, then clip, fold or wrap it, with oversampling, bloom and slew.</span></li><li><b>FXD Patina</b><span>A chain of character modules, from drive and tape to glitch and noise, under one Age knob.</span></li><li><b>FXD Tape Machine</b><span>Record and playback stages with bias, head bump, azimuth, crosstalk, wow, flutter and hiss.</span></li><li><b>FXD Vintage Sampler</b><span>Old sampler converters: bit depth, sample rate, anti-alias filters, jitter and dropouts.</span></li><li><b>FXD Cycle</b><span>Captures one cycle of the incoming pitch and shapes it, or freezes it into a held tone.</span></li><li><b>FXD Pitch FM</b><span>FM that locks to the pitch you play into it, with Scale Lock so the sidebands land in key.</span></li><li><b>FXD Bass Enhancer</b><span>Adds harmonics above the low end so bass reads on small speakers.</span></li><li><b>FXD Particles</b><span>Breaks the input into grains and scatters them in time and pitch, with freeze and tuning.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#f2668b">
+      <div class="grp-h"><h3>Filters and tone</h3><span>4</span></div>
+      <img src="/fx-devices/img/effects/groups/filters-pitch.png" alt="The filters and tone effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Analog Filter</b><span>Ladder, MS-20, SEM, diode and wah filters with drive, an envelope follower and an LFO.</span></li><li><b>FXD Poise</b><span>Adaptive tone shaper that keeps a mix balanced against a target curve.</span></li><li><b>FXD Sweep</b><span>Phaser, flanger, chorus and vibe in one.</span></li><li><b>FXD Pitch Shifter</b><span>Clean or fast pitch shifting with formant control.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#ff9a3c">
+      <div class="grp-h"><h3>Modulation</h3><span>5</span></div>
+      <img src="/fx-devices/img/effects/groups/modulation.png" alt="The modulation effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Kaleido Chorus</b><span>Eight chorus characters, from Classic and Dimension to Swarm and Crystal, with tempo sync.</span></li><li><b>FXD Bucket Brigade</b><span>Bucket-brigade chorus modelled on classic hardware, with clock noise and grit.</span></li><li><b>FXD Wow Flutter</b><span>Tape and vinyl pitch wobble, plus motor drag, stalls and tape stops.</span></li><li><b>FXD Auto Pan</b><span>Auto pan and tremolo with drawn LFO shapes, tempo sync and an envelope follower.</span></li><li><b>FXD Frequency Shifter</b><span>Shifts every frequency by the same number of Hz, with feedback and delay.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#a98bff">
+      <div class="grp-h"><h3>Delay and reverb</h3><span>6</span></div>
+      <img src="/fx-devices/img/effects/groups/delay-reverb.png" alt="The delay and reverb effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Delay</b><span>Stereo, ping-pong and cross delays with filters, drive, pitch, reverse, freeze and ducking in the loop.</span></li><li><b>FXD Vintage Space</b><span>Room, hall, chamber, plate, spring and echo, with freeze.</span></li><li><b>FXD Shimmer</b><span>Shimmer reverb with two pitch voices, grit, ring and motion.</span></li><li><b>FXD Imprint</b><span>Convolution reverb that stretches, scrubs and reshapes the impulse, and captures new ones.</span></li><li><b>FXD Tape Glitch</b><span>Tempo-synced stutters, reverses, tape stops and half-speed.</span></li><li><b>FXD Splinter</b><span>Splits a sound into hit, tone and noise, then spreads and re-times each part.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#7fd6c2">
+      <div class="grp-h"><h3>Restoration</h3><span>3</span></div>
+      <img src="/fx-devices/img/effects/groups/restoration.png" alt="The restoration effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Dereverb</b><span>Removes room sound. LEARN fits it to your recording.</span></li><li><b>FXD Denoise</b><span>Neural, spectral and noise-print modes for hiss, hum and background noise.</span></li><li><b>FXD Surface Noise</b><span>Adds vinyl and shellac surface noise: crackle, pops, rumble, hum and static.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#c6a2ff">
+      <div class="grp-h"><h3>Mixing tools</h3><span>3</span></div>
+      <img src="/fx-devices/img/effects/groups/mixing.png" alt="The mixing tools effects in FX Devices" loading="lazy">
+      <ul><li><b>FXD Utility</b><span>Gain, balance, width, mid and side, bass mono, channel swap and polarity, with a goniometer.</span></li><li><b>FXD Widener</b><span>Several widening methods, with a correlation guard and bass mono.</span></li><li><b>FXD Vocoder</b><span>Classic and talkbox vocoders with a built-in synth carrier, or a sidechain carrier.</span></li></ul>
+    </div>
+    <div class="grp" style="--g:#d8ff6f">
+      <div class="grp-h"><h3>Included</h3><span>+1</span></div>
+      <img src="/prism-eq/prism-eq.webp" alt="Prism EQ" loading="lazy">
+      <ul><li><b>Prism EQ+</b><span>Prism EQ plus creative filter shapes, analog models per band, drawn dynamics curves and band LFOs.</span></li></ul>
+    </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="compare" aria-labelledby="c-h">
+    <p class="kicker"><b>02</b> FXD Effects or FX Devices</p>
+    <h2 id="c-h">What you get</h2>
+    <p class="sub">FXD Effects is the plugins. FX Devices is the whole workspace around every plugin you own, and it includes these effects.</p>
+    <table class="cmp">
+      <thead><tr><th></th><th>FXD Effects · $59</th><th>FX Devices · $93</th></tr></thead>
+      <tbody>
+        <tr><td>The 35 effects and Prism EQ+</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+        <tr><td>Each effect's own plugin window with all its controls</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+        <tr><td>Full device layouts with live meters and graphs, built-in modulators you drag onto any control, preset morphing and Scatter</td><td>No</td><td class="y">Yes</td></tr>
+        <tr><td>Device dock for all your plugins, layouts for third-party plugins, modulation of any plugin, containers and racks</td><td>No</td><td class="y">Yes</td></tr>
+        <tr><td>Lifetime license, 2 years of updates, 3 computers</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="wrap" id="buy" aria-labelledby="b-h">
+    <p class="kicker"><b>03</b> Buy</p>
+    <h2 id="b-h">$59, once</h2>
+    <div class="buy">
+      <div>
+        <p class="kicker">FXD Effects license</p>
+        <p class="price"><s id="fxe-was" hidden>$59</s><span class="cur">$</span><span id="fxe-price">59</span></p>
+        <ul>
+          <li>35 effects and Prism EQ+, lifetime license</li>
+          <li>2 years of updates included</li>
+          <li>Up to 3 computers</li>
+          <li>30-day money-back guarantee</li>
+        </ul>
+      </div>
+      <div>
+        <form class="code-row" id="fxe-code-form" autocomplete="off">
+          <input type="text" id="fxe-code" placeholder="Discount code" aria-label="Discount code for FXD Effects" maxlength="40">
+          <button class="btn" type="submit">Apply</button>
+        </form>
+        <p class="buy-code-msg" id="fxe-code-msg" aria-live="polite"></p>
+        <p class="small" id="fxe-signed-in"></p>
+        <div id="fxe-paypal" style="margin-top:16px" aria-live="polite"><p class="small">Loading PayPal…</p></div>
+        <p class="buy-msg" id="fxe-buy-msg" role="status"></p>
+        <div id="fxe-buy-done" hidden>
+          <p class="buy-done-h">Thanks for buying FXD Effects</p>
+          <p class="small">Your license key:</p>
+          <div class="license-key"><span id="fxe-key"></span><button class="copy-btn" type="button" id="fxe-copy">Copy</button></div>
+          <p class="small" id="fxe-key-mail"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="install" aria-labelledby="i-h">
+    <p class="kicker"><b>04</b> Install</p>
+    <h2 id="i-h" tabindex="-1">Three steps</h2>
+    <ol class="steps" id="fxe-setup" tabindex="-1">
+      <li><b>1</b><div><h3>Download the Script Manager</h3><p>The free Cool Reaper Script Manager installs the effects and keeps them up to date.</p>
+        <p><a class="btn btn-go" href="/assets/Download/Cool%20Reaper%20Script%20Manager.lua" download="CRS_Cool Reaper Script Manager.lua">Download the Script Manager</a></p></div></li>
+      <li><b>2</b><div><h3>Sign in and install</h3><p>In REAPER, open the Actions list, click <kbd>New action</kbd> then <kbd>Load ReaScript</kbd> and run the file. Under Plugins, click <kbd>Sign in / free trial</kbd> on FXD Effects and sign in with <strong class="setup-email">the email you bought with</strong> (no license yet? the same page starts your 30-day trial). Then click Install on FXD Effects and on Prism EQ+, and restart REAPER.</p></div></li>
+      <li><b>3</b><div><h3>Add an effect</h3><p>Open the FX browser and search for <code>FXD</code>. The effects open already activated. You can also sign in or start the trial from any effect's own window.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="wrap faq" id="faq" aria-labelledby="q-h">
+    <p class="kicker"><b>05</b> FAQ</p>
+    <h2 id="q-h">Questions</h2>
+    <details><summary>Do I need FX Devices?</summary><p>No. The effects are plugins: add them to any track and use their own windows. If you also run FX Devices, each one gets its full device layout there too.</p></details>
+    <details><summary>I already own FX Devices. Do I need this?</summary><p>No. An FX Devices license or trial unlocks every effect and Prism EQ+, as before.</p></details>
+    <details><summary>Which DAWs and systems?</summary><p>REAPER 7 on macOS (Apple silicon and Intel) and Windows. The license is checked through REAPER, so other hosts aren't supported yet.</p></details>
+    <details><summary>What happens without a license?</summary><p>The effects load and pass the audio through unchanged, and their window shows how to start the free trial or sign in.</p></details>
+    <details><summary>Can I move up to FX Devices later?</summary><p>Yes, buy FX Devices whenever you like. Your effects keep working on either license.</p></details>
+  </section>
+
+  <section class="crs-more" aria-labelledby="crs-more-h">
+    <div class="crs-more-head">
+      <div><p class="crs-more-kicker">More from Cool Reaper Scripts</p><h2 id="crs-more-h">Try the others</h2></div>
+      <a class="crs-more-all" href="/">All scripts</a>
+    </div>
+    <div class="crs-more-grid">
+      <a class="crs-card fxd" href="/fx-devices"><img src="/fx-devices/img/chain-mastering.webp" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Script · free trial</span><span class="crs-card-name">FX Devices</span><span class="crs-card-text">Your plugins docked as native-feeling devices, with two-move modulation. Includes FXD Effects.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+      <a class="crs-card vfxl" href="/vertical-fx-list"><img src="/assets/home/vfxl.jpg" alt="" loading="lazy"><span class="crs-card-body"><span class="crs-card-tag">Script · free trial</span><span class="crs-card-name">Vertical FX List</span><span class="crs-card-text">Every track's FX in one fast vertical list, with sends, pan and parallel groups.</span><span class="crs-card-go">Open &rarr;</span></span></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>FXD Effects · $59</span>
+    <span><a href="/fx-devices">FX Devices</a> · <a href="/prism-eq">Prism EQ</a> · <a href="/pricing">Pricing</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
+  </div>
+</footer>
+<script src="/fx-devices/buy.js" defer></script>
+</body>
+</html>

@@ -142,6 +142,7 @@ function publicProduct(id, p) {
 		vst3InstalledFile: p.vst3InstalledFile,
 		pageUrl: p.pageUrl,
 		licenseOf: p.licenseOf,
+		acceptsLicenseOf: p.acceptsLicenseOf,
 		optional: p.optional,
 		replaces: p.replaces
 	};

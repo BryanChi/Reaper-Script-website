@@ -244,11 +244,13 @@ Object.defineProperty(module.exports, 'clapPlatforms', { value: clapPlatforms, e
 // once the newest release has its file (inRelease), so a JSFX still in development stays hidden.
 const FXD_JSFX_DIR = 'BryanChi_FX_Devices/FXD JSFXs/';
 const NOTE_TOOLS = FXD_JSFX_DIR + 'FXD Note Tools.jsfx-inc';
+// [name, description, extra files, the file's name when it isn't the name: an effect renamed
+// (bryan, 2026-11-20) keeps its file, id and install folder so installs and previews carry on]
 const FXD_JSFX = [
 	['Analog Drive', 'Six saturation circuits (tube, transformer, console and more), oversampled, with the bloom and sag of real gear.'],
 	['Analog Filter', 'Five analog filter models (ladder, MS-20, SEM, diode, 303) that stay in tune at full resonance.'],
 	['Audio To Notes', 'Turns the audio on a track into MIDI notes and CC in real time: drums to triggers, a voice to a synth line.', [NOTE_TOOLS]],
-	['Bucket Brigade', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.'],
+	['BBD Chorus', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.', null, 'Bucket Brigade'],
 	['Compressor', 'One compressor, 24 models: from transparent digital to the feel of the classic analog units.'],
 	['Kaleido Chorus', 'One chorus engine, eight flavors, from a classic two-voice chorus to an octave shimmer.'],
 	['Note Echo', 'Repeats incoming notes in time, with pitch steps, strum and decay.', [NOTE_TOOLS]],
@@ -256,11 +258,11 @@ const FXD_JSFX = [
 	['Note Shaper', 'Rewrites incoming notes: filter them, snap them to a scale, add chord voices and more.', [NOTE_TOOLS]],
 	['Patina', 'Analog character in nine modules, from a little warmth to gear falling apart.'],
 	['Step Engine', 'An arpeggiator and a step sequencer in one, with five independent step lanes.', [NOTE_TOOLS]],
-	['Surface Noise', 'Layered vinyl, tape and electrical noise: hiss, crackle, hum and static, each with its own level.'],
-	['Tape Glitch', 'Stutters, reverses and tape stops on the beat grid, played from a tape loop.'],
+	['LoFi Noise', 'Layered vinyl, tape and electrical noise: hiss, crackle, hum and static, each with its own level.', null, 'Surface Noise'],
+	['Beat Glitch', 'Stutters, reverses and tape stops on the beat grid, played from a tape loop.', null, 'Tape Glitch'],
 	['Tape Machine', 'A whole tape machine: noise reduction, record EQ, tape saturation, wow and flutter.'],
-	['Vintage Sampler', 'The converters of a 1980s sampler: the aliasing, the bit depth and the steps they leave.'],
-	['Vintage Space', 'Six vintage spaces, each modelled as the thing itself: room, hall, chamber, plate, spring and tape echo.'],
+	['Vintage Converter', 'The converters of a 1980s sampler: the aliasing, the bit depth and the steps they leave.', null, 'Vintage Sampler'],
+	['Vintage Reverb', 'Six vintage reverbs, each modelled as the thing itself: room, hall, chamber, plate, spring and tape echo.', null, 'Vintage Space'],
 	['Wow Flutter', 'The pitch wobble of old tape and vinyl transports, up to a tape stop.']
 ];
 
@@ -275,11 +277,11 @@ const HELD = new Set([]);
 const HELD_CORE = ['Noise Splitter'];
 for (const name of HELD_CORE) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');
 
-for (const [name, description, deps] of FXD_JSFX) {
-	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';
+for (const [name, description, deps, stem = name] of FXD_JSFX) {
+	const file = FXD_JSFX_DIR + 'FXD ' + stem + '.jsfx';
 	module.exports['fx-devices'].optional.push(file);
 	if (HELD.has(name)) continue;
-	const id = 'fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	const id = 'fxd-' + stem.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 	module.exports[id] = {
 		name,
 		kind: 'jsfx',
@@ -293,10 +295,10 @@ for (const [name, description, deps] of FXD_JSFX) {
 		licenseOf: 'fx-devices',
 		include: [file].concat(deps || []),
 		inRelease: file,
-		installDir: 'Scripts/CoolReaperScripts/FXD JSFX/' + name,
+		installDir: 'Scripts/CoolReaperScripts/FXD JSFX/' + stem,
 		routes: [{ from: FXD_JSFX_DIR, to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
 		includedIn: 'fx-devices',
-		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD ' + name + '.jsfx',
+		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD ' + stem + '.jsfx',
 		// Script Managers before 3.11 (5) install every FX Devices JSFX with FX Devices
 		minClient: 5
 	};

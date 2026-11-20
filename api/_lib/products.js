@@ -125,6 +125,22 @@ module.exports = {
 	// inside the plugins: without one the audio passes through. The release build leaves the held ones out
 	// (FX Devices' Native Plugins/FXD Effects/src/lib.rs: HELD). Its Waveshaper replaces the C++ one above,
 	// which never shipped.
+	// Prism EQ+: Prism EQ's source built with PRISM_PLUS (creative shapes, analog models, custom dynamics
+	// curves, band LFOs). FX Devices' license or trial, for the download and inside the plugin: without one
+	// the audio passes through. CLAP only (no VST3 build yet). Ships from FX Devices 1.0 beta 14.1.
+	'prism-eq-plus': {
+		name: 'Prism EQ+',
+		kind: 'clap',
+		description: 'Prism EQ plus creative filter shapes, analog models per band, drawn dynamics curves and band LFOs.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		licenseOf: 'fx-devices',
+		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Prism EQ+',
+		platforms: clapPlatforms('FXD Prism EQ+'),
+		minClient: 6
+	},
 	'fxd-effects': {
 		name: 'FXD Effects',
 		kind: 'clap',

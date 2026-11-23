@@ -125,9 +125,30 @@ module.exports = {
 	// inside the plugins: without one the audio passes through. The release build leaves the held ones out
 	// (FX Devices' Native Plugins/FXD Effects/src/lib.rs: HELD). Its Waveshaper replaces the C++ one above,
 	// which never shipped.
+	// Its own purchase too (bryan, 2026-11-20: $59 for people who don't need FX Devices): an FXD Effects
+	// license or trial unlocks the effects and Prism EQ+ only, and FX Devices' license or trial unlocks
+	// them as before (acceptsLicenseOf: store.js takes those keys for this product). The plugins read
+	// this license's ExtState section first, then FX Devices' (shared/fxd_license.h).
+	'fxd-effects': {
+		name: 'FXD Effects',
+		kind: 'clap',
+		price: '59.00',
+		description: '35 FX Devices effects as native plugins: dynamics, drive, filters, modulation, delays and reverbs, repair and utility, each with built-in modulators. Prism EQ+ included.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		acceptsLicenseOf: ['fx-devices'],
+		licenseSection: 'CRS_FXD_Effects_License',
+		buyUrl: 'https://www.coolreaperscripts.com/fxd-effects#buy',
+		pageUrl: 'https://www.coolreaperscripts.com/fxd-effects',
+		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/FXD Effects',
+		platforms: clapPlatforms('FXD Effects'),
+		minClient: 6
+	},
 	// Prism EQ+: Prism EQ's source built with PRISM_PLUS (creative shapes, analog models, custom dynamics
-	// curves, band LFOs). FX Devices' license or trial, for the download and inside the plugin: without one
-	// the audio passes through. CLAP only (no VST3 build yet). Ships from FX Devices 1.0 beta 14.1.
+	// curves, band LFOs). FXD Effects' or FX Devices' license or trial, for the download and inside the plugin:
+	// without one the audio passes through. CLAP only (no VST3 build yet). Ships from FX Devices 1.0 beta 14.1.
 	'prism-eq-plus': {
 		name: 'Prism EQ+',
 		kind: 'clap',
@@ -136,22 +157,10 @@ module.exports = {
 		repo: 'BryanChi-FX-Devices',
 		branch: 'main',
 		releasesOnly: true,
-		licenseOf: 'fx-devices',
+		// part of FXD Effects (bryan, 2026-11-20): its license, or FX Devices' (which FXD Effects takes too)
+		licenseOf: 'fxd-effects',
 		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Prism EQ+',
 		platforms: clapPlatforms('FXD Prism EQ+'),
-		minClient: 6
-	},
-	'fxd-effects': {
-		name: 'FXD Effects',
-		kind: 'clap',
-		description: '35 FX Devices effects as native plugins: dynamics, drive, filters, modulation, delays and reverbs, repair and utility, each with built-in modulators.',
-		owner: 'BryanChi',
-		repo: 'BryanChi-FX-Devices',
-		branch: 'main',
-		releasesOnly: true,
-		licenseOf: 'fx-devices',
-		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/FXD Effects',
-		platforms: clapPlatforms('FXD Effects'),
 		minClient: 6
 	}
 };
@@ -216,7 +225,19 @@ function clapPlatforms(name, opts) {
 // A product as one platform gets it: its platform's include, routes and files over the rest. null
 // when it has no build for that platform (or the client didn't say which it is). The client's
 // generation decides whether a plugin's VST3 comes along (older Script Managers don't know '{VST3}').
+// Script Managers from 3.19: products with their own license that also take another's (acceptsLicenseOf:
+// FXD Effects takes FX Devices'). Older Managers know only licenseOf, so they get FXD Effects (and Prism
+// EQ+) as FX Devices' plugins, as before: an FX Devices key works there, an FXD Effects key needs 3.19.
+const SHARED_LICENSE_CLIENT = 9;
 function forPlatform(product, platform, client) {
+	if ((Number(client) || 0) < SHARED_LICENSE_CLIENT) {
+		if (product.acceptsLicenseOf) {
+			product = Object.assign({}, product, { licenseOf: product.acceptsLicenseOf[0] });
+			delete product.acceptsLicenseOf; delete product.licenseSection; delete product.price; delete product.buyUrl;
+		} else if (product.licenseOf && module.exports[product.licenseOf] && module.exports[product.licenseOf].acceptsLicenseOf) {
+			product = Object.assign({}, product, { licenseOf: module.exports[product.licenseOf].acceptsLicenseOf[0] });
+		}
+	}
 	// a main script renamed at install (oldMain): Managers before 3.18 keep the old name, since they
 	// would leave the old file next to the new one and take that for a developer's checkout
 	if (product.oldMain && (Number(client) || 0) < RENAME_CLIENT) {

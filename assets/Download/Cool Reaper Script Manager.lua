@@ -1,11 +1,14 @@
 -- @description Cool Reaper Script Manager
--- @version 3.18.3
+-- @version 3.19.0
 -- @author bryan
 -- @about
 --   Installs, updates and licenses Cool Reaper Scripts (Vertical FX List, FX Devices, its plugins and
 --   the free Prism EQ) from coolreaperscripts.com. Shows what's installed, what's newer, and which scripts
 --   you own, with a Buy button for the ones you don't. Run it any time to update.
 -- @changelog
+--   3.19.0: FXD Effects can be bought on its own: its card sits at the top of Plugins with its own
+--          Sign in / free trial and Buy. An FX Devices license or trial still unlocks it (and Prism
+--          EQ+) with no second sign-in.
 --   3.18.3: an install where some files didn't download no longer counts as that version: the
 --          update stays offered, so updating again fetches the missing files.
 --   3.18.2: a short install message: a title, numbered steps, and the install folders as links
@@ -78,7 +81,7 @@
 
 local r = reaper
 
-local VERSION = '3.18.3'
+local VERSION = '3.19.0'
 local SITE = 'https://www.coolreaperscripts.com'
 local API = SITE .. '/api/scripts'
 local VERIFY_URL = SITE .. '/api/license/verify'
@@ -91,7 +94,7 @@ local EXT = 'CoolReaperScripts_Installer'
 -- 6 = CLAP plugins, per platform (in the CLAP folder: '{CLAP}/' in a product's paths),
 -- 7 = a plugin's VST3 with its CLAP (in the VST3 folder: '{VST3}/'),
 -- 8 = a main script installed under a new name (oldMain: the old file opens the new one)
-local CLIENT = 8
+local CLIENT = 9
 local TITLE = 'Cool Reaper Script Manager'
 -- where the Manager keeps itself (next to Vertical FX List), relative to REAPER's resource folder
 local MANAGER_DIR = 'Scripts/CoolReaperScripts'
@@ -1481,6 +1484,11 @@ local function RefreshOnDisk()
   end
 end
 
+-- (a field, not a local: the main chunk is at Lua's 200-local limit)
+function S.ProductById(id)
+  for _, q in ipairs(S.products) do if q.id == id then return q end end
+end
+
 -- FX Devices' JSFX use FX Devices' license: the same key, status and releases
 local function LicenseOwner(p)
   if not p.licenseOf then return nil end
@@ -1527,8 +1535,18 @@ end
 ---------------------------------------------------------------------------------------------------
 
 local function StoredKey(p)
+  p.keyShared = nil
   local k = p.licenseSection and r.GetExtState(p.licenseSection, 'licenseKey') or ''
   if k == '' then k = r.GetExtState(EXT, 'key_' .. p.id) end
+  -- a product that takes another's license (FXD Effects takes FX Devices'): that one's key, when it
+  -- has none of its own
+  if k == '' and p.acceptsLicenseOf then
+    for _, id in ipairs(p.acceptsLicenseOf) do
+      local q = S.ProductById(id) or { id = id }
+      local qk = StoredKey(q)
+      if qk ~= '' then p.keyShared = id return qk end
+    end
+  end
   if k == '' then k = r.GetExtState(EXT, 'licenseKey') end -- the 2.0 installer's one key
   return (k:gsub('%s', ''))
 end
@@ -1578,6 +1596,15 @@ local function DeviceId(p)
   if not p.licenseSection then return '' end
   local id = r.GetExtState(p.licenseSection, 'deviceId')
   if id ~= '' then return id end
+  -- the same computer's ID as the product whose license this one takes (or that takes this one's):
+  -- one computer stays one of the license's 3
+  for _, q in ipairs(S.products) do
+    local linked = q.licenseSection and q.licenseSection ~= p.licenseSection and (
+      (p.acceptsLicenseOf and table.concat(p.acceptsLicenseOf, ','):find(q.id, 1, true))
+      or (q.acceptsLicenseOf and table.concat(q.acceptsLicenseOf, ','):find(p.id, 1, true)))
+    local other = linked and r.GetExtState(q.licenseSection, 'deviceId') or ''
+    if other ~= '' then r.SetExtState(p.licenseSection, 'deviceId', other, true) return other end
+  end
   math.randomseed(os.time() + math.floor(r.time_precise() * 1000) % 100000)
   local chars, t = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', {}
   for i = 1, 16 do local n = math.random(1, #chars) t[i] = chars:sub(n, n) end
@@ -2067,8 +2094,8 @@ local function StartInstall(p)
     local owner = LicenseOwner(p)
     if owner then
       owner.showKey = true
-      p.msg = { kind = 'info', text = p.name .. ' comes with an FX Devices license or trial. Sign in on the ' .. owner.name
-        .. ' card above (no license yet? the sign-in page starts your free 30-day trial), then install it here.' }
+      p.msg = { kind = 'info', text = p.name .. ' comes with ' .. owner.name .. (owner.acceptsLicenseOf and ' (or FX Devices)' or '') .. '. Sign in on the ' .. owner.name
+        .. ' card (no license yet? the sign-in page starts your free 30-day trial), then install it here.' }
       return
     end
     p.showKey = true
@@ -2266,7 +2293,7 @@ local function FinishInstall(job)
     r.SetExtState(EXT, 'installed_' .. p.id, job.ref ~= p.branch and job.ref or 'development version', true)
   end
   -- the script activates this computer with these on its first start (no key typing needed)
-  if p.licenseSection and p.key ~= '' and r.GetExtState(p.licenseSection, 'licenseKey') == '' then
+  if p.licenseSection and p.key ~= '' and not p.keyShared and r.GetExtState(p.licenseSection, 'licenseKey') == '' then
     r.SetExtState(p.licenseSection, 'licenseKey', p.key, true)
     if S.email ~= '' then r.SetExtState(p.licenseSection, 'email', S.email, true) end
   end
@@ -2785,7 +2812,10 @@ end
 local function StatusBadge(p)
   local st = p.lic and p.lic.status or 'none'
   -- FX Devices' JSFX: FX Devices' license
-  if p.licenseOf and not HasValidKey(p) then return 'Needs FX Devices', P.ink2 end
+  if p.licenseOf and not HasValidKey(p) then
+    local q = S.ProductById(p.licenseOf)
+    return 'Needs ' .. (q and q.name or 'FX Devices'), P.ink2
+  end
   if st == 'free' then return 'Free', P.acc end
   if st == 'active' then return 'Owned', P.acc end
   if st == 'trial' then
@@ -3287,6 +3317,16 @@ local function Content(cx, cy, avail)
       y = y + 32
       if not S.loaded and #S.products == 0 then y = y + 10 end
       if sec.grid then
+        -- a plugin sold on its own (FXD Effects): a full card first, with its sign-in and Buy
+        local rest = {}
+        for _, p in ipairs(list) do
+          if not p.free and not p.licenseOf and p.licenseSection then
+            im.PushID(ctx, p.id)
+            y = y + ProductCard(p, px, y, w) + 14
+            im.PopID(ctx)
+          else rest[#rest + 1] = p end
+        end
+        list = rest
         -- two to a row, each row as tall as its tallest card
         local gap = 10
         local cw = math.floor((w - gap) / 2)

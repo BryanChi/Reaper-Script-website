@@ -236,7 +236,7 @@
 
 		try {
 			// each script is its own purchase: one section per product (FX Devices only when there is one)
-			const products = [['vertical-fx-list', 'Vertical FX List'], ['fx-devices', 'FX Devices']];
+			const products = [['vertical-fx-list', 'Vertical FX List'], ['fx-devices', 'FX Devices'], ['fxd-effects', 'FXD Effects']];
 			const accessToken = await getAccessToken();
 			const results = await Promise.all(products.map(([id]) => postJson('/api/license/info', { email, accessToken, product: id })));
 

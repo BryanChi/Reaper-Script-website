@@ -1,15 +1,25 @@
-/* FX Devices checkout: PayPal buttons for a $93 license, with an optional discount code.
-   /api/paypal/webhook creates the order (so the price is set on the server), then captures it after
-   the buyer approves, checks it with PayPal and returns the key. */
+/* FX Devices and FXD Effects checkouts: PayPal buttons for a license ($93 / $59), with an optional discount
+   code. /api/paypal/webhook creates the order (so the price is set on the server), then captures it after
+   the buyer approves, checks it with PayPal and returns the key. Each checkout is a set of elements whose
+   ids start with its prefix (fxd-paypal, fxd-price ...; fxe-paypal ...), set up by checkout() below. */
 (function () {
   'use strict';
-  const host = document.getElementById('fxd-paypal');
-  if (!host) return;
-  const msg = document.getElementById('fxd-buy-msg');
-  const done = document.getElementById('fxd-buy-done');
-  const keyEl = document.getElementById('fxd-key');
-  const mailEl = document.getElementById('fxd-key-mail');
-  const copyBtn = document.getElementById('fxd-copy');
+  const CHECKOUTS = [
+    { prefix: 'fxd', product: 'fx-devices', name: 'FX Devices', list: '93.00', setup: 'setup',
+      linked: ' Go back to REAPER: FX Devices activates on its own in a few seconds.' },
+    { prefix: 'fxe', product: 'fxd-effects', name: 'FXD Effects', list: '59.00', setup: 'fxe-setup',
+      linked: ' Go back to REAPER: the Script Manager (or the effect\'s window) activates on its own in a few seconds.' }
+  ];
+  CHECKOUTS.forEach(c => { if (document.getElementById(c.prefix + '-paypal')) checkout(c); });
+
+  function checkout(C) {
+  const $ = id => document.getElementById(C.prefix + '-' + id);
+  const host = $('paypal');
+  const msg = $('buy-msg');
+  const done = $('buy-done');
+  const keyEl = $('key');
+  const mailEl = $('key-mail');
+  const copyBtn = $('copy');
   const say = (text, bad) => { msg.textContent = text || ''; msg.classList.toggle('bad', !!bad); };
 
   function showKey(json) {
@@ -23,7 +33,7 @@
       ? `We also emailed it to ${email}, ${where}.`
       : `Keep it safe. It's linked to ${email}, but the email with it could not be sent.`;
     if (json.emailSource === 'link') {
-      mailEl.textContent += ' Go back to REAPER: FX Devices activates on its own in a few seconds. If REAPER stopped waiting, click Sign in with browser again and sign in as ' + email + '.';
+      mailEl.textContent += C.linked + ' If REAPER stopped waiting, click Sign in with browser again and sign in as ' + email + '.';
     }
     say('');
     showSetup(email);
@@ -31,7 +41,7 @@
 
   // The setup steps under the license card: fill in the email to sign in with and bring them into view
   function showSetup(email) {
-    const setup = document.getElementById('setup');
+    const setup = document.getElementById(C.setup);
     if (!setup) return;
     if (email) setup.querySelectorAll('.setup-email').forEach(el => { el.textContent = email; });
     setup.hidden = false;
@@ -70,20 +80,20 @@
       return sessionStorage.getItem('crs_buy_link') || null;
     } catch (_) { return null; }
   })();
-  const signedInEl = document.getElementById('fxd-signed-in');
+  const signedInEl = $('signed-in');
   const sess = storedSession();
   if (signedInEl && linkCode) signedInEl.textContent = 'Your key goes to the account you signed in with for REAPER.';
   else if (signedInEl && sess) signedInEl.textContent = `Signed in as ${sess.user.email}. Your key will be sent there.`;
 
   // Discount code: the server checks it and applies it when it creates the order
   let code = '';
-  const codeForm = document.getElementById('fxd-code-form');
-  const codeIn = document.getElementById('fxd-code');
-  const codeMsg = document.getElementById('fxd-code-msg');
-  const priceEl = document.getElementById('fxd-price');
-  const wasEl = document.getElementById('fxd-was');
+  const codeForm = $('code-form');
+  const codeIn = $('code');
+  const codeMsg = $('code-msg');
+  const priceEl = $('price');
+  const wasEl = $('was');
   const codeSay = (text, cls) => { codeMsg.textContent = text || ''; codeMsg.className = 'buy-code-msg' + (cls ? ' ' + cls : ''); };
-  const setPrice = p => { priceEl.textContent = String(p).replace(/\.00$/, ''); wasEl.hidden = p === '93.00'; };
+  const setPrice = p => { priceEl.textContent = String(p).replace(/\.00$/, ''); wasEl.hidden = p === C.list; };
   async function api(body) {
     const resp = await fetch('/api/paypal/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const json = await resp.json().catch(() => ({}));
@@ -94,11 +104,11 @@
     e.preventDefault();
     const c = codeIn.value.trim();
     code = '';
-    setPrice('93.00');
+    setPrice(C.list);
     if (!c) { codeSay(''); return; }
     codeSay('Checking…');
     try {
-      const q = await api({ action: 'quote', product: 'fx-devices', code: c });
+      const q = await api({ action: 'quote', product: C.product, code: c });
       code = c;
       setPrice(q.price);
       codeSay(`${q.label}: ${q.percent}% off applied.`, 'ok');
@@ -115,7 +125,7 @@
     host.textContent = '';
     window.paypal.Buttons({
       style: { layout: 'vertical', color: 'white', shape: 'rect', label: 'pay', height: 48 },
-      createOrder: () => api({ action: 'create', product: 'fx-devices', code }).then(j => j.id, err => {
+      createOrder: () => api({ action: 'create', product: C.product, code }).then(j => j.id, err => {
         say(`Could not start the checkout: ${err.message}`, true);
         throw err;
       }),
@@ -164,5 +174,6 @@
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: '800px 0px' });
     io.observe(host);
   } else load();
-  if (location.hash === '#buy' || location.hash === '#fx-devices') load();
+  if (location.hash === '#buy' || location.hash === '#' + C.product) load();
+  }
 })();

@@ -8,7 +8,9 @@ const MANAGER_URL = SITE + '/assets/Download/Cool%20Reaper%20Script%20Manager.lu
 // What each script is called in REAPER's Actions list, and what it needs besides REAPER
 const SCRIPT_INFO = {
 	'vertical-fx-list': { action: 'CRS_vertical fx list', needs: 'ReaImGui, js_ReaScriptAPI and SWS' },
-	'fx-devices': { action: 'CRS_FX Devices', needs: 'ReaImGui and js_ReaScriptAPI' }
+	'fx-devices': { action: 'CRS_FX Devices', needs: 'ReaImGui and js_ReaScriptAPI' },
+	// plugins, not a script: nothing to run from the Actions list
+	'fxd-effects': { plugins: true, needs: 'REAPER 7 on macOS or Windows' }
 };
 
 const C = {
@@ -39,9 +41,14 @@ function setupSteps(productName, product, email) {
 		{ title: 'Sign in and install', body: [
 			`Next to ${productName}, click {b:Sign in with browser}. The activation page opens with a code.`,
 			`Sign in with {b:${email}}, the email this message was sent to. Google, a password, or {b:Email me a sign-in link} all work, as long as it's this address.`,
-			`Check that the code matches the one in REAPER and click {b:Activate}. Back in the Script Manager, click {b:Install}.`
+			info.plugins
+				? `Check that the code matches the one in REAPER and click {b:Activate}. Back in the Script Manager, click {b:Install} on FXD Effects and on Prism EQ+.`
+				: `Check that the code matches the one in REAPER and click {b:Activate}. Back in the Script Manager, click {b:Install}.`
 		] },
-		{ title: `Run ${productName}`, body: [
+		info.plugins ? { title: 'Add an effect', body: [
+			`Open a track's FX browser and look under {b:CLAP}: the effects are named {code:FXD Compressor}, {code:FXD Delay} and so on, and {code:Prism EQ+} is there too. They open already activated.`,
+			`Updates come through the Script Manager: run it again now and then and click {b:Update}.`
+		] } : { title: `Run ${productName}`, body: [
 			`Search the Actions list for {code:${info.action}} and run it. It opens already activated. Give it a shortcut so it's one key away.`,
 			`Updates and our other scripts live under {b:Scripts and updates} in its settings, so you won't need the Script Manager file again.`
 		] }

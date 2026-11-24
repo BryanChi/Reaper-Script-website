@@ -125,9 +125,30 @@ module.exports = {
 	// inside the plugins: without one the audio passes through. The release build leaves the held ones out
 	// (FX Devices' Native Plugins/FXD Effects/src/lib.rs: HELD). Its Waveshaper replaces the C++ one above,
 	// which never shipped.
+	// Its own purchase too (bryan, 2026-11-20: $59 for people who don't need FX Devices): an FXD Effects
+	// license or trial unlocks the effects and Prism EQ+ only, and FX Devices' license or trial unlocks
+	// them as before (acceptsLicenseOf: store.js takes those keys for this product). The plugins read
+	// this license's ExtState section first, then FX Devices' (shared/fxd_license.h).
+	'fxd-effects': {
+		name: 'FXD Effects',
+		kind: 'clap',
+		price: '59.00',
+		description: '35 FX Devices effects as native plugins: dynamics, drive, filters, modulation, delays and reverbs, repair and utility, each with built-in modulators. Prism EQ+ included.',
+		owner: 'BryanChi',
+		repo: 'BryanChi-FX-Devices',
+		branch: 'main',
+		releasesOnly: true,
+		acceptsLicenseOf: ['fx-devices'],
+		licenseSection: 'CRS_FXD_Effects_License',
+		buyUrl: 'https://www.coolreaperscripts.com/fxd-effects#buy',
+		pageUrl: 'https://www.coolreaperscripts.com/fxd-effects',
+		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/FXD Effects',
+		platforms: clapPlatforms('FXD Effects'),
+		minClient: 6
+	},
 	// Prism EQ+: Prism EQ's source built with PRISM_PLUS (creative shapes, analog models, custom dynamics
-	// curves, band LFOs). FX Devices' license or trial, for the download and inside the plugin: without one
-	// the audio passes through. CLAP only (no VST3 build yet). Ships from FX Devices 1.0 beta 14.1.
+	// curves, band LFOs). FXD Effects' or FX Devices' license or trial, for the download and inside the plugin:
+	// without one the audio passes through. CLAP only (no VST3 build yet). Ships from FX Devices 1.0 beta 14.1.
 	'prism-eq-plus': {
 		name: 'Prism EQ+',
 		kind: 'clap',
@@ -136,22 +157,10 @@ module.exports = {
 		repo: 'BryanChi-FX-Devices',
 		branch: 'main',
 		releasesOnly: true,
-		licenseOf: 'fx-devices',
+		// part of FXD Effects (bryan, 2026-11-20): its license, or FX Devices' (which FXD Effects takes too)
+		licenseOf: 'fxd-effects',
 		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/Prism EQ+',
 		platforms: clapPlatforms('FXD Prism EQ+'),
-		minClient: 6
-	},
-	'fxd-effects': {
-		name: 'FXD Effects',
-		kind: 'clap',
-		description: '35 FX Devices effects as native plugins: dynamics, drive, filters, modulation, delays and reverbs, repair and utility, each with built-in modulators.',
-		owner: 'BryanChi',
-		repo: 'BryanChi-FX-Devices',
-		branch: 'main',
-		releasesOnly: true,
-		licenseOf: 'fx-devices',
-		installDir: 'Scripts/CoolReaperScripts/FXD Plugins/FXD Effects',
-		platforms: clapPlatforms('FXD Effects'),
 		minClient: 6
 	}
 };
@@ -216,7 +225,19 @@ function clapPlatforms(name, opts) {
 // A product as one platform gets it: its platform's include, routes and files over the rest. null
 // when it has no build for that platform (or the client didn't say which it is). The client's
 // generation decides whether a plugin's VST3 comes along (older Script Managers don't know '{VST3}').
+// Script Managers from 3.19: products with their own license that also take another's (acceptsLicenseOf:
+// FXD Effects takes FX Devices'). Older Managers know only licenseOf, so they get FXD Effects (and Prism
+// EQ+) as FX Devices' plugins, as before: an FX Devices key works there, an FXD Effects key needs 3.19.
+const SHARED_LICENSE_CLIENT = 9;
 function forPlatform(product, platform, client) {
+	if ((Number(client) || 0) < SHARED_LICENSE_CLIENT) {
+		if (product.acceptsLicenseOf) {
+			product = Object.assign({}, product, { licenseOf: product.acceptsLicenseOf[0] });
+			delete product.acceptsLicenseOf; delete product.licenseSection; delete product.price; delete product.buyUrl;
+		} else if (product.licenseOf && module.exports[product.licenseOf] && module.exports[product.licenseOf].acceptsLicenseOf) {
+			product = Object.assign({}, product, { licenseOf: module.exports[product.licenseOf].acceptsLicenseOf[0] });
+		}
+	}
 	// a main script renamed at install (oldMain): Managers before 3.18 keep the old name, since they
 	// would leave the old file next to the new one and take that for a developer's checkout
 	if (product.oldMain && (Number(client) || 0) < RENAME_CLIENT) {
@@ -244,11 +265,13 @@ Object.defineProperty(module.exports, 'clapPlatforms', { value: clapPlatforms, e
 // once the newest release has its file (inRelease), so a JSFX still in development stays hidden.
 const FXD_JSFX_DIR = 'BryanChi_FX_Devices/FXD JSFXs/';
 const NOTE_TOOLS = FXD_JSFX_DIR + 'FXD Note Tools.jsfx-inc';
+// [name, description, extra files, the file's name when it isn't the name: an effect renamed
+// (bryan, 2026-11-20) keeps its file, id and install folder so installs and previews carry on]
 const FXD_JSFX = [
 	['Analog Drive', 'Six saturation circuits (tube, transformer, console and more), oversampled, with the bloom and sag of real gear.'],
 	['Analog Filter', 'Five analog filter models (ladder, MS-20, SEM, diode, 303) that stay in tune at full resonance.'],
 	['Audio To Notes', 'Turns the audio on a track into MIDI notes and CC in real time: drums to triggers, a voice to a synth line.', [NOTE_TOOLS]],
-	['Bucket Brigade', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.'],
+	['BBD Chorus', 'Chorus, flanger, vibrato and tremolo, run through a model of the bucket-brigade chips in the classic boxes.', null, 'Bucket Brigade'],
 	['Compressor', 'One compressor, 24 models: from transparent digital to the feel of the classic analog units.'],
 	['Kaleido Chorus', 'One chorus engine, eight flavors, from a classic two-voice chorus to an octave shimmer.'],
 	['Note Echo', 'Repeats incoming notes in time, with pitch steps, strum and decay.', [NOTE_TOOLS]],
@@ -256,11 +279,11 @@ const FXD_JSFX = [
 	['Note Shaper', 'Rewrites incoming notes: filter them, snap them to a scale, add chord voices and more.', [NOTE_TOOLS]],
 	['Patina', 'Analog character in nine modules, from a little warmth to gear falling apart.'],
 	['Step Engine', 'An arpeggiator and a step sequencer in one, with five independent step lanes.', [NOTE_TOOLS]],
-	['Surface Noise', 'Layered vinyl, tape and electrical noise: hiss, crackle, hum and static, each with its own level.'],
-	['Tape Glitch', 'Stutters, reverses and tape stops on the beat grid, played from a tape loop.'],
+	['LoFi Noise', 'Layered vinyl, tape and electrical noise: hiss, crackle, hum and static, each with its own level.', null, 'Surface Noise'],
+	['Beat Glitch', 'Stutters, reverses and tape stops on the beat grid, played from a tape loop.', null, 'Tape Glitch'],
 	['Tape Machine', 'A whole tape machine: noise reduction, record EQ, tape saturation, wow and flutter.'],
-	['Vintage Sampler', 'The converters of a 1980s sampler: the aliasing, the bit depth and the steps they leave.'],
-	['Vintage Space', 'Six vintage spaces, each modelled as the thing itself: room, hall, chamber, plate, spring and tape echo.'],
+	['Vintage Converter', 'The converters of a 1980s sampler: the aliasing, the bit depth and the steps they leave.', null, 'Vintage Sampler'],
+	['Vintage Reverb', 'Six vintage reverbs, each modelled as the thing itself: room, hall, chamber, plate, spring and tape echo.', null, 'Vintage Space'],
 	['Wow Flutter', 'The pitch wobble of old tape and vinyl transports, up to a tape stop.']
 ];
 
@@ -275,11 +298,11 @@ const HELD = new Set([]);
 const HELD_CORE = ['Noise Splitter'];
 for (const name of HELD_CORE) module.exports['fx-devices'].optional.push(FXD_JSFX_DIR + 'FXD ' + name + '.jsfx');
 
-for (const [name, description, deps] of FXD_JSFX) {
-	const file = FXD_JSFX_DIR + 'FXD ' + name + '.jsfx';
+for (const [name, description, deps, stem = name] of FXD_JSFX) {
+	const file = FXD_JSFX_DIR + 'FXD ' + stem + '.jsfx';
 	module.exports['fx-devices'].optional.push(file);
 	if (HELD.has(name)) continue;
-	const id = 'fxd-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	const id = 'fxd-' + stem.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 	module.exports[id] = {
 		name,
 		kind: 'jsfx',
@@ -293,10 +316,10 @@ for (const [name, description, deps] of FXD_JSFX) {
 		licenseOf: 'fx-devices',
 		include: [file].concat(deps || []),
 		inRelease: file,
-		installDir: 'Scripts/CoolReaperScripts/FXD JSFX/' + name,
+		installDir: 'Scripts/CoolReaperScripts/FXD JSFX/' + stem,
 		routes: [{ from: FXD_JSFX_DIR, to: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/' }],
 		includedIn: 'fx-devices',
-		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD ' + name + '.jsfx',
+		installedFile: 'Effects/FX Devices/BryanChi_FX_Devices/FXD JSFXs/FXD ' + stem + '.jsfx',
 		// Script Managers before 3.11 (5) install every FX Devices JSFX with FX Devices
 		minClient: 5
 	};

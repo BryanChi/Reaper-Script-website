@@ -283,6 +283,7 @@
 					<select id="newLicenseProduct" style="max-width:200px; margin:0;">
 						<option value="vertical-fx-list">Vertical FX List</option>
 						<option value="fx-devices">FX Devices</option>
+						<option value="fxd-effects">FXD Effects</option>
 					</select>
 					<button class="btn btn-primary" onclick="createLicense()">Create license</button>
 					<button class="btn" onclick="sendEmailPreview()" title="Sends the purchase email for this product with a sample key. Creates no license.">Send purchase email preview</button>
@@ -593,7 +594,7 @@
 			});
 		}
 
-		const PRODUCT_NAMES = { 'vertical-fx-list': 'Vertical FX List', 'fx-devices': 'FX Devices' };
+		const PRODUCT_NAMES = { 'vertical-fx-list': 'Vertical FX List', 'fx-devices': 'FX Devices', 'fxd-effects': 'FXD Effects' };
 		function productLabel(id) {
 			id = id || 'vertical-fx-list';
 			return escapeHtml(PRODUCT_NAMES[id] || id);

@@ -37,6 +37,16 @@ function productName(id) {
 	return (PRODUCTS[id] && PRODUCTS[id].name) || id;
 }
 
+// A key fits a product when it was issued for it, or for a product it takes the license of
+// (acceptsLicenseOf: FXD Effects takes FX Devices' keys and trials, so the effects stay unlocked for
+// FX Devices' owners; an FXD Effects key never unlocks FX Devices)
+function keyFits(row, product) {
+	const own = rowProduct(row);
+	if (own === product) return true;
+	const p = PRODUCTS[product];
+	return !!(p && Array.isArray(p.acceptsLicenseOf) && p.acceptsLicenseOf.includes(own));
+}
+
 function wrongProduct(row, product) {
 	return {
 		ok: false,
@@ -153,7 +163,7 @@ async function memVerifyLicense(licenseKey, deviceId, product) {
 	// Find license by license key
 	const license = store.licenses[licenseKey];
 	if (license) {
-		if (rowProduct(license) !== product) return wrongProduct(license, product);
+		if (!keyFits(license, product)) return wrongProduct(license, product);
 		const isActive = license.status === 'active';
 		const notExpired = !license.expiresAt || now < license.expiresAt;
 		if (isActive && notExpired) {
@@ -166,10 +176,10 @@ async function memVerifyLicense(licenseKey, deviceId, product) {
 	const trialEntry = Object.entries(store.trials).find(([id, trial]) => trial.licenseKey === licenseKey);
 	if (trialEntry) {
 		const [, trial] = trialEntry;
-		if (rowProduct(trial) !== product) return wrongProduct(trial, product);
+		if (!keyFits(trial, product)) return wrongProduct(trial, product);
 		// its owner has a license for this script now (see licenseForTrial): answer with that
 		const owned = Object.entries(store.licenses).find(([, l]) => l.email === normalizeEmail(trial.email)
-			&& l.status === 'active' && rowProduct(l) === product && (!l.expiresAt || now < l.expiresAt));
+			&& l.status === 'active' && keyFits(l, product) && (!l.expiresAt || now < l.expiresAt));
 		if (owned) {
 			const [ownedKey, lic] = owned;
 			return { ok: true, status: 'active', expiresAt: lic.expiresAt || null, updatesUntil: updatesUntil(lic), licenseKey: ownedKey, upgradedFrom: 'trial' };
@@ -416,7 +426,7 @@ async function licenseForTrial(trialRow, deviceId, product) {
 		.eq('status', 'active')
 		.order('created_at', { ascending: false });
 	if (error || !rows) return null;
-	const lic = rows.find(l => rowProduct(l) === product && (!l.expires_at || now < new Date(l.expires_at).getTime()));
+	const lic = rows.find(l => keyFits(l, product) && (!l.expires_at || now < new Date(l.expires_at).getTime()));
 	if (!lic) return null;
 	const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
 	const answer = { ok: true, status: 'active', expiresAt: exp, updatesUntil: updatesUntil(lic), licenseKey: lic.license_key, upgradedFrom: 'trial' };
@@ -470,7 +480,7 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 
 	if (!licErr && licRows) {
 		const lic = licRows;
-		if (rowProduct(lic) !== product) return wrongProduct(lic, product);
+		if (!keyFits(lic, product)) return wrongProduct(lic, product);
 		const exp = lic.expires_at ? new Date(lic.expires_at).getTime() : null;
 		
 		// Check if license is expired
@@ -523,7 +533,7 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 	}
 
 	if (!trialErr && trialRow) {
-		if (rowProduct(trialRow) !== product) return wrongProduct(trialRow, product);
+		if (!keyFits(trialRow, product)) return wrongProduct(trialRow, product);
 		const upgraded = await licenseForTrial(trialRow, deviceId, product);
 		if (upgraded) return upgraded;
 		const expiresAt = new Date(trialRow.expires_at || trialRow.expiresAt).getTime();
@@ -556,7 +566,23 @@ async function verifyLicense(licenseKey, deviceId, productInput) {
 	return { ok: false, status: 'invalid', reason: 'License not found or inactive' };
 }
 
+// This email's license or trial for a product. A product that takes another's license (FXD Effects
+// takes FX Devices') answers with the best of them: a license of its own, else the other's license,
+// else a running trial of its own, else the other's running trial, else what its own lookup said. So
+// signing in to FXD Effects with an FX Devices account hands over the FX Devices key (no second
+// trial offered).
 async function getLicenseOrTrialStatus(email, productInput) {
+	const product = normalizeProduct(productInput);
+	const own = await ownLicenseOrTrialStatus(email, productInput);
+	const also = product && PRODUCTS[product] && PRODUCTS[product].acceptsLicenseOf;
+	if (!also || !also.length || (own.ok && own.status === 'active')) return own;
+	const others = [];
+	for (const id of also) others.push(await ownLicenseOrTrialStatus(email, id));
+	const pick = st => others.find(o => o.ok && o.status === st && o.licenseKey);
+	return pick('active') || (own.ok && own.status === 'trial' ? own : null) || pick('trial') || own;
+}
+
+async function ownLicenseOrTrialStatus(email, productInput) {
 	const normalized = normalizeEmail(email);
 	const product = normalizeProduct(productInput);
 	if (!product) {

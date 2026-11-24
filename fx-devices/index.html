@@ -255,19 +255,87 @@
   <section class="wrap more" id="more" aria-labelledby="more-h">
     <p class="kicker"><b>05</b> Workflow</p>
     <h2 id="more-h">Built around<br><em>how you actually work.</em></h2>
-    <div class="cards">
-      <article class="card card-wide">
-        <div>
-          <h3>Presets, then morph between two</h3>
-          <p>Every device opens the same preset list with search, favourites and recents. Store two states as A and B, and one slider moves every parameter between them.</p>
-        </div>
-        <div class="morph" id="morph"></div>
-      </article>
-      <article class="card"><span class="ci">⌘</span><h3>Learn</h3><p>Move a control in a plugin window and click Learn. It turns into a knob on the device.</p></article>
-      <article class="card"><span class="ci">▦</span><h3>Layout editor</h3><p>Build a front panel for any plugin with knobs, sliders, buttons and your own colours.</p></article>
-      <article class="card"><span class="ci">⊞</span><h3>Add FX, your way</h3><p>A quick search, a full browser by folder or developer, or straight into a slot.</p></article>
-      <article class="card"><span class="ci">♪</span><h3>MIDI devices included</h3><p>Note Generator, Step Engine, Echo &amp; Strum, Note Shaper and Audio To Notes come with it.</p></article>
-      <article class="card"><span class="ci">◎</span><h3>Native REAPER underneath</h3><p>Your FX stay ordinary REAPER FX, with REAPER's automation and delay compensation.</p></article>
+    <p class="wf-intro">The everyday parts: how FX go in, how presets load and blend, and how a plugin gets its front panel. Every picture below is FX Devices running in REAPER.</p>
+
+    <article class="wf" id="wf-add">
+      <div class="wf-copy">
+        <p class="wf-n">5.1 &middot; FX adder</p>
+        <h3>Add FX, your way</h3>
+        <p>Click <b>+ Add FX</b> at the end of the chain, or between two devices, or press <b>Cmd/Ctrl&nbsp;F</b>. Start typing and one ranked list comes back, with the plugins you use most near the top.</p>
+        <ul class="ticks">
+          <li>Three views: a quick search palette, a full browser with categories and makers, and a small menu right on the slot.</li>
+          <li>Filter by type (Dynamics, EQ, Reverb, Synth&hellip;), star favourites, and see which plugins already have an FX Devices layout.</li>
+          <li>Pick several plugins at once and add them in one go, or drag them straight onto the chain.</li>
+          <li>Choose VST3, CLAP or AU per plugin, or add it with a preset already loaded.</li>
+        </ul>
+      </div>
+      <figure class="frame wf-shot"><img src="/fx-devices/img/wf-add-fx.webp" width="334" height="457" alt="The FX adder in FX Devices: search box, type filters and a ranked list of plugins" loading="lazy" decoding="async"></figure>
+    </article>
+
+    <article class="wf wf-flip" id="wf-presets">
+      <div class="wf-copy">
+        <p class="wf-n">5.2 &middot; Presets</p>
+        <h3>One preset list for every plugin</h3>
+        <p>Choose <b>Presets</b> from a device's menu and its presets open in the same list, whatever company made the plugin: folders, recents and favourites, with a search box that looks through all of them.</p>
+        <ul class="ticks">
+          <li>Arrow keys step through presets and play them as you go. Enter keeps one, Esc puts the old sound back.</li>
+          <li>Turn on <b>Audition</b> to hear a preset before you load it.</li>
+          <li><b>+ Save</b> stores the current sound as a new preset.</li>
+        </ul>
+      </div>
+      <figure class="frame wf-shot wf-tall"><img src="/fx-devices/img/wf-presets.webp" width="680" height="1060" alt="The preset list for Twin 3 in FX Devices, with folders, recents, search and the Morph and Audition switches" loading="lazy" decoding="async"></figure>
+    </article>
+
+    <article class="wf" id="wf-morph">
+      <div class="wf-copy">
+        <p class="wf-n">5.3 &middot; Preset morph</p>
+        <h3>Morph between presets</h3>
+        <p>Switch on <b>Morph</b> in the preset list and pick the presets you want as A and B. One slider then moves every parameter from one sound to the other.</p>
+        <ul class="ticks">
+          <li>Add a third preset and the slider becomes a triangle; add a fourth and it becomes a square pad.</li>
+          <li>The morph sits right on the device, next to its title, so you can play it while the track runs, or put a modulator on it.</li>
+          <li>Choose which parameters stay put, such as mode switches or the output level, so a morph never jumps the sound somewhere you didn't want.</li>
+        </ul>
+      </div>
+      <div class="wf-pair">
+        <figure class="frame wf-shot"><img src="/fx-devices/img/wf-morph-pad.webp" width="680" height="690" alt="Preset morph with three presets: Stored, Fizzy Old Saws and Morning Fog on a triangle pad" loading="lazy" decoding="async"><figcaption>Three presets on a triangle.</figcaption></figure>
+        <figure class="frame wf-shot"><img src="/fx-devices/img/wf-morph-device.webp" width="1740" height="505" alt="Twin 3 in FX Devices with the morph pad next to the device title" loading="lazy" decoding="async"><figcaption>The morph pad on the device itself.</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="wf wf-flip" id="wf-auto-layout">
+      <div class="wf-copy">
+        <p class="wf-n">5.4 &middot; Auto Layout creator</p>
+        <h3>A front panel for any plugin, made for you</h3>
+        <p>Plugins without a layout show up as a plain list of knobs. Open the device's menu, choose <b>Auto Layout creator</b> and click <b>Make it with Auto Layout creator</b>. It looks up the plugin, studies pictures of its real interface and builds a matching FX Devices layout. You can keep working while it runs, and the menu bar tells you when it's done.</p>
+        <ul class="ticks">
+          <li>Not quite right? Click <b>Edit</b>, say what to change, and it makes a new version. Older versions stay in the history.</li>
+          <li>Layouts other people made for the same plugin are listed too, ready to try.</li>
+        </ul>
+      </div>
+      <div class="wf-pair">
+        <figure class="frame wf-shot"><img src="/fx-devices/img/wf-alc-window.webp" width="1050" height="780" alt="The Auto Layout creator window for the Codec plugin" loading="lazy" decoding="async"><figcaption>One click to start.</figcaption></figure>
+        <figure class="frame wf-shot"><img src="/fx-devices/img/wf-alc-result.webp" width="760" height="420" alt="The finished Codec layout in FX Devices, with a waveform display and eight knobs" loading="lazy" decoding="async"><figcaption>The finished layout for Codec.</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="wf" id="wf-layout-editor">
+      <div class="wf-copy">
+        <p class="wf-n">5.5 &middot; Layout editor</p>
+        <h3>Or build the panel yourself</h3>
+        <p>Choose <b>Edit layout</b> from a device's menu (or Ctrl+Shift+right-click it) and the device opens for editing. Add the parameters you want and place them anywhere on the panel.</p>
+        <ul class="ticks">
+          <li>Knobs, sliders, switches, drop-downs, XY pads and value readouts, each with its own size, style and colour.</li>
+          <li>Add text, shapes and your own images, and group controls into sections.</li>
+          <li>Show a control only when another one is set a certain way, so the panel follows the plugin's modes.</li>
+        </ul>
+      </div>
+      <figure class="frame wf-shot"><img src="/fx-devices/img/wf-layout-editor.webp" width="334" height="457" alt="The FX Devices layout editor with a device open for editing" loading="lazy" decoding="async"></figure>
+    </article>
+
+    <div class="wf-native">
+      <h3>Native REAPER underneath</h3>
+      <p>Everything above works on ordinary REAPER FX. Your plugins stay in REAPER's own FX chain, with REAPER's automation, delay compensation and project files.</p>
     </div>
   </section>
 
@@ -307,7 +375,7 @@
   <!-- ======================================================== faq -->
   <section class="wrap faq" aria-labelledby="faq-h">
     <h2 id="faq-h">Questions</h2>
-    <details><summary>Do I need FabFilter plugins?</summary><p>No. Any plugin works. Plugins without a hand-built panel show their parameters as knobs, and you choose which ones with Learn or the layout editor.</p></details>
+    <details><summary>Do I need FabFilter plugins?</summary><p>No. Any plugin works. Plugins without a hand-built panel show their parameters as knobs, and you can build a panel for any of them in the layout editor or with the Auto Layout creator.</p></details>
     <details><summary>Does it change how my plugins sound?</summary><p>No. Your plugins do the processing as always. FX Devices gives them a front panel and adds small helper effects for modulation and splitting.</p></details>
     <details><summary>How do I assign a modulator?</summary><p>Right-click the modulator to arm it, then right-drag any knob: up for a positive range, down for a negative one, and hold Alt to make it go both ways. Press Esc when you're done.</p></details>
     <details><summary>Can I modulate plugins that don't have a custom panel?</summary><p>Yes. Any parameter you put on a device can take modulators, on any plugin.</p></details>

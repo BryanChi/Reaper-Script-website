@@ -481,41 +481,6 @@
     $$('.compare .ba-toggle button').forEach(b => b.addEventListener('click', () => { auto = false; after = b.dataset.ba === 'after'; set(after); }));
   })();
 
-  /* ------------------------------------------------------------ preset morph */
-  (function morph() {
-    const host = $('#morph');
-    const A = { name: 'Small Room', v: [0.22, 0.18, 0.72, 0.3] }, B = { name: 'Big Hall', v: [0.86, 0.9, 0.34, 0.46] };
-    const defs = [
-      { label: 'Size', fmt: v => Math.round(v * 100) + '%' },
-      { label: 'Decay', fmt: v => (0.2 * Math.pow(40, v)).toFixed(1) + ' s' },
-      { label: 'Tone', fmt: v => (1 + v * 15).toFixed(1) + ' kHz' },
-      { label: 'Mix', fmt: v => Math.round(v * 100) + '%' },
-    ];
-    let t = 0, auto = !FXD.reducedMotion, phase = 0;
-    const knobs = defs.map((d, i) => FXD.knob({ label: d.label, value: A.v[i], r: 20, fmt: d.fmt, color: '#5fd3a0', onStart: () => { auto = false; } }));
-    const thumb = h('div', { class: 'mo-thumb' });
-    const slider = h('div', { class: 'mo-slider', role: 'slider', tabindex: 0, 'aria-label': 'Morph between A and B', 'aria-valuemin': 0, 'aria-valuemax': 100 }, thumb);
-    const cur = h('div', { class: 'mo-preset' });
-    function apply() {
-      thumb.style.left = (t * 100) + '%';
-      slider.setAttribute('aria-valuenow', Math.round(t * 100));
-      knobs.forEach((k, i) => k.set(lerp(A.v[i], B.v[i], t), true));
-      cur.replaceChildren(h('b', null, Math.round((1 - t) * 100) + '% '), A.name, ' · ', h('b', null, Math.round(t * 100) + '% '), B.name);
-    }
-    const fromX = x => { const b = slider.getBoundingClientRect(); t = clamp((x - b.left) / b.width); apply(); };
-    slider.addEventListener('pointerdown', e => { auto = false; slider.setPointerCapture(e.pointerId); fromX(e.clientX); });
-    slider.addEventListener('pointermove', e => { if (slider.hasPointerCapture(e.pointerId)) fromX(e.clientX); });
-    slider.addEventListener('keydown', e => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { auto = false; t = clamp(t + 0.05); apply(); e.preventDefault(); }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { auto = false; t = clamp(t - 0.05); apply(); e.preventDefault(); }
-    });
-    host.append(
-      h('div', { class: 'mo-row' }, h('span', { class: 'mo-ab', style: { background: FXD.C.morphA } }, 'A'), slider, h('span', { class: 'mo-ab', style: { background: FXD.C.morphB } }, 'B')),
-      cur, h('div', { class: 'mo-knobs fx' }, knobs.map(k => k.el)));
-    apply();
-    FXD.onFrame(dt => { if (!auto || !host.isConnected) return; phase += dt * 0.35; t = 0.5 - 0.5 * Math.cos(phase); apply(); });
-  })();
-
   /* ------------------------------------------------------------ live device dialog */
   const dlg = $('#live'), liveStage = $('#live-stage'), playBtn = $('#live-play');
   let offs = [], clean = null;

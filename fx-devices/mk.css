@@ -340,29 +340,31 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
 
 /* more */
 .more { padding-top: 150px; }
-.cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin-top: 48px; background: var(--line); border: 1px solid var(--line); }
-.card { grid-column: span 2; padding: 28px 26px; background: #000; transition: background .2s; }
-.cards .card:nth-child(2), .cards .card:nth-child(3) { grid-column: span 3; }
-.card:hover { background: #070707; }
-.card .ci { display: block; font-size: 20px; line-height: 1; color: var(--acc); }
-.card h3 { font: 400 24px/1.02 var(--f-display); text-transform: uppercase; letter-spacing: .015em; margin: 18px 0 8px; }
-.card p { color: var(--ink-2); font-size: 15px; line-height: 1.6; margin: 0; }
-.card-wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; align-items: center; padding: 36px 32px; }
-.card-wide h3 { font-size: clamp(32px, 3.4vw, 46px); line-height: .95; margin-top: 0; }
-.card-wide p { font-size: 16px; }
-.card-wide:hover { background: #000; }
-
-/* morph mini demo */
-.morph { display: flex; flex-direction: column; gap: 14px; padding: 20px; background: #070707; border: 1px solid rgba(255, 255, 255, .14); }
-.mo-row { display: flex; align-items: center; gap: 12px; }
-.mo-ab { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .14); font: 700 13px var(--f-ui); color: #fff; display: grid; place-items: center; flex: none; }
-.mo-name { font: 500 12px var(--f-ui); color: var(--ink-2); white-space: nowrap; }
-.mo-slider { position: relative; flex: 1; height: 26px; border-radius: 8px; cursor: ew-resize; touch-action: none; outline-offset: 3px;
-  background: linear-gradient(90deg, #18464e, #184e37); border: 1px solid rgba(255, 255, 255, .1); }
-.mo-thumb { position: absolute; top: -3px; width: 12px; height: 30px; margin-left: -6px; border-radius: 4px; background: #e9ecef; box-shadow: 0 2px 6px #000; }
-.mo-knobs { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
-.mo-preset { font: 600 11px var(--f-mono); color: var(--ink-3); text-align: center; letter-spacing: .04em; }
-.mo-preset b { color: var(--ink); font-weight: 600; }
+.wf-intro { max-width: 62ch; margin: 26px 0 0; color: var(--ink-2); font-size: 17px; line-height: 1.6; }
+.wf { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 56px; align-items: center; margin-top: 110px; scroll-margin-top: 80px; }
+.wf-flip > .wf-copy { order: 2; }
+.wf-n { margin: 0; font: 500 11.5px var(--f-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
+.wf h3 { font: 400 clamp(30px, 3.4vw, 48px)/.95 var(--f-display); text-transform: uppercase; letter-spacing: .01em; margin: 14px 0 16px; }
+.wf-copy > p:not(.wf-n) { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.65; max-width: 56ch; }
+.wf-copy b { color: var(--ink); font-weight: 600; }
+.wf .ticks { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 12px; }
+.wf .ticks li { color: var(--ink-2); font-size: 15px; line-height: 1.55; }
+.wf-shot { margin: 0; }
+.wf-shot img { display: block; width: 100%; height: auto; }
+.wf-tall { max-width: 420px; justify-self: center; width: 100%; }
+.wf-shot figcaption { padding: 10px 14px; border-top: 1px solid rgba(255, 255, 255, .1); font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.wf-pair { display: grid; gap: 18px; align-content: center; }
+.wf-pair > .wf-shot:first-child { max-width: 78%; }
+.wf-wide { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+.wf-wide .wf-copy > p:not(.wf-n), .wf-wide .ticks { max-width: 72ch; }
+.wf-cmps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.wf-cmp { margin: 0; display: grid; gap: 8px; }
+.wf-cmp > figcaption { font: 400 22px/1 var(--f-display); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 4px; }
+.wf-cmp img { display: block; width: 100%; height: auto; }
+.wf-cmp-l { margin: 0 0 10px; font: 500 10.5px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.wf-native { margin-top: 110px; padding: 30px 32px; border: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 56px; align-items: baseline; }
+.wf-native h3 { margin: 0; font: 400 clamp(26px, 2.6vw, 36px)/.95 var(--f-display); text-transform: uppercase; letter-spacing: .015em; }
+.wf-native p { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.65; }
 
 /* get */
 .get { padding-top: 150px; }
@@ -499,10 +501,10 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat:nth-child(3) { border-left: 0; }
   .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cards .card, .cards .card:nth-child(2), .cards .card:nth-child(3) { grid-column: span 1; }
-  .cards .card:last-child { grid-column: 1 / -1; }
-  .card-wide, .cards .card-wide { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); }
+  .wf, .wf-native { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 80px; }
+  .wf-cmps { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .wf-flip > .wf-copy { order: 0; }
+  .wf-pair > .wf-shot:first-child { max-width: none; }
   .get-card { grid-template-columns: minmax(0, 1fr); }
   .buy-card { grid-template-columns: minmax(0, 1fr); }
   .setup-card { grid-template-columns: minmax(0, 1fr); }
@@ -534,8 +536,7 @@ h2 { font: 400 clamp(40px, 6vw, 92px)/.94 var(--f-display); text-transform: uppe
   .points { grid-template-columns: minmax(0, 1fr); }
   .point, .point + .point { padding-left: 0; border-left: 0; }
   .point + .point { border-top: 1px solid var(--line); margin-top: 0; }
-  .cards { grid-template-columns: minmax(0, 1fr); }
-  .card-wide { padding: 28px 22px; }
+  .wf-native { padding: 24px 20px; }
   .arrange { --hw: 78px; }
   .ar-head span, .ar-head em { display: none; }
   .md-stage { padding: 12px; }

@@ -117,9 +117,17 @@ local function BuildParamMap(D, spec)
     end
     local map = {}
     for key, list in pairs(spec.Params or {}) do
-        for _, nm in ipairs(list) do
-            if type(nm) == 'string' and byName[nm:lower()] then map[key] = byName[nm:lower()]; break end
+        -- idx first when that param has one of the names: two params can share a name (AL-1-style
+        -- "Threshold" twice), and the name alone would always find the first
+        local at = type(list.idx) == 'number' and names[list.idx]
+        if at then
+            for _, nm in ipairs(list) do
+                if type(nm) == 'string' and nm:lower() == at:lower() then map[key] = list.idx; break end
+            end
         end
+        if map[key] == nil then for _, nm in ipairs(list) do
+            if type(nm) == 'string' and byName[nm:lower()] then map[key] = byName[nm:lower()]; break end
+        end end
         if map[key] == nil and type(list.idx) == 'number' and list.idx < n then map[key] = list.idx end
     end
     fx.SFX_Map, fx.SFX_MapIdx, fx.SFX_NumParams, fx.SFX_Names = map, D.FX_Idx, n, names
@@ -626,11 +634,52 @@ function Dev:Meter(x, y, w, h, v, clr, o)
     if o.label then self:Text(x + w / 2, y + h + 5, C.TextMute, o.label, 8, 'c', true) end
 end
 
+--- peak (linear) of what the plugin's detector listens to, from its detector-input choice `k`
+--- (ReaComp / ReaGate 'SignIn'): "Main ..." reads the main pins' track channels, "Aux ..." the
+--- sidechain pins (2 / 3, track channels 3 / 4 unless re-routed in the pin connector); "... L" /
+--- "... R" only that side. Also returns true when it reads the sidechain.
+function Dev:DetectorPeak(k)
+    local s = (k and self:Idx(k)) and self:Fmt(k):lower() or ''
+    local aux = s:find('aux') or s:find('side')
+    local main = s:find('main') or not aux
+    local onlyL = s:find('%f[%w]l%f[%W]') and not s:find('l%s*%+%s*r') and not s:find('%f[%w]r%f[%W]')
+    local onlyR = s:find('%f[%w]r%f[%W]') and not s:find('l%s*%+%s*r') and not s:find('%f[%w]l%f[%W]')
+    local pins = {}
+    local function Add(l, rr)
+        if not onlyR then pins[#pins + 1] = l end
+        if not onlyL then pins[#pins + 1] = rr end
+    end
+    if main then Add(0, 1) end
+    if aux then Add(2, 3) end
+    local nch = math.floor(r.GetMediaTrackInfo_Value(LT_Track, 'I_NCHAN') or 2)
+    local pk, seen = 0, {}
+    for _, pin in ipairs(pins) do
+        local lo, hi = r.TrackFX_GetPinMappings(LT_Track, self.FX_Idx, 0, pin)
+        lo, hi = lo or 0, hi or 0
+        if lo == 0 and hi == 0 and pin < 2 then lo = 1 << pin end -- unknown mapping: plain stereo
+        for ch = 0, math.min(nch, 64) - 1 do
+            local bit = ch < 32 and (lo >> ch) & 1 or (hi >> (ch - 32)) & 1
+            if bit == 1 and not seen[ch] then
+                seen[ch] = true
+                pk = math.max(pk, r.Track_GetPeakInfo(LT_Track, ch) or 0)
+            end
+        end
+    end
+    return pk, aux and true or false
+end
+
 --- the track's input before any FX (FXD Macros measures it, and is added to a track without it): n
 --- peaks (linear, 1 = 0 dB), oldest first, and how many per second; nil while there's none yet
 function Dev:InputWave(n)
     if not (CLAPMacros and CLAPMacros.Input_Wave and LT_Track) then return end
     return CLAPMacros.Input_Wave(LT_Track, n)
+end
+
+--- the track's input as an oscilloscope (FXD Macros: whole cycles, zero crossing to zero crossing):
+--- points (-1..1), the input's Hz (0 = none) and a capture count; nil while there's none
+function Dev:InputScope()
+    if not (CLAPMacros and CLAPMacros.Input_Scope and LT_Track) then return end
+    return CLAPMacros.Input_Scope(LT_Track)
 end
 
 --- simple peak hold with fall-off (per key), for meters

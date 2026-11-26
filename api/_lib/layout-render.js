@@ -342,4 +342,32 @@ function renderLayout(src, params, opts = {}) {
 	}
 }
 
-module.exports = { renderLayout };
+// The plugin's own window above the layout's render, both at the render's width, labelled: one picture the
+// writer can compare element by element (place, size, proportions). pictures: Buffers (png, jpeg, webp).
+// -> PNG Buffer, or null when no picture decodes
+async function sideBySide(render, pictures) {
+	const { createCanvas, loadImage } = canvas();
+	let pic = null;
+	for (const b of pictures || []) {
+		try { pic = await loadImage(b); break; } catch (e) { /* not decodable: the next one */ }
+	}
+	if (!pic || !pic.width || !pic.height) return null;
+	const ren = await loadImage(render);
+	const W = Math.max(ren.width, 400);
+	const ph = Math.round(pic.height * W / pic.width), rh = Math.round(ren.height * W / ren.width);
+	const TAG = 22, GAP = 10;
+	const cv = createCanvas(W, TAG + ph + GAP + TAG + rh);
+	const g = cv.getContext('2d');
+	g.fillStyle = '#ffffff';
+	g.fillRect(0, 0, cv.width, cv.height);
+	g.fillStyle = '#000000';
+	g.font = 'bold 15px FXDBold, sans-serif';
+	g.fillText('A: THE PLUGIN\'S OWN WINDOW (scaled to the same width)', 6, 16);
+	g.drawImage(pic, 0, TAG, W, ph);
+	g.fillStyle = '#000000';
+	g.fillText('B: YOUR LAYOUT AS FX DEVICES DRAWS IT', 6, TAG + ph + GAP + 16);
+	g.drawImage(ren, 0, TAG + ph + GAP + TAG, W, rh);
+	return cv.toBuffer('image/png');
+}
+
+module.exports = { renderLayout, sideBySide };

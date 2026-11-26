@@ -24,6 +24,14 @@ local function Box(what, x1, y1, x2, y2)
     boxes[n] = { what, x1, y1, x2, y2 }
 end
 local function TW(s, sz) return #tostring(s or '') * (sz or 10) * 0.58 end
+-- which param each control is bound to, and where it sits (its centre): for the binding and position checks
+local ctls, nc = {}, 0
+local function Bind(self, kind, k, label, cx, cy)
+    if nc >= 2000 then return end
+    local idx = type(k) == 'number' and k or (type(k) == 'string' and self.P[k]) or nil
+    nc = nc + 1
+    ctls[nc] = { kind, tostring(k), idx and tostring(idx) or '', tostring(label or ''):gsub('[\t\n]', ' '):sub(1, 40), cx, cy }
+end
 
 local names = {}
 for nm in (NAMES .. '\n'):gmatch('([^\n]*)\n') do names[#names + 1] = nm end
@@ -69,9 +77,10 @@ function Dev:Btn(id, x, y, w, h)
     Ctl(self, 'D:Btn', x, y, x + (w or 1), y + (h or 1))
     return false, false, false
 end
-function Dev:PrmKnob(p, cx, cy, rad) Ctl(self, 'D:PrmKnob', cx - rad, cy - rad, cx + rad, cy + rad) end
-function Dev:PrmSlider(p, x, y, w, h) Ctl(self, 'D:PrmSlider', x, y, x + w, y + h) end
+function Dev:PrmKnob(p, cx, cy, rad, label) Bind(self, 'knob', tonumber(p), label, cx, cy) Ctl(self, 'D:PrmKnob', cx - rad, cy - rad, cx + rad, cy + rad) end
+function Dev:PrmSlider(p, x, y, w, h, label) Bind(self, 'slider', tonumber(p), label, x + (w or 0) / 2, y + (h or 0) / 2) Ctl(self, 'D:PrmSlider', x, y, x + w, y + h) end
 function Dev:Knob(k, cx, cy, size, label)
+    Bind(self, 'knob', k, label, cx, cy)
     local rad = type(size) == 'number' and size or KNOB[size or 'M'] or 14
     local arcR = rad + 3.5
     local lsz = rad >= 15 and 9 or 8
@@ -81,16 +90,19 @@ function Dev:Knob(k, cx, cy, size, label)
     Ctl(self, 'knob ' .. (label and ('"' .. tostring(label):sub(1, 24) .. '"') or tostring(k)), cx - hw, top, cx + hw, bot)
 end
 function Dev:Fader(k, cx, y, h, label)
+    Bind(self, 'fader', k, label, cx, y + (h or 0) / 2)
     Ctl(self, 'fader ' .. (label and ('"' .. tostring(label):sub(1, 24) .. '"') or tostring(k)), cx - 9, y - 13, cx + 9, y + h + (label and 15 or 4))
 end
-function Dev:Bar(k, x, y, w, h, label) Ctl(self, 'bar "' .. tostring(label or k):sub(1, 24) .. '"', x, y, x + w, y + h) end
+function Dev:Bar(k, x, y, w, h, label) Bind(self, 'bar', k, label, x + (w or 0) / 2, y + (h or 0) / 2) Ctl(self, 'bar "' .. tostring(label or k):sub(1, 24) .. '"', x, y, x + w, y + h) end
 function Dev:Toggle(k, x, y, w, label, o)
     local h = (o and o.h) or 17
+    Bind(self, 'toggle', k, label, x + (w or 0) / 2, y + h / 2)
     Ctl(self, 'toggle "' .. tostring(label or k):sub(1, 24) .. '"', x, y, x + w, y + h)
     return false
 end
 function Dev:Choice(k, x, y, w, o)
     local h = (o and o.h) or 18
+    Bind(self, 'menu', k, o and o.label, x + (w or 0) / 2, y + h / 2)
     Ctl(self, 'menu ' .. tostring((o and o.label) or k), x, y, x + w, y + h)
 end
 function Dev:Tabs(id, x, y, items, sel, o)
@@ -119,6 +131,7 @@ end
 function Dev:Inset(x, y, w, h, o) Ctl(self, 'D:Inset' .. ((o and o.label) and (' ' .. Lbl(o.label)) or ''), x, y, x + w, y + h) end
 function Dev:Dial(k, cx, cy, r, o)
     o = o or {}
+    Bind(self, 'dial', k, o.label, cx, cy)
     r = tonumber(r) or 14
     local ticks = o.ticks
     if ticks == nil and type(o.scale) == 'table' then ticks = #o.scale end
@@ -140,6 +153,7 @@ function Dev:Dial(k, cx, cy, r, o)
 end
 function Dev:Switch(k, x, y, o)
     o = o or {}
+    Bind(self, 'switch', k, o.label or o.up, x, y)
     local len, w = o.len or 22, o.w or 10
     local bw, bh = o.horizontal and len or w, o.horizontal and w or len
     local lsz = o.labelSize or 8
@@ -163,6 +177,7 @@ function Dev:Lamp(x, y, r, on, o)
 end
 function Dev:Push(k, x, y, w, h, o)
     o = o or {}
+    Bind(self, 'push', k, o.label or o.text, x + (w or 0) / 2, y + (h or 0) / 2)
     local top = y - 1
     if o.led ~= false then top = y - 9 end
     if o.label then top = top - (o.labelSize or 8) - 2 end
@@ -188,23 +203,32 @@ local KIT = {
 }
 local Declared = {}
 local S = {}
+local Asked = {}
 function KIT.Begin(spec)
     spec = type(spec) == 'table' and spec or {}
     Declared.H, Declared.W = spec.H, spec.W
+    -- the same as the kit's BuildParamMap: the first param with one of the names, else idx
+    local byName = {}
+    for j, have in ipairs(names) do
+        local lk = have:lower()
+        if byName[lk] == nil then byName[lk] = j - 1 end
+    end
     local P = {}
-    local i = 0
+    Asked = {}
     for k, v in pairs(spec.Params or {}) do
-        local idx = type(v) == 'table' and tonumber(v.idx)
-        if not idx and type(v) == 'table' then
+        local idx, how, asked = nil, 'none', {}
+        if type(v) == 'table' then
             for _, nm in ipairs(v) do
-                for j, have in ipairs(names) do
-                    if type(nm) == 'string' and have:lower() == nm:lower() then idx = j - 1 break end
+                if type(nm) == 'string' then
+                    asked[#asked + 1] = nm
+                    if not idx and byName[nm:lower()] then idx, how = byName[nm:lower()], 'name' end
                 end
-                if idx then break end
             end
+            if not idx and type(v.idx) == 'number' and v.idx < NP and v.idx >= 0 then idx, how = math.floor(v.idx), 'idx' end
         end
-        P[k] = idx or i
-        i = i + 1
+        P[k] = idx
+        Asked[#Asked + 1] = { tostring(k), idx and tostring(idx) or '', how, table.concat(asked, '|'):gsub('[\t\n]', ' '),
+            type(v) == 'table' and tonumber(v.idx) and tostring(math.floor(v.idx)) or '' }
     end
     local H = math.min(tonumber(spec.H) or CARD_H, CARD_H) -- FX Devices clamps it too
     return setmetatable({ X = X0, Y = Y0, W = tonumber(spec.W) or 300, H = H, Acc = 0xFFFFFFFF, DL = 'DL', NOW = 0,
@@ -316,11 +340,17 @@ end
 for frame = 1, 2 do
     n = 0
     boxes = {}
+    nc, ctls = 0, {}
     local ok, e = Run()
     if not ok then return 'SKIP\t' .. tostring(e):sub(1, 200) end
 end
 
 local out = { 'H\t' .. tostring(Declared.H or ''), 'W\t' .. tostring(Declared.W or '') }
+for _, a in ipairs(Asked) do out[#out + 1] = 'P\t' .. table.concat(a, '\t') end
+for j = 1, nc do
+    local c = ctls[j]
+    out[#out + 1] = ('C\t%s\t%s\t%s\t%s\t%.1f\t%.1f'):format(c[1], c[2], c[3], c[4], tonumber(c[5]) or 0, tonumber(c[6]) or 0)
+end
 for j = 1, math.min(n, 200000) do
     local b = boxes[j]
     out[#out + 1] = ('B\t%s\t%.1f\t%.1f\t%.1f\t%.1f'):format(b[1], b[2] - X0, b[3] - Y0, b[4] - X0, b[5] - Y0)
@@ -363,7 +393,19 @@ function checkBounds(src, params) {
 	const maxX = W ? W + 8 : Infinity;
 	let bottom = -Infinity, right = -Infinity, top = Infinity, left = Infinity;
 	const below = new Map(), beyond = new Map(), above = new Map();
+	const keys = [], controls = [];
 	for (const ln of lines.slice(2)) {
+		if (ln.startsWith('P\t')) {
+			const [, key, idx, how, asked, askedIdx] = ln.split('\t');
+			keys.push({ key, idx: idx === '' ? null : +idx, how, asked: asked ? asked.split('|') : [], askedIdx: askedIdx === '' || askedIdx == null ? null : +askedIdx });
+			continue;
+		}
+		if (ln.startsWith('C\t')) {
+			const [, kind, key, idx, label, cx, cy] = ln.split('\t');
+			controls.push({ kind, key, idx: idx === '' ? null : +idx, label, cx: +cx, cy: +cy });
+			continue;
+		}
+		if (!ln.startsWith('B\t')) continue;
 		const [, what, x1s, y1s, x2s, y2s] = ln.split('\t');
 		const x1 = +x1s, y1 = +y1s, x2 = +x2s, y2 = +y2s;
 		if (![x1, y1, x2, y2].every(Number.isFinite)) continue;
@@ -379,7 +421,7 @@ function checkBounds(src, params) {
 	if (below.size) issues.push(`Drawn below the card's bottom edge (y = ${CARD_H}), so REAPER cuts it off; the lowest part reaches y = ${Math.round(bottom)}: ${list(below)}.`);
 	if (beyond.size) issues.push(`Drawn past the card's right edge (x = W + 8 = ${maxX}), so it is cut off; the rightmost part reaches x = ${Math.round(right)}: ${list(beyond)}. Make W wide enough or move it in.`);
 	if (above.size) issues.push(`Drawn above or left of the content area (y or x below 0): ${list(above)}.`);
-	return { ok: issues.length === 0, issues, H, W, bottom, right };
+	return { ok: issues.length === 0, issues, H, W, bottom, right, keys, controls };
 }
 
 module.exports = { checkBounds, CARD_H };

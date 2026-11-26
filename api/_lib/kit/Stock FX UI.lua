@@ -103,6 +103,125 @@ Dev.__index = Dev
 -- setup
 ---------------------------------------------------------------------------
 
+-- Params whose names aren't in the plugin: usually a layout made for another version of it, where an update
+-- renamed a few params ("RMS Ceiling" -> "Ceiling", "Linking" -> "Link") and shifted the rest by a few slots.
+-- Guess each one from its names (and its key) against the params nobody claimed yet, words matching words
+-- ("Min" ~ "Link Min", "VU Ref" ~ "Reference"), and break ties by where the layout's neighbours moved to
+-- (keys at nearby idx: the same shift). A param at the layout's own idx that is still related by name wins.
+-- Only when some key found by name sits away from its idx (the params moved); keys with no related param,
+-- and every key when nothing moved, keep the old rule (their idx, when it's free). names[0..n-1]; map is filled in.
+local STOPW = { the = true, of = true, ['and'] = true, amount = true, amt = true, level = true, value = true }
+local function Words(s)
+    local t = {}
+    for w in tostring(s or ''):lower():gsub('(%a)(%d)', '%1 %2'):gmatch('%w+') do
+        if not STOPW[w] then t[#t + 1] = w end
+    end
+    return t
+end
+local function WordScore(a, b) -- how well text a names param name b, 0..1
+    local A, B = Words(a), Words(b)
+    if #A == 0 or #B == 0 then return 0 end
+    if table.concat(A, ' ') == table.concat(B, ' ') then return 1 end
+    local got = 0
+    for _, x in ipairs(A) do
+        local best = 0
+        for _, y in ipairs(B) do
+            if x == y then best = 1
+            elseif #x >= 3 and #y >= 3 and (x:sub(1, #y) == y or y:sub(1, #x) == x or x:sub(1, 3) == y:sub(1, 3) and (#x >= 5 or #y >= 5)) then best = max(best, 0.6) end
+        end
+        got = got + best
+    end
+    return got / max(#A, #B)
+end
+function SFX.GuessParams(names, n, specParams, map)
+    local claimed = {}
+    for _, p in pairs(map) do claimed[p] = true end
+    local todo = {}
+    for key, list in pairs(specParams or {}) do
+        if map[key] == nil and type(list) == 'table' then
+            local asked = {}
+            for _, nm in ipairs(list) do if type(nm) == 'string' then asked[#asked + 1] = nm end end
+            if #asked > 0 then todo[#todo + 1] = { key = key, asked = asked, idx = type(list.idx) == 'number' and list.idx or nil } end
+        end
+    end
+    if #todo == 0 then return end
+    -- only when the plugin's params moved: a key found by name away from its own idx. Otherwise the layout's
+    -- indexes still hold (names it lists just differ, e.g. a format with other names) and idx stays the rule.
+    local moved = false
+    for key, list in pairs(specParams or {}) do
+        if map[key] and type(list) == 'table' and type(list.idx) == 'number' and map[key] ~= list.idx then moved = true break end
+    end
+    if not moved then
+        for _, t in ipairs(todo) do
+            if t.idx and t.idx < n and not claimed[t.idx] then map[t.key], claimed[t.idx] = t.idx, true end
+        end
+        return
+    end
+    table.sort(todo, function(a, b) return (a.idx or 1e9) < (b.idx or 1e9) end)
+    local function NameScore(t, p)
+        local s = 0
+        for _, a in ipairs(t.asked) do s = max(s, WordScore(a, names[p])) end
+        if type(t.key) == 'string' then s = max(s, WordScore(t.key, names[p]) * 0.8) end
+        return s
+    end
+    for _, t in ipairs(todo) do
+        t.cands = {}
+        for p = 0, n - 1 do
+            if not claimed[p] then
+                local sc = NameScore(t, p)
+                if sc >= 0.3 then t.cands[#t.cands + 1] = { p = p, s = sc } end
+            end
+        end
+        table.sort(t.cands, function(a, b) return a.s > b.s or (a.s == b.s and a.p < b.p) end)
+        -- the layout's own idx, still related by name (a format with shortened names): keep it
+        if t.idx and t.idx < n and not claimed[t.idx] and NameScore(t, t.idx) >= 0.3 then t.pick = t.idx end
+    end
+    -- the shift of the nearest key (by the layout's idx) that is already placed
+    local placed = {}
+    for key, list in pairs(specParams or {}) do
+        if map[key] and type(list) == 'table' and type(list.idx) == 'number' then placed[#placed + 1] = { list.idx, map[key] - list.idx } end
+    end
+    local function Expected(t)
+        if not t.idx then return nil end
+        local bd, sh = math.huge, 0
+        for _, e in ipairs(placed) do
+            local d = math.abs(e[1] - t.idx)
+            if d < bd then bd, sh = d, e[2] end
+        end
+        return t.idx + sh
+    end
+    local function Take(t, p)
+        map[t.key], claimed[p], t.done = p, true, true
+        if t.idx then placed[#placed + 1] = { t.idx, p - t.idx } end
+    end
+    for _, t in ipairs(todo) do if t.pick then Take(t, t.pick) end end
+    -- clear winners first (best name beats the next by a margin), then the rest with the neighbours' shift
+    for round = 1, 2 do
+        for _, t in ipairs(todo) do
+            if not t.done then
+                local live = {}
+                for _, c in ipairs(t.cands) do if not claimed[c.p] then live[#live + 1] = c end end
+                local best, second = live[1], live[2]
+                if best and (round == 2 or not second or best.s - second.s >= 0.1) then
+                    if round == 2 and second and best.s - second.s < 0.1 then
+                        local ex = Expected(t)
+                        if ex then
+                            local top = best.s
+                            for _, c in ipairs(live) do
+                                if top - c.s < 0.1 and math.abs(c.p - ex) < math.abs(best.p - ex) then best = c end
+                            end
+                        end
+                    end
+                    Take(t, best.p)
+                end
+            end
+        end
+    end
+    for _, t in ipairs(todo) do
+        if not t.done and t.idx and t.idx < n and not claimed[t.idx] then Take(t, t.idx) end
+    end
+end
+
 -- param name -> index, built from the plugin's own names (falls back to the index in the spec)
 local function BuildParamMap(D, spec)
     local fx, n = D.fx, r.TrackFX_GetNumParams(LT_Track, D.FX_Idx)
@@ -128,8 +247,14 @@ local function BuildParamMap(D, spec)
         if map[key] == nil then for _, nm in ipairs(list) do
             if type(nm) == 'string' and byName[nm:lower()] then map[key] = byName[nm:lower()]; break end
         end end
-        if map[key] == nil and type(list.idx) == 'number' and list.idx < n then map[key] = list.idx end
+        -- keys without any names (idx only) bind to idx as they always did
+        if map[key] == nil and type(list.idx) == 'number' and list.idx < n then
+            local named = false
+            for _, nm in ipairs(list) do if type(nm) == 'string' then named = true break end end
+            if not named then map[key] = list.idx end
+        end
     end
+    SFX.GuessParams(names, n, spec.Params, map) -- names this plugin doesn't have (another version of it)
     fx.SFX_Map, fx.SFX_MapIdx, fx.SFX_NumParams, fx.SFX_Names = map, D.FX_Idx, n, names
     -- register every plugin param as an FX Devices param (Fx_P = index + 1) so modulation,
     -- linking and morphing find them; again whenever the param count changes (ReaEQ bands, taps).
